@@ -1,5 +1,6 @@
 // Spigoli vivi di una mesh (in coordinate mondo), catene di spigoli tangenti, e lo "scalpello" per raccordi e smussi.
 import * as THREE from 'three';
+import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const Q = v => Math.round(v * 2000);
 const SHARP = Math.cos(30 * Math.PI / 180);
@@ -110,7 +111,7 @@ export function chainOf(an, e0) {
 export function cutter(chain, mode, size) {
   const { pts, closed, segN } = chain, n = pts.length;
   if (n < 2) return null;
-  const EPS = 0.05, ARC = 10;
+  const EPS = 0.05, ARC = 18;
   const rings = [];
   const ns = closed ? n : n; // numero di anelli
   for (let i = 0; i < n; i++) {
@@ -173,7 +174,6 @@ export function cutter(chain, mode, size) {
       }
     }
   }
-  const g = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  g.computeVertexNormals();
-  return g;
+  const g0 = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  return toCreasedNormals(g0, 40 * Math.PI / 180);   // curva liscia, spigoli netti dove servono
 }

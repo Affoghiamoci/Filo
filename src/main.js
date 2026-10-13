@@ -2482,7 +2482,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '0.7.1';
+const APP_VERSION = '0.7.2';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
