@@ -1296,7 +1296,7 @@ function exportList() {
   const sel = selection.filter(m => !m.userData.hole);
   return sel.length ? sel : objects.filter(m => !m.userData.hole && !m.userData.hidden);
 }
-const exportName = list => (list.length === 1 ? list[0].userData.name : 'filo-3d').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'filo-3d';
+const exportName = list => (list.length === 1 ? list[0].userData.name : 'filo').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'filo';
 function download(data, type, filename) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([data], { type }));
@@ -1558,7 +1558,7 @@ $('#exp-fmt').addEventListener('click', e => { const b = e.target.closest('butto
 $('#exp-cancel').addEventListener('click', () => dlgExp.close());
 $('#exp-form').addEventListener('submit', e => {
   e.preventDefault();
-  const n = expName.value.replace(/\.(3mf|stl)$/i, '').replace(/[\\/:*?"<>|]+/g, '-').trim() || 'filo-3d';
+  const n = expName.value.replace(/\.(3mf|stl)$/i, '').replace(/[\\/:*?"<>|]+/g, '-').trim() || 'filo';
   dlgExp.close();
   expFmt === '3mf' ? export3MF(n) : exportSTL(n);
 });

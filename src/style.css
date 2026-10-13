@@ -213,9 +213,9 @@ kbd{font-feature-settings:"zero" 1}
 #foot{display:flex;align-items:center;justify-content:space-between;margin:0 14px 12px}
 #foot .icon-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6}
 #side.mini #foot{justify-content:center;margin:6px 0 10px}
-#lang{display:flex;gap:2px;padding:2px;background:var(--field);border-radius:2px}
-#lang button{all:unset;cursor:default;padding:4px 10px;border-radius:2px;font:500 10.5px var(--mono);letter-spacing:.08em;color:var(--muted)}
-#lang button.on{background:var(--ink);color:var(--on-ink)}
+#lang,.langsw{display:flex;gap:2px;padding:2px;background:var(--field);border-radius:2px}
+#lang button,.langsw button{all:unset;cursor:default;padding:4px 10px;border-radius:2px;font:500 10.5px var(--mono);letter-spacing:.08em;color:var(--muted)}
+#lang button.on,.langsw button.on{background:var(--ink);color:var(--on-ink)}
 #side.mini #lang{display:none}
 #toast{left:calc(var(--sw,312px) + (100vw - var(--sw,312px)) / 2);bottom:auto;top:16px;transform:translate(-50%,-10px)}
 #toast.show{transform:translate(-50%,0)}
@@ -403,3 +403,5 @@ kbd{font-feature-settings:"zero" 1}
 #empty-hint .ew-title b{display:block;margin:0;text-transform:none;font:400 58px/.75 'VT323',var(--mono);letter-spacing:.01em;color:#FF6A00}
 #empty-hint .ew-title i{display:block;margin:0}
 #empty-hint .ew-t b{display:block;margin:0 0 5px;font:600 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text)}
+
+.ew-head .langsw{align-self:flex-start}

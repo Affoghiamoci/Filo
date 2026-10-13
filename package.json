@@ -1,5 +1,5 @@
 {
-  "name": "filo-3d",
+  "name": "filo",
   "version": "1.0.0",
   "description": "Modellatore 3D offline in un solo file HTML, per oggetti semplici da stampare in 3D",
   "main": "index.js",

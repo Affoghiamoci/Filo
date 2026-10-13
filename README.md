@@ -1,4 +1,4 @@
-# Filo 3D
+# Filo
 
 Modellatore 3D che gira offline in un singolo file HTML, pensato per oggetti semplici da stampare in 3D (mollette, ganci, scatoline). Interfaccia in italiano e inglese, scorciatoie alla Photoshop, piatti Bambu Lab.
 
