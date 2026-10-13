@@ -426,3 +426,10 @@ label.f input{text-overflow:clip}
 .mob-card .btn{flex:1}
 label.f input[type=number]{-webkit-appearance:textfield;-moz-appearance:textfield;appearance:textfield}
 label.f input::-webkit-inner-spin-button,label.f input::-webkit-outer-spin-button{-webkit-appearance:none;appearance:none;margin:0;display:none;width:0}
+/* piede barra laterale: lingua, tema e info con la stessa altezza e lo stesso stile */
+#foot #lang,#foot #theme{box-sizing:border-box;height:30px;padding:2px;gap:2px;align-items:stretch;background:var(--field);border:0;border-radius:2px}
+#foot #lang button{display:grid;place-items:center;height:26px;min-width:34px;padding:0 6px;font:500 11px var(--mono);letter-spacing:.06em}
+#foot #theme button{width:34px;height:26px}
+#foot #b-info{box-sizing:border-box;width:30px;height:30px;display:grid;place-items:center;padding:0;background:var(--field);border-radius:2px}
+#foot #b-info:hover{color:#FF6A00}
+#foot .ctl{gap:8px}
