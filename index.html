@@ -412,6 +412,10 @@ kbd{font-feature-settings:"zero" 1}
 #empty-hint .ew-t b{display:block;margin:0 0 5px;font:600 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text)}
 
 .ew-head .langsw{align-self:flex-start}
+/* campi numerici: niente frecce che coprono i decimali (restano le frecce da tastiera) */
+input[type=number]{-moz-appearance:textfield;appearance:textfield}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;appearance:none;margin:0;display:none}
+label.f input{text-overflow:clip}
 </style>
 </head>
 <body>
