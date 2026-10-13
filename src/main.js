@@ -313,9 +313,10 @@ function refreshEdges(m) {
   e.raycast = () => {};
   m.add(e);
   m.userData.edges = e;
-  // stessi spigoli, ma disegnati solo dove la superficie li copre: la "vista wireframe" delle parti nascoste
+  // stessi spigoli, tratteggiati e disegnati solo dove la superficie li copre: la vista Raggi X delle parti nascoste
   if (m.userData.xray) { m.remove(m.userData.xray); m.userData.xray.material.dispose(); }
-  const x = new THREE.LineSegments(e.geometry, new THREE.LineBasicMaterial({ color: EDGE.normal, transparent: true, opacity: 0.5, depthFunc: THREE.GreaterDepth, depthWrite: false }));
+  const x = new THREE.LineSegments(e.geometry, new THREE.LineDashedMaterial({ color: EDGE.normal, dashSize: 1.6, gapSize: 1.2, transparent: true, opacity: 0.5, depthFunc: THREE.GreaterDepth, depthWrite: false }));
+  if (e.geometry.attributes.position) x.computeLineDistances();
   x.raycast = () => {}; x.renderOrder = 2; x.visible = state.xray;
   m.add(x);
   m.userData.xray = x;
@@ -1737,7 +1738,7 @@ window.addEventListener('keydown', e => {
   else if (k === 't') { e.preventDefault(); addText(); }
   else if (k === 'x') toggleHole();
   else if (k === 'm') setDims();
-  else if (k === 'w') setXray();
+  else if (k === 'z') setXray();
   else if (k === 'delete' || k === 'backspace') { e.preventDefault(); deleteSelection(); }
   else if (k === 'escape') { if (state.tool === 'ruler' && ruler.a) clearRuler(); else if (faceSel) clearFace(); else setSelection([]); }
 });
@@ -2822,7 +2823,7 @@ function rulerClick(hit) {
     rulerCardText([`${fmt(Math.abs(off))} mm`, tr('Distanza tra i due lati paralleli')]);
   } else {
     ruler.foot = pt.p.clone();
-    rulerCardText([`${fmt(d.length())} mm`, `ΔX ${fmt(Math.abs(d.x))} · ΔY ${fmt(Math.abs(d.y))} · ΔZ ${fmt(Math.abs(d.z))}`]);
+    rulerCardText([`${fmt(d.length())} mm`, `${tr('Linea retta')} · ΔX ${fmt(Math.abs(d.x))} · ΔY ${fmt(Math.abs(d.y))} · ΔZ ${fmt(Math.abs(d.z))}`]);
   }
   const arr = rulerGeo.attributes.position.array; arr.set([a.p.x, a.p.y, a.p.z, ruler.foot.x, ruler.foot.y, ruler.foot.z]); rulerGeo.attributes.position.needsUpdate = true;
   rulerGeo.computeBoundingSphere();
