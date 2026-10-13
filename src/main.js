@@ -5,11 +5,12 @@ import { STLExporter } from 'three/addons/exporters/STLExporter.js';
 import { mergeVertices, mergeGeometries, toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { unzipSync, zipSync, strToU8 } from 'three/addons/libs/fflate.module.js';
-import { Brush, Evaluator, ADDITION, SUBTRACTION } from 'three-bvh-csg';
+import { Brush, Evaluator, ADDITION, SUBTRACTION, INTERSECTION } from 'three-bvh-csg';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { analyze, nearestEdge, chainOf, cutter } from './edges.js';
+import ClipperLib from 'clipper-lib';
 import { FONTS, fontById, addUserFont, textPositions, svgItems } from './textgen.js';
 
 THREE.Object3D.DEFAULT_UP.set(0, 0, 1); // Z verso l'alto, come nei programmi di stampa 3D
@@ -2128,6 +2129,191 @@ function applyTexture() {
   replaceWithMerged(obj, baked);
   toast(`Texture applicata: ${total} elementi${faces.length > 1 ? ` su ${faces.length} lati` : ''}`);
 }
+
+/* ------------------------------------------------------------ scanalature (piani e cilindri) */
+const gUI = { dir: 'v', prof: 'round', mode: 'cut' };
+// profilo di una cella (passo p) lungo il senso di scorrimento: punti [a, y] con y>0 fuori dal materiale. cut: solchi, raise: coste
+function grooveCell(o, c, p) {
+  const s = o.mode === 'cut' ? -1 : 1, d = o.depth, pts = [], LAND = 0.2;
+  if (o.prof === 'wave') {
+    const n = 14;
+    for (let i = 0; i <= n; i++) {
+      const x = -p / 2 + p * i / n, h = (1 + Math.cos(2 * Math.PI * x / p)) / 2;   // 1 al centro
+      pts.push([c + x, s * d * h]);
+    }
+    // le creste restano appena sotto/sopra il piano per evitare superfici coincidenti
+    return pts.map(([a, y]) => [a, o.mode === 'cut' ? Math.min(y, -0.03) : y - 0.03]);
+  }
+  const w = { round: 0.8, v: 0.9, square: 0.5 }[o.prof] * p, hw = w / 2;
+  pts.push([c - hw, -s * LAND], [c - hw, 0]);
+  const n = o.prof === 'round' ? 14 : 1;
+  if (o.prof === 'round') for (let i = 1; i < n; i++) { const x = -hw + w * i / n; pts.push([c + x, s * d * Math.sqrt(Math.max(0, 1 - (2 * x / w) ** 2))]); }
+  else if (o.prof === 'v') pts.push([c, s * d]);
+  else pts.push([c - hw, s * d], [c + hw, s * d]);
+  pts.push([c + hw, 0], [c + hw, -s * LAND]);
+  return pts;
+}
+function grooveBoundary(o, N, p) {
+  const out = [];
+  for (let i = 0; i < N; i++) out.push(...grooveCell(o, (i + 0.5) * p, p));
+  return out;
+}
+function cleanBrush(g, m4) {
+  const pos = (g.index ? g.toNonIndexed() : g).attributes.position;
+  let g0 = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(Array.from(pos.array), 3));
+  g0 = toCreasedNormals(g0, 35 * D2R);
+  const br = new Brush(g0, M.solid);
+  if (m4) { br.matrix.copy(m4); br.matrix.decompose(br.position, br.quaternion, br.scale); }
+  br.updateMatrixWorld(true);
+  return br;
+}
+function signedVolume(g) {
+  const p = (g.index ? g.toNonIndexed() : g).attributes.position.array; let v = 0;
+  for (let i = 0; i < p.length; i += 9) v += (p[i] * (p[i + 4] * p[i + 8] - p[i + 5] * p[i + 7]) - p[i + 1] * (p[i + 3] * p[i + 8] - p[i + 5] * p[i + 6]) + p[i + 2] * (p[i + 3] * p[i + 7] - p[i + 4] * p[i + 6])) / 6;
+  return v;
+}
+// sagoma del lato rimpicciolita di 'inset' mm (poligoni Clipper in micron): tiene le righe lontane dal bordo
+function insetPaths(fs, inset) {
+  const K = 1000, T = fs.tri2d, C = ClipperLib, cl = new C.Clipper();
+  for (let i = 0; i < T.length; i += 6) {
+    const tri = [0, 2, 4].map(j => ({ X: Math.round(T[i + j] * K), Y: Math.round(T[i + j + 1] * K) }));
+    const ar = (tri[1].X - tri[0].X) * (tri[2].Y - tri[0].Y) - (tri[2].X - tri[0].X) * (tri[1].Y - tri[0].Y);
+    if (ar === 0) continue;
+    cl.AddPath(ar > 0 ? tri : tri.reverse(), C.PolyType.ptSubject, true);
+  }
+  const uni = new C.Paths(); cl.Execute(C.ClipType.ctUnion, uni, C.PolyFillType.pftNonZero, C.PolyFillType.pftNonZero);
+  const off = new C.ClipperOffset(2, 0.05 * K), res = new C.Paths();
+  off.AddPaths(uni, C.JoinType.jtMiter, C.EndType.etClosedPolygon); off.Execute(res, -inset * K);
+  return res;
+}
+const insideInset = (paths, u, v) => { let n = 0; for (const p of paths) if (ClipperLib.Clipper.PointInPolygon({ X: Math.round(u * 1000), Y: Math.round(v * 1000) }, p)) n++; return n % 2 === 1; };
+function groovesIrregular(fs, o) {   // lato non rettangolare: ogni scanalatura è un pezzo a sé, lungo quanto entra nella sagoma
+  const along = o.dir === 'v', mg = Math.max(o.margin, 0.05), p = o.pitch;
+  const paths = insetPaths(fs, mg);
+  const [a0, a1, b0, b1] = along ? [fs.b.umin, fs.b.umax, fs.b.vmin, fs.b.vmax] : [fs.b.vmin, fs.b.vmax, fs.b.umin, fs.b.umax];
+  const N = Math.floor((a1 - a0 - 2 * mg) / p + 1e-6);
+  if (N < 1) return { err: 'Il lato è troppo piccolo per questo passo o margine' };
+  if (N > 600) return { err: 'Troppe scanalature: aumenta il passo' };
+  const aS = a0 + (a1 - a0 - N * p) / 2, w = (o.prof === 'wave' ? p - 0.04 : { round: 0.8, v: 0.9, square: 0.5 }[o.prof] * p), cy = o.mode === 'cut' ? 0.5 : -0.5;
+  const chunks = []; let count = 0;
+  const inside = (a, b) => along ? insideInset(paths, a, b) : insideInset(paths, b, a);
+  for (let i = 0; i < N; i++) {
+    const c = aS + (i + 0.5) * p;
+    const runs = []; let run = null;
+    for (let s = b0; s <= b1 + 1e-6; s += 0.25) {
+      const ok = inside(c, s) && inside(c - w / 2, s) && inside(c + w / 2, s);
+      if (ok) { if (!run) run = [s, s]; else run[1] = s; } else if (run) { runs.push(run); run = null; }
+    }
+    if (run) runs.push(run);
+    for (const [r0, r1] of runs) {
+      if (r1 - r0 < 1) continue;
+      const cell = grooveCell(o.prof === 'wave' ? { ...o } : o, 0, o.prof === 'wave' ? w : p);
+      const shape = new THREE.Shape(); shape.moveTo(cell[0][0], cy);
+      cell.forEach(([x, y]) => shape.lineTo(x, y));
+      shape.lineTo(cell[cell.length - 1][0], cy); shape.closePath();
+      const L = r1 - r0, g = new THREE.ExtrudeGeometry(shape, { depth: L, bevelEnabled: false, curveSegments: 1 });
+      g.translate(0, 0, -L / 2);
+      const pos = fs.o.clone().addScaledVector(along ? fs.u : fs.v, c).addScaledVector(along ? fs.v : fs.u, (r0 + r1) / 2);
+      g.applyMatrix4(along ? basisMatrix(fs.u, fs.n, fs.v, pos) : basisMatrix(fs.v, fs.n, fs.u, pos));
+      chunks.push((g.index ? g.toNonIndexed() : g).attributes.position.array); count++;
+    }
+  }
+  if (!count) return { err: 'Nessuna scanalatura dentro la sagoma del lato' };
+  const all = new Float32Array(chunks.reduce((n, c) => n + c.length, 0)); let off = 0;
+  chunks.forEach(c => { all.set(c, off); off += c.length; });
+  return { N: count, brush: cleanBrush(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(all, 3))) };
+}
+// il lato è un rettangolo con i bordi paralleli agli assi u e v? (altrimenti le righe vanno ritagliate sulla sagoma)
+function rectAligned(fs) {
+  const T = fs.tri2d, e = 1e-3, b = fs.b;
+  for (let i = 0; i < T.length; i += 2) {
+    const onU = Math.abs(T[i] - b.umin) < e || Math.abs(T[i] - b.umax) < e, onV = Math.abs(T[i + 1] - b.vmin) < e || Math.abs(T[i + 1] - b.vmax) < e;
+    if (!(onU && onV)) return false;
+  }
+  return true;
+}
+function groovePlane(fs, o) {
+  const mg = o.margin, along = o.dir === 'v';            // 'v': righe lungo v, quindi si ripetono lungo u
+  const [a0, a1, b0, b1] = along ? [fs.b.umin + mg, fs.b.umax - mg, fs.b.vmin + mg, fs.b.vmax - mg] : [fs.b.vmin + mg, fs.b.vmax - mg, fs.b.umin + mg, fs.b.umax - mg];
+  const p = o.pitch, N = Math.floor((a1 - a0) / p + 1e-6);
+  if (N < 1 || b1 - b0 < 0.5) return { err: 'Il lato è troppo piccolo per questo passo o margine' };
+  if (N > 600) return { err: 'Troppe scanalature: aumenta il passo' };
+  const bd = grooveBoundary(o, N, p), W = N * p;
+  const ext = o.margin > 0 ? 0 : 0.3, L = (b1 - b0) + 2 * ext;
+  const shape = new THREE.Shape(), cy = o.mode === 'cut' ? 0.5 : -0.5;   // chiusura del solido lontano dalla superficie
+  shape.moveTo(-W / 2, cy);
+  bd.forEach(([a, y]) => shape.lineTo(a - W / 2, y));
+  shape.lineTo(W / 2, cy); shape.closePath();
+  const g = new THREE.ExtrudeGeometry(shape, { depth: L, bevelEnabled: false, curveSegments: 1 });
+  g.translate(0, 0, -L / 2);
+  const ac = (a0 + a1) / 2, bc = (b0 + b1) / 2;
+  const pos = fs.o.clone().addScaledVector(along ? fs.u : fs.v, ac).addScaledVector(along ? fs.v : fs.u, bc);
+  const M4 = along ? basisMatrix(fs.u, fs.n, fs.v, pos) : basisMatrix(fs.v, fs.n, fs.u, pos);
+  g.applyMatrix4(M4);
+  return { N, brush: cleanBrush(g) };
+}
+function grooveCylinder(obj, o) {
+  const u = obj.userData, R = u.p.w / 2, H = u.p.h, mg = o.margin, p0 = o.pitch;
+  if (Math.abs(u.p.w - u.p.d) > 0.01) return { err: 'Le scanalature funzionano su cilindri circolari (larghezza uguale a profondità)' };
+  let g, N;
+  if (o.dir === 'v') {                                    // righe lungo l'asse
+    N = Math.max(3, Math.round(2 * Math.PI * R / p0));
+    if (N > 600) return { err: 'Troppe scanalature: aumenta il passo' };
+    const p = 2 * Math.PI * R / N, bd = grooveBoundary(o, N, p), pts = bd.map(([a, y]) => { const th = a / R; return new THREE.Vector2((R + y) * Math.cos(th), (R + y) * Math.sin(th)); });
+    const shape = new THREE.Shape(); let hole;
+    if (o.mode === 'cut') { shape.absarc(0, 0, R + 0.5, 0, Math.PI * 2, false); hole = new THREE.Path(pts.slice().reverse()); }
+    else { shape.setFromPoints(pts); hole = new THREE.Path(); hole.absarc(0, 0, R - 0.5, 0, Math.PI * 2, true); }
+    shape.holes.push(hole);
+    const z0 = mg > 0 ? mg : -0.3, z1 = mg > 0 ? H - mg : H + 0.3;
+    if (z1 - z0 < 0.5) return { err: 'Il cilindro è troppo basso per questo margine' };
+    g = new THREE.ExtrudeGeometry(shape, { depth: z1 - z0, bevelEnabled: false, curveSegments: 1 });
+    g.translate(0, 0, z0);
+  } else {                                                // anelli attorno
+    const L = H - 2 * mg; N = Math.floor(L / p0 + 1e-6);
+    if (N < 1) return { err: 'Il cilindro è troppo basso per questo passo o margine' };
+    if (N > 600) return { err: 'Troppe scanalature: aumenta il passo' };
+    const z0 = mg + (L - N * p0) / 2, bd = grooveBoundary(o, N, p0);
+    const rc = R - (o.mode === 'cut' ? -0.5 : 0.5);
+    const pts = [new THREE.Vector2(rc, z0)];
+    bd.forEach(([a, y]) => pts.push(new THREE.Vector2(R + y, z0 + a)));
+    pts.push(new THREE.Vector2(rc, z0 + N * p0), new THREE.Vector2(rc, z0));
+    g = new THREE.LatheGeometry(pts, 96); g.rotateX(Math.PI / 2);
+    if (signedVolume(g) < 0) { const ng = g.index ? g.toNonIndexed() : g; const a = ng.attributes.position.array; for (let i = 0; i < a.length; i += 9) for (let k = 0; k < 3; k++) { const t = a[i + 3 + k]; a[i + 3 + k] = a[i + 6 + k]; a[i + 6 + k] = t; } g = ng; }
+  }
+  obj.updateMatrixWorld(true);
+  return { N, brush: cleanBrush(g, obj.matrixWorld) };
+}
+function applyGrooves() {
+  if (!faceSel) return;
+  const o = { dir: gUI.dir, prof: gUI.prof, mode: gUI.mode, pitch: clamp(parseFloat($('#g-pitch').value) || 2, 0.4, 20), depth: clamp(parseFloat($('#g-depth').value) || 0.6, 0.1, 10), margin: Math.max(0, parseFloat($('#g-margin').value) || 0) };
+  const obj = faceSel.obj, faces = faceSet.slice();
+  if (heavyGuard([obj])) return;
+  obj.updateMatrixWorld(true);
+  let acc = obj, total = 0;
+  for (const fs of faces) {
+    let r;
+    if (fs.curved) {
+      if (obj.userData.kind !== 'cylinder') return toast('Le scanalature funzionano sui lati piatti e sui cilindri');
+      r = grooveCylinder(obj, o);
+    } else {
+      r = fs.rect && Math.abs(fs.u.dot(fs.v)) < 1e-6 && rectAligned(fs) ? groovePlane(fs, o) : groovesIrregular(fs, o);
+    }
+    if (r.err) return toast(r.err);
+    acc = evaluator.evaluate(acc, r.brush, o.mode === 'cut' ? SUBTRACTION : ADDITION);
+    total += r.N;
+    if (fs.curved) break;
+  }
+  const baked = bakeResult(acc, obj.userData.name);
+  if (!baked) return toast('Il risultato è vuoto');
+  replaceWithMerged(obj, baked);
+  toast(`Scanalature applicate: ${total}`);
+}
+document.querySelectorAll('#g-dir button, #g-prof button, #g-mode button').forEach(b => b.addEventListener('click', () => {
+  const grp = b.parentElement.id.slice(2); gUI[grp] = b.dataset.v;
+  b.parentElement.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+}));
+$('#g-go').addEventListener('click', applyGrooves);
+['#g-pitch', '#g-depth', '#g-margin'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') applyGrooves(); }));
 // Estrusione per CSG: prisma sotto/sopra il lato, unito o sottratto. Non deforma i lati vicini (niente spuntoni).
 function prismGeometry(f, dist) {
   const w = f.world, k = w.length / 9, q = x => Math.round(x * 2000);
@@ -2616,7 +2802,7 @@ try {
   d.addEventListener('cancel', () => { try { sessionStorage.setItem('forma.mobile', '1'); } catch (e) {} });
   setTimeout(() => { try { d.showModal(); } catch (e) {} }, 400);
 })();
-window.forma = { edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyTexture, applyPush, selectFaceFromHit, texUI, layout, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole };
+window.forma = { edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyTexture, applyGrooves, gUI, applyPush, selectFaceFromHit, texUI, layout, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole };
 
 
 /* ------------------------------------------------------------------ livelli */

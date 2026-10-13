@@ -444,3 +444,8 @@ label.f input::-webkit-inner-spin-button,label.f input::-webkit-outer-spin-butto
 .vca{position:absolute;left:50%;top:50%;width:70px;height:2px;margin-top:-1px;transform-origin:0 50%;background:var(--c);pointer-events:none}
 .vca[data-c=x],.vcl[data-c=x]{--c:#E5484D}.vca[data-c=y],.vcl[data-c=y]{--c:#30A46C}.vca[data-c=z],.vcl[data-c=z]{--c:#3E63DD}
 .vcl{position:absolute;left:50%;top:50%;font:600 10px var(--mono);color:var(--c);pointer-events:none}
+
+.seg4{grid-template-columns:repeat(4,1fr)}
+.row3{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.row3 label.f{min-width:0}
+.row3 label.f:last-child{grid-column:1/-1}
