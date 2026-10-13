@@ -548,7 +548,14 @@ const undo = () => { if (hIdx > 0) { restore(history[--hIdx]); scheduleHistory()
 const redo = () => { if (hIdx < history.length - 1) { restore(history[++hIdx]); scheduleHistory(); } };
 
 /* ------------------------------------------------------------ operazioni */
-function touch() { dirty = dimsDirty = true; if (wantPixelRatio() !== pixelRatio) resize(); $('#empty-hint').classList.toggle('hidden', objects.length > 0); scheduleLayers(); updateRotGizmo(); }
+let perfDismissed = false;
+function updatePerfNote() {
+  const heavy = objects.some(o => o.userData.heavy);
+  if (!heavy) perfDismissed = false;
+  $('#perf-note').classList.toggle('hidden', !heavy || perfDismissed);
+}
+$('#perf-x').addEventListener('click', () => { perfDismissed = true; updatePerfNote(); });
+function touch() { dirty = dimsDirty = true; if (wantPixelRatio() !== pixelRatio) resize(); updatePerfNote(); $('#empty-hint').classList.toggle('hidden', objects.length > 0); scheduleLayers(); updateRotGizmo(); }
 const evaluator = new Evaluator();
 evaluator.attributes = ['position', 'normal'];
 
@@ -638,6 +645,32 @@ function pasteClip() {
   });
   setSelection(made); touch(); commit();
   toast(`Incollato${made.length > 1 ? `: ${made.length} oggetti` : ''}`);
+}
+// divide un pezzo unito in parti staccate (ogni gruppo di triangoli collegati diventa un oggetto)
+function splitPieces() {
+  const obj = selection.length === 1 ? selection[0] : null;
+  if (!obj || obj.userData.kind !== 'merged') return toast('Seleziona un pezzo unito (una scalanatura, una combinazione...)');
+  if (heavyGuard([obj])) return;
+  const arr = worldPositions(obj), nT = arr.length / 9, q = v => Math.round(v * 2000);
+  const ids = new Map(), parent = [];
+  const find = x => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
+  const vid = i => { const k = q(arr[i]) + ',' + q(arr[i + 1]) + ',' + q(arr[i + 2]); let id = ids.get(k); if (id === undefined) { id = parent.length; parent.push(id); ids.set(k, id); } return id; };
+  const tv = [];
+  for (let t = 0; t < nT; t++) { const a = vid(t * 9), b = vid(t * 9 + 3), c = vid(t * 9 + 6); tv.push(a); parent[find(b)] = find(a); parent[find(c)] = find(a); }
+  const comps = new Map();
+  for (let t = 0; t < nT; t++) { const r = find(tv[t]); if (!comps.has(r)) comps.set(r, []); comps.get(r).push(t); }
+  if (comps.size < 2) return toast('È già un pezzo solo: niente da separare');
+  if (comps.size > 400) return toast('Troppi pezzi da separare');
+  const u = obj.userData, name = u.name;
+  const parts = [...comps.values()].map(ts => { const a = new Float32Array(ts.length * 9); ts.forEach((t, k) => a.set(arr.subarray(t * 9, t * 9 + 9), k * 9)); return a; });
+  const baked = parts.map((a, i) => bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(a) }, `${name} ${i + 1}`)).filter(Boolean);
+  if (baked.length < 2) return toast('È già un pezzo solo: niente da separare');
+  const hole = u.hole, color = u.color ?? null;
+  removeMesh(obj);
+  const out = baked.map(bk => { const m = addMerged(bk); m.userData.hole = hole; m.userData.color = color; m.castShadow = !hole; return m; });
+  setSelection(out);
+  touch(); commit();
+  toast(`Separati ${out.length} pezzi: clicca un pezzo e premi Elimina, oppure ⌘G per raggrupparli`);
 }
 function deleteSelection() {
   if (!selection.length) return;
@@ -1278,6 +1311,7 @@ function syncPanel() {
     const s = sizeOf(m), v = { x: m.position.x, y: m.position.y, z: m.position.z, w: s.w, d: s.d, h: s.h, r: m.userData.p.r ?? 0, t: m.userData.p.t ?? 100, q: m.userData.p.q ?? 0, ...eulerDeg(m) };
     ids.forEach(i => { if (document.activeElement !== F[i]) F[i].value = fmt(v[i]); });
     $('#p-r-wrap').classList.toggle('hidden', m.userData.kind !== 'box');
+    $('#p-split').classList.toggle('hidden', m.userData.kind !== 'merged');
     $('#p-t-wrap').classList.toggle('hidden', !['box', 'cylinder', 'prism'].includes(m.userData.kind));
     const qs = QSPEC[m.userData.kind];
     $('#p-q-wrap').classList.toggle('hidden', !qs);
@@ -1353,6 +1387,7 @@ bind('t', (m, v) => setTop(m, v));
   toast(sizeLock ? 'Proporzioni bloccate: le misure cambiano insieme' : 'Proporzioni libere');
 }));
 syncLock();
+$('#p-split').addEventListener('click', splitPieces);
 $('#p-ground').addEventListener('click', () => {
   const m = single();
   if (m) { m.position.z -= worldBox(m).min.z; m.updateMatrixWorld(true); touch(); syncPanel(); updateHandles(); commit(); }
@@ -1567,6 +1602,7 @@ const TOOLS = [
     { icon: 'hole', name: 'Foro / Solido', key: 'X', desc: 'Trasforma in foro per scavare', run: toggleHole },
     { icon: 'combine', name: 'Combina', key: '⌘E', desc: 'Unisce i solidi, sottrae i fori', run: combine },
     { icon: 'group', name: 'Raggruppa', key: '⌘G', desc: 'Muove più oggetti come uno', run: groupSelection },
+    { icon: 'group', name: 'Separa pezzi', key: '', desc: 'Divide un pezzo in parti staccate', run: splitPieces },
     { icon: 'dup', name: 'Duplica', key: '⌘D', desc: 'Copia l’oggetto selezionato', run: () => duplicateSelection(true) },
     { icon: 'trash', name: 'Elimina', key: '⌫', desc: 'Rimuove la selezione', run: deleteSelection },
   ]],
@@ -3259,7 +3295,7 @@ try {
   d.addEventListener('cancel', () => { try { sessionStorage.setItem('forma.mobile', '1'); } catch (e) {} });
   setTimeout(() => { try { d.showModal(); } catch (e) {} }, 400);
 })();
-window.forma = { applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyTexture, applyGrooves, gUI, applyPush, selectFaceFromHit, texUI, layout, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole };
+window.forma = { splitPieces, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyTexture, applyGrooves, gUI, applyPush, selectFaceFromHit, texUI, layout, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole };
 
 
 /* ------------------------------------------------------------------ livelli */

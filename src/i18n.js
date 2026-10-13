@@ -116,7 +116,7 @@ const EN = {
   'Spigoli ad anello (cerchi o tutti i lati di una faccia): si ridimensionano trascinando o in %': 'Ring edges (circles or all sides of a face): resize by dragging or in %',
   'Cubo di orientamento e lingua scelta dal menu iniziale': 'Orientation cube and language picker in the welcome menu',
   'Esporta in un solo passaggio': 'Export in a single step',
-  'Modelli pesanti più fluidi e import 3MF di Bambu e Orca corretto': 'Smoother heavy models and correct Bambu and Orca 3MF import',
+  'Modelli pesanti più fluidi, con un avviso quando riduco risoluzione e ombre, e import 3MF di Bambu e Orca corretto': 'Smoother heavy models, with a note when resolution and shadows are lowered, and correct Bambu and Orca 3MF import',
   'Lucchetto: Maiusc ridimensiona senza proporzioni': 'Lock: Shift resizes without proportions',
   'Angoli di rotazione più coerenti': 'More consistent rotation angles',
   'Le texture funzionano sui lati piatti': 'Textures only work on flat faces',
