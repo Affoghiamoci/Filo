@@ -66,8 +66,9 @@
       <label class="f">A<input id="p-h" type="number" step="0.5" min="0.1"></label>
     </div>
     <div id="p-r-wrap">
-      <h4>Angoli arrotondati</h4>
-      <div class="grid1"><label class="f">Raggio<input id="p-r" type="number" step="0.5" min="0"></label></div>
+      <h4>Angoli e bordi</h4>
+      <div class="seg" id="p-rm"><button data-v="fillet" class="on">Raccordo</button><button data-v="chamfer">Smusso</button></div>
+      <div class="grid3"><label class="f" title="Spigoli verticali">Angoli<input id="p-r" type="number" step="0.5" min="0"></label><label class="f" title="Bordo superiore">Alto<input id="p-ft" type="number" step="0.5" min="0"></label><label class="f" title="Bordo inferiore">Basso<input id="p-fb" type="number" step="0.5" min="0"></label></div>
     </div>
     <div id="p-t-wrap">
       <h4>Cima</h4>
@@ -248,7 +249,7 @@
     <p>Questa app è stata generata con l’ausilio dell’intelligenza artificiale.</p>
     <div class="info-row"><span class="lbl">Novità</span><div class="cl">
       <b>0.7.9</b>
-      <ul><li>Strumento Distanza (D) e vista Raggi X (Z)</li><li>Scanalature su lati piatti e cilindri, anche per forare a filo</li><li>Cilindro: il lato è un pezzo unico, si allarga o si stringe trascinando</li><li>Spigoli ad anello (cerchi o tutti i lati di una faccia): si ridimensionano trascinando o in %</li><li>Cima % su scatola, cilindro e prisma (tronchi e coni)</li><li>Raccordo e smusso sui 4 spigoli verticali di una scatola restano modificabili</li><li>Separa pezzi: divide un oggetto in parti staccate, da eliminare una a una</li><li>Cubo di orientamento e lingua scelta dal menu iniziale</li><li>Copia, taglia e incolla (⌘C, ⌘X, ⌘V)</li><li>Esporta in un solo passaggio</li><li>Modelli pesanti più fluidi, con un avviso quando riduco risoluzione e ombre, e import 3MF di Bambu e Orca corretto</li><li>Contatore di visite anonimo sul sito ufficiale</li></ul>
+      <ul><li>Strumento Distanza (D) e vista Raggi X (Z)</li><li>Scanalature su lati piatti e cilindri, anche per forare a filo</li><li>Cilindro: il lato è un pezzo unico, si allarga o si stringe trascinando</li><li>Spigoli ad anello (cerchi o tutti i lati di una faccia): si ridimensionano trascinando o in %</li><li>Cima % su scatola, cilindro e prisma (tronchi e coni)</li><li>Scatola: raccordo e smusso su angoli, bordo alto e basso restano modificabili</li><li>Separa pezzi: divide un oggetto in parti staccate, da eliminare una a una</li><li>Cubo di orientamento e lingua scelta dal menu iniziale</li><li>Copia, taglia e incolla (⌘C, ⌘X, ⌘V)</li><li>Esporta in un solo passaggio</li><li>Modelli pesanti più fluidi, con un avviso quando riduco risoluzione e ombre, e import 3MF di Bambu e Orca corretto</li><li>Contatore di visite anonimo sul sito ufficiale</li></ul>
       <details><summary>Versioni precedenti</summary>
         <b>0.7.2</b>
         <ul><li>Raccordi e smussi con superficie liscia</li><li>Lucchetto: Maiusc ridimensiona senza proporzioni</li><li>Angoli di rotazione più coerenti</li></ul>

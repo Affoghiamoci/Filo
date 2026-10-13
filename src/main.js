@@ -218,10 +218,46 @@ function clean(g) {
   return g;
 }
 // Tutte le forme hanno l'origine al centro della base: Z = 0 vuol dire "appoggiato sul piatto".
+// scatola con bordi alti e/o bassi raccordati o smussati: anelli sovrapposti, ognuno con il contorno ristretto di un certo ttratto
+function boxLevels(p) {
+  const h = p.h, lim = Math.min(p.w, p.d) / 2 - 0.05, cham = p.rm === 'chamfer';
+  let ft = clamp(p.ft || 0, 0, lim), fb = clamp(p.fb || 0, 0, lim);
+  if (ft + fb > h - 0.05) { const k = (h - 0.05) / (ft + fb); ft *= k; fb *= k; }
+  const N = cham ? 1 : 8, L = [];
+  if (fb > 0) for (let i = 0; i <= N; i++) { const a = (i / N) * Math.PI / 2; L.push([fb * (1 - Math.cos(a)), fb * (1 - Math.sin(a))]); } else L.push([0, 0]);
+  if (ft > 0) for (let i = 0; i <= N; i++) { const a = Math.PI / 2 - (i / N) * Math.PI / 2; L.push([h - ft * (1 - Math.cos(a)), ft * (1 - Math.sin(a))]); } else L.push([h, 0]);
+  return L.filter((q, i) => i === 0 || Math.abs(q[0] - L[i - 1][0]) > 1e-6 || Math.abs(q[1] - L[i - 1][1]) > 1e-6);
+}
+function boxRing(p, d) {
+  const hw = p.w / 2 - d, hd = p.d / 2 - d, r = clamp(Math.max((p.r || 0) - d, 0), 0, Math.min(hw, hd) - 1e-3), cham = p.rm === 'chamfer', K = cham ? 1 : 10, pts = [];
+  [[1, 1, 0], [-1, 1, 90], [-1, -1, 180], [1, -1, 270]].forEach(([sx, sy, a0]) => {
+    for (let k = 0; k <= K; k++) { const a = (a0 + 90 * k / K) * D2R; pts.push([sx * (hw - r) + r * Math.cos(a), sy * (hd - r) + r * Math.sin(a)]); }
+  });
+  return pts;
+}
+function boxFilleted(p) {
+  const L = boxLevels(p), rings = L.map(([z, d]) => ({ z, pts: boxRing(p, d) })), n = rings[0].pts.length, tri = [];
+  const V = (r, j) => [r.pts[j % n][0], r.pts[j % n][1], r.z], same = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 1e-6;
+  const push = (a, b, c) => { if (!same(a, b) && !same(b, c) && !same(a, c)) tri.push(...a, ...b, ...c); };
+  for (let i = 0; i + 1 < rings.length; i++) for (let j = 0; j < n; j++) {
+    const a = V(rings[i], j), b = V(rings[i], j + 1), c = V(rings[i + 1], j + 1), d = V(rings[i + 1], j);
+    push(a, b, c); push(a, c, d);
+  }
+  const cap = (ring, up) => {
+    const c = []; ring.pts.forEach(q => { const v = new THREE.Vector2(q[0], q[1]); if (!c.length || c[c.length - 1].distanceTo(v) > 1e-6) c.push(v); });
+    if (c.length > 1 && c[0].distanceTo(c[c.length - 1]) < 1e-6) c.pop();
+    THREE.ShapeUtils.triangulateShape(c, []).forEach(([i, j, k]) => { const A = [c[i].x, c[i].y, ring.z], B = [c[j].x, c[j].y, ring.z], C = [c[k].x, c[k].y, ring.z]; up ? push(A, B, C) : push(A, C, B); });
+  };
+  cap(rings[rings.length - 1], true); cap(rings[0], false);
+  let g = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(tri, 3));
+  g = toCreasedNormals(g, 35 * D2R);
+  return clean(g);
+}
 function buildGeometry(kind, p) {
   let g;
   if (kind === 'box') {
-    if (p.r <= 0.001) { g = new THREE.BoxGeometry(p.w, p.d, p.h); g.translate(0, 0, p.h / 2); }
+    if (p.ft > 0 || p.fb > 0) g = boxFilleted(p);
+    else if (p.r <= 0.001) { g = new THREE.BoxGeometry(p.w, p.d, p.h); g.translate(0, 0, p.h / 2); }
     else g = mergeVertices(clean(new THREE.ExtrudeGeometry(roundedRectShape(p.w, p.d, p.r, p.rm === 'chamfer'), { depth: p.h, bevelEnabled: false, curveSegments: 12 })));
     const tt = clamp(p.t ?? 100, 1, 100) / 100;
     if (tt < 0.9999) {                                                // cima più stretta: tronco di piramide
@@ -386,12 +422,18 @@ function setSize(m, key, v) {
     u.p[key] = v;
   } else {
     u.p[key] = v;
-    if (u.kind === 'box') u.p.r = Math.min(u.p.r, Math.min(u.p.w, u.p.d) / 2);
+    if (u.kind === 'box') { u.p.r = Math.min(u.p.r, Math.min(u.p.w, u.p.d) / 2); const lm = Math.min(u.p.w, u.p.d) / 2 - 0.05; if (u.p.ft > lm) u.p.ft = lm; if (u.p.fb > lm) u.p.fb = lm; }
     m.geometry.dispose();
     m.geometry = buildGeometry(u.kind, u.p);
     refreshEdges(m);
   }
   m.updateMatrixWorld(true);
+}
+function setBoxEdge(m, key, v) {
+  const u = m.userData;
+  if (u.kind !== 'box') return;
+  u.p[key] = clamp(v, 0, Math.min(u.p.w, u.p.d) / 2 - 0.05);
+  m.geometry.dispose(); m.geometry = buildGeometry('box', u.p); refreshEdges(m);
 }
 function setRadius(m, r) {
   const u = m.userData;
@@ -1285,7 +1327,7 @@ function pickRing(e) {
   setRay(e);
   return raycaster.intersectObjects(rotPick, false)[0]?.object.userData.axis ?? null;
 }
-const ids = ['x', 'y', 'z', 'w', 'd', 'h', 'r', 't', 'q', 'rx', 'ry', 'rz'];
+const ids = ['x', 'y', 'z', 'w', 'd', 'h', 'r', 'ft', 'fb', 't', 'q', 'rx', 'ry', 'rz'];
 const F = Object.fromEntries(ids.map(i => [i, $('#p-' + i)]));
 const single = () => (selection.length === 1 ? selection[0] : null);
 function syncPanel() {
@@ -1308,9 +1350,10 @@ function syncPanel() {
   if (m) {
     if (document.activeElement !== nameEl) nameEl.value = m.userData.name;
     nameEl.disabled = false;
-    const s = sizeOf(m), v = { x: m.position.x, y: m.position.y, z: m.position.z, w: s.w, d: s.d, h: s.h, r: m.userData.p.r ?? 0, t: m.userData.p.t ?? 100, q: m.userData.p.q ?? 0, ...eulerDeg(m) };
+    const s = sizeOf(m), v = { x: m.position.x, y: m.position.y, z: m.position.z, w: s.w, d: s.d, h: s.h, r: m.userData.p.r ?? 0, ft: m.userData.p.ft ?? 0, fb: m.userData.p.fb ?? 0, t: m.userData.p.t ?? 100, q: m.userData.p.q ?? 0, ...eulerDeg(m) };
     ids.forEach(i => { if (document.activeElement !== F[i]) F[i].value = fmt(v[i]); });
     $('#p-r-wrap').classList.toggle('hidden', m.userData.kind !== 'box');
+    document.querySelectorAll('#p-rm button').forEach(b => b.classList.toggle('on', (m.userData.p.rm === 'chamfer') === (b.dataset.v === 'chamfer')));
     $('#p-split').classList.toggle('hidden', m.userData.kind !== 'merged');
     $('#p-t-wrap').classList.toggle('hidden', !['box', 'cylinder', 'prism'].includes(m.userData.kind));
     const qs = QSPEC[m.userData.kind];
@@ -1380,6 +1423,14 @@ bind('h', (m, v) => setSize(m, 'h', v));
 bind('r', (m, v) => setRadius(m, v));
 bind('q', (m, v) => setQ(m, v));
 bind('t', (m, v) => setTop(m, v));
+bind('ft', (m, v) => setBoxEdge(m, 'ft', v));
+bind('fb', (m, v) => setBoxEdge(m, 'fb', v));
+document.querySelectorAll('#p-rm button').forEach(b => b.addEventListener('click', () => {
+  const m = single(); if (!m || m.userData.kind !== 'box') return;
+  m.userData.p.rm = b.dataset.v === 'chamfer' ? 'chamfer' : null;
+  m.geometry.dispose(); m.geometry = buildGeometry('box', m.userData.p); refreshEdges(m); m.updateMatrixWorld(true);
+  touch(); updateHandles(); syncPanel(); commit();
+}));
 ['rx', 'ry', 'rz'].forEach(id => bind(id, m => setEulerDeg(m, +F.rx.value || 0, +F.ry.value || 0, +F.rz.value || 0)));
 ['#p-lock', '#g-lock'].forEach(id => $(id).addEventListener('click', () => {
   sizeLock = !sizeLock; syncLock();
@@ -3235,7 +3286,24 @@ function applyEdges() {
       u.p.r = size; u.p.rm = edgeMode.v === 'chamfer' ? 'chamfer' : null;
       obj.geometry.dispose(); obj.geometry = buildGeometry('box', u.p); refreshEdges(obj); obj.updateMatrixWorld(true);
       clearEdges(); setSelection([obj]); touch(); commit(); EF.size.value = '';
-      return toast(edgeMode.v === 'fillet' ? 'Raccordo applicato: resta modificabile dal campo Raggio' : 'Smusso applicato: resta modificabile dal campo Raggio');
+      return toast(edgeMode.v === 'fillet' ? 'Raccordo applicato: resta modificabile dal pannello' : 'Smusso applicato: resta modificabile dal pannello');
+    }
+  }
+  // bordo alto o basso di una scatola (anello chiuso a Z = altezza o Z = 0): resta parametrico
+  if (obj.userData.kind === 'box' && Math.abs(obj.rotation.x) < 1e-6 && Math.abs(obj.rotation.y) < 1e-6 && (obj.userData.p.t ?? 100) >= 99.9) {
+    const loop = selectedLoop(), u = obj.userData;
+    if (loop && loop.length >= 4) {
+      obj.updateMatrixWorld(true);
+      const L = loop.map(p => obj.worldToLocal(p.clone()));
+      const top = L.every(v => Math.abs(v.z - u.p.h) < 0.01), bot = L.every(v => Math.abs(v.z) < 0.01);
+      const ex = Math.max(...L.map(v => Math.abs(v.x))), ey = Math.max(...L.map(v => Math.abs(v.y)));
+      if ((top || bot) && Math.abs(ex - u.p.w / 2) < 0.01 && Math.abs(ey - u.p.d / 2) < 0.01) {
+        if (size >= Math.min(u.p.w, u.p.d) / 2 || size >= u.p.h) return toast('La misura è troppo grande per questa scatola');
+        u.p[top ? 'ft' : 'fb'] = size; u.p.rm = edgeMode.v === 'chamfer' ? 'chamfer' : null;
+        obj.geometry.dispose(); obj.geometry = buildGeometry('box', u.p); refreshEdges(obj); obj.updateMatrixWorld(true);
+        clearEdges(); setSelection([obj]); touch(); commit(); EF.size.value = '';
+        return toast(edgeMode.v === 'fillet' ? 'Raccordo applicato: resta modificabile dal pannello' : 'Smusso applicato: resta modificabile dal pannello');
+      }
     }
   }
   const cutters = edgeSel.map(x => cutter(x.chain, edgeMode.v, size));
