@@ -157,6 +157,7 @@
 <aside id="layers" class="panel hidden">
   <div class="lhead"><h4>Livelli</h4><button id="layers-close" class="icon-btn" aria-label="Chiudi">×</button></div>
   <div id="layers-list"></div>
+  <p class="lfoot">⇧ aggiunge · ⌘ seleziona un intervallo</p>
 </aside>
 
 <aside id="history" class="panel hidden">
@@ -176,21 +177,25 @@
 </div></div>
 
 <div id="bar" class="panel">
-  <div class="grp" id="views">
-    <button class="btn" data-view="front">Davanti</button>
-    <button class="btn" data-view="top">Sopra</button>
-    <button class="btn" data-view="right">Destra</button>
-    <button class="btn" data-view="iso">3D</button>
-  </div>
-  <button class="btn" id="b-dims" title="Mostra le dimensioni reali">Misure <kbd>M</kbd></button>
-  <button class="btn" id="b-xray" title="Mostra i contorni delle parti coperte (Z)">Raggi X <kbd>Z</kbd></button>
-  <button class="btn" id="b-fit" title="Adatta alla vista">Adatta <kbd>⌘0</kbd></button>
-<div class="grp" id="snaps" title="Di quanto si sposta un oggetto, in mm"><span class="lbl">Scatto mm</span>
-    <button class="btn" data-snap="0.5">0,5</button><button class="btn" data-snap="1">1</button><button class="btn" data-snap="5">5</button><button class="btn" data-snap="10">10</button></div>
-  <button class="btn" id="b-dots" title="Distanza tra i punti della griglia">Griglia <em></em></button>
-  <button class="btn" id="b-layers" title="Mostra o nascondi i livelli (F7)">Livelli <kbd>F7</kbd></button>
-  <button class="btn" id="b-history" title="Mostra o nascondi la cronologia (F8)">Cronologia <kbd>F8</kbd></button>
-  <button class="btn" id="b-bed" title="Dimensione del piatto di stampa">Piatto <em></em></button>
+  <div class="sec"><span class="cap">Vista</span>
+    <div class="row"><div class="grp" id="views">
+      <button class="btn" data-view="front">Davanti</button>
+      <button class="btn" data-view="top">Sopra</button>
+      <button class="btn" data-view="right">Destra</button>
+      <button class="btn" data-view="iso">3D</button>
+    </div><div class="grp"><button class="btn" id="b-fit" data-k="⌘0" title="Adatta alla vista"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15"/></svg>Adatta</button></div></div></div>
+  <div class="sec"><span class="cap">Mostra</span>
+    <div class="row"><button class="btn" id="b-dims" data-k="M" title="Mostra le dimensioni reali"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 15.5L15.5 3.5l5 5-12 12z"/><path d="M7.5 11.5l2 2M10.5 8.5l2 2M13.5 5.5l1.5 1.5"/></svg>Misure</button>
+    <button class="btn" id="b-xray" data-k="Z" title="Mostra i contorni delle parti coperte (Z)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5" stroke-dasharray="2 2"/></svg>Raggi X</button></div></div>
+  <div class="sec"><span class="cap">Scatto in mm</span>
+    <div class="row"><div class="grp" id="snaps" title="Di quanto si sposta un oggetto, in mm">
+      <button class="btn" data-snap="0.5">0,5</button><button class="btn" data-snap="1">1</button><button class="btn" data-snap="5">5</button><button class="btn" data-snap="10">10</button></div></div></div>
+  <div class="sec"><span class="cap">Piano di lavoro</span>
+    <div class="row"><button class="btn" id="b-dots" title="Distanza tra i punti della griglia">Griglia <em></em><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 9.5l5.5 5.5 5.5-5.5"/></svg></button>
+    <button class="btn" id="b-bed" title="Dimensione del piatto di stampa">Piatto <em></em><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 9.5l5.5 5.5 5.5-5.5"/></svg></button></div></div>
+  <div class="sec"><span class="cap">Pannelli</span>
+    <div class="row"><button class="btn" id="b-layers" data-k="F7" title="Mostra o nascondi i livelli (F7)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l8.5 4.75L12 13.5 3.5 8.75z"/><path d="M3.5 13l8.5 4.75 8.5-4.75"/></svg>Livelli</button>
+    <button class="btn" id="b-history" data-k="F8" title="Mostra o nascondi la cronologia (F8)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7.5V12l3 2"/></svg>Cronologia</button></div></div>
 </div>
 
 <div id="bedmenu" class="panel hidden"></div>
@@ -255,14 +260,16 @@
     <div class="info-head">
       <svg class="logo" viewBox="0 0 9 9" shape-rendering="crispEdges" fill="#ff6a00" aria-hidden="true"><rect x="0" y="0" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="0" y="8" width="1" height="1"/><rect x="1" y="1" width="1" height="1"/><rect x="1" y="4" width="1" height="1"/><rect x="1" y="7" width="1" height="1"/><rect x="2" y="2" width="1" height="1"/><rect x="2" y="4" width="1" height="1"/><rect x="2" y="6" width="1" height="1"/><rect x="3" y="3" width="1" height="1"/><rect x="3" y="4" width="1" height="1"/><rect x="3" y="5" width="1" height="1"/><rect x="4" y="0" width="1" height="1"/><rect x="4" y="1" width="1" height="1"/><rect x="4" y="2" width="1" height="1"/><rect x="4" y="3" width="1" height="1"/><rect x="4" y="4" width="1" height="1"/><rect x="4" y="5" width="1" height="1"/><rect x="4" y="6" width="1" height="1"/><rect x="4" y="7" width="1" height="1"/><rect x="4" y="8" width="1" height="1"/><rect x="5" y="3" width="1" height="1"/><rect x="5" y="4" width="1" height="1"/><rect x="5" y="5" width="1" height="1"/><rect x="6" y="2" width="1" height="1"/><rect x="6" y="4" width="1" height="1"/><rect x="6" y="6" width="1" height="1"/><rect x="7" y="1" width="1" height="1"/><rect x="7" y="4" width="1" height="1"/><rect x="7" y="7" width="1" height="1"/><rect x="8" y="0" width="1" height="1"/><rect x="8" y="4" width="1" height="1"/><rect x="8" y="8" width="1" height="1"/></svg>
       <b class="word">Filo</b>
-      <span class="ver">v<span id="ver-num">0.7.9</span></span>
+      <span class="ver">v<span id="ver-num">0.8.0</span></span>
     </div>
     <p>Filo è un modellatore 3D semplice per creare e modificare oggetti da stampare in 3D: forme di base, fori, testo, allineamenti e importazione di file 3MF, STL e SVG. Pensato per oggetti pratici come mollette, ganci e scatoline.</p>
     <p>Questa app è stata generata con l’ausilio dell’intelligenza artificiale.</p>
     <div class="info-row"><span class="lbl">Novità</span><div class="cl">
-      <b>0.7.9</b>
-      <ul><li>Strumento Distanza (D) e vista Raggi X (Z)</li><li>Ripeti: copie in griglia, nido d'ape o in cerchio</li><li>Cilindro: il lato è un pezzo unico, si allarga o si stringe trascinando</li><li>Spigoli ad anello (cerchi o tutti i lati di una faccia): si ridimensionano trascinando o in %</li><li>Cima % su scatola, cilindro e prisma (tronchi e coni)</li><li>Scatola: raccordo e smusso su angoli, bordo alto e basso restano modificabili</li><li>Se un'operazione divide un oggetto in più parti, diventano un gruppo</li><li>Calamita tra lati: spostando un pezzo, lati e angoli vicini si agganciano a contatto</li><li>Frecce su e giù nei campi numerici (⇧ per salti da 10 passi)</li><li>Viste Davanti, Sopra e Destra senza prospettiva, per allineare con precisione</li><li>Lato a filo con un'altra superficie (anche sul fondo di un testo inciso): le facce si fondono in una sola</li><li>Scatto di spostamento e distanza della griglia separati</li><li>Esporta 3MF riparato (spigoli non chiusi o doppi), con Filo nei metadati</li><li>Cubo di orientamento e lingua scelta dal menu iniziale</li><li>Copia, taglia e incolla (⌘C, ⌘X, ⌘V), anche sul posto (⌘⇧V)</li><li>Esporta in un solo passaggio</li><li>Modelli pesanti più fluidi, con un avviso quando riduco risoluzione e ombre, e import 3MF di Bambu e Orca corretto</li><li>Contatore di visite anonimo sul sito ufficiale</li></ul>
+      <b>0.8.0</b>
+      <ul><li>Barra in basso in sezioni (Vista, Mostra, Scatto, Piano di lavoro, Pannelli), con icone e scorciatoie al passaggio del mouse</li><li>Scatto di spostamento e distanza della griglia separati</li><li>Vista attiva evidenziata nella barra</li><li>Livelli: ⌘ + clic seleziona un intervallo</li></ul>
       <details><summary>Versioni precedenti</summary>
+        <b>0.7.9</b>
+        <ul><li>Strumento Distanza (D) e vista Raggi X (Z)</li><li>Ripeti: copie in griglia, nido d'ape o in cerchio</li><li>Cilindro: il lato è un pezzo unico, si allarga o si stringe trascinando</li><li>Spigoli ad anello (cerchi o tutti i lati di una faccia): si ridimensionano trascinando o in %</li><li>Cima % su scatola, cilindro e prisma (tronchi e coni)</li><li>Scatola: raccordo e smusso su angoli, bordo alto e basso restano modificabili</li><li>Se un'operazione divide un oggetto in più parti, diventano un gruppo</li><li>Calamita tra lati: spostando un pezzo, lati e angoli vicini si agganciano a contatto</li><li>Frecce su e giù nei campi numerici (⇧ per salti da 10 passi)</li><li>Viste Davanti, Sopra e Destra senza prospettiva, per allineare con precisione</li><li>Lato a filo con un'altra superficie (anche sul fondo di un testo inciso): le facce si fondono in una sola</li><li>Esporta 3MF riparato (spigoli non chiusi o doppi), con Filo nei metadati</li><li>Cubo di orientamento e lingua scelta dal menu iniziale</li><li>Copia, taglia e incolla (⌘C, ⌘X, ⌘V), anche sul posto (⌘⇧V)</li><li>Esporta in un solo passaggio</li><li>Modelli pesanti più fluidi, con un avviso quando riduco risoluzione e ombre, e import 3MF di Bambu e Orca corretto</li><li>Contatore di visite anonimo sul sito ufficiale</li></ul>
         <b>0.7.2</b>
         <ul><li>Spigoli arrotondati e smussati con superficie liscia</li><li>Lucchetto: Maiusc ridimensiona senza proporzioni</li><li>Angoli di rotazione più coerenti</li></ul>
         <b>0.7.1</b>

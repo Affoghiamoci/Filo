@@ -1,8 +1,9 @@
 // Traduzione IT ⇄ EN: i testi originali sono in italiano, l'inglese si applica al volo su tutto il DOM.
 const EN = {
+  'Barra in basso in sezioni (Vista, Mostra, Scatto, Piano di lavoro, Pannelli), con icone e scorciatoie al passaggio del mouse': 'Bottom bar in sections (View, Show, Step, Workspace, Panels), with icons and shortcuts on hover', 'Scatto di spostamento e distanza della griglia separati': 'Move step and grid spacing now separate', 'Vista attiva evidenziata nella barra': 'Active view highlighted in the bar', 'Livelli: ⌘ + clic seleziona un intervallo': 'Layers: ⌘ + click selects a range',
   'Distanza griglia': 'Grid spacing',
   'Distanza tra i punti della griglia': 'Spacing of the grid points',
-  'Scatto di spostamento e distanza della griglia separati': 'Move step and grid spacing now separate', 'Scatto': 'Step', 'Scatto mm': 'Step mm',
+  '⇧ aggiunge · ⌘ seleziona un intervallo': '⇧ adds · ⌘ selects a range', 'Piatto di stampa': 'Print bed', 'fitta': 'dense', 'media': 'medium', 'larga': 'wide', 'Scatto': 'Step', 'Scatto mm': 'Step mm',
   'Di quanto si sposta un oggetto, in mm': 'How far an object moves, in mm',
   'Filo · modellatore 3D semplice': 'Filo · simple 3D modeler',
   // barra laterale
@@ -186,8 +187,8 @@ const EN = {
   'Nessuna forma trovata nel file': 'No shape found in the file',
 };
 const NAV = {
-  it: '<b>Vista</b><br>Trascina nel vuoto o col tasto destro: ruota<br><b>Spazio</b> + trascina: sposta · Pizzico o rotella: zoom<br><b>⌘0</b> adatta · doppio clic: centra<br><br><b>Oggetti</b><br><b>⇧</b> + trascina: blocca un asse<br><b>⌘</b> + trascina: alza e abbassa · <b>[ ]</b> su e giù<br><b>⌥</b> + trascina: duplica<br><b>⌘G</b> raggruppa · <b>⇧⌘G</b> separa<br><b>⇧</b> + clic con Lato: più lati<br>Ruota: <b>⇧</b> scatto 5° · <b>⌥</b> libero<br><br><b>Maniglie</b><br><b>⇧</b> proporzionale · <b>⌥</b> dal centro<br><br>Con 2+ oggetti clicca quello <b>chiave</b>, poi allinea.',
-  en: '<b>View</b><br>Drag in empty space or with the right button: orbit<br><b>Space</b> + drag: pan · Pinch or wheel: zoom<br><b>⌘0</b> fit · double click: center<br><br><b>Objects</b><br><b>⇧</b> + drag: lock axis<br><b>⌘</b> + drag: move up and down · <b>[ ]</b> up and down<br><b>⌥</b> + drag: duplicate<br><b>⌘G</b> group · <b>⇧⌘G</b> ungroup<br><b>⇧</b> + click with Face: more faces<br>Rotate: <b>⇧</b> 5° steps · <b>⌥</b> free<br><br><b>Handles</b><br><b>⇧</b> proportional · <b>⌥</b> from center<br><br>With 2+ objects click the <b>key</b> one, then align.',
+  it: '<b>Vista</b><br>Trascina nel vuoto o col tasto destro: ruota<br><b>Spazio</b> + trascina: sposta · Pizzico o rotella: zoom<br><b>⌘0</b> adatta · doppio clic: centra<br><br><b>Oggetti</b><br><b>⇧</b> + trascina: blocca un asse<br><b>⌘</b> + trascina: alza e abbassa · <b>[ ]</b> su e giù<br><b>⌥</b> + trascina: duplica<br><b>⌘G</b> raggruppa · <b>⇧⌘G</b> separa<br><b>⇧</b> + clic con Lato: più lati<br>Livelli: <b>⇧</b> + clic aggiunge · <b>⌘</b> + clic intervallo<br>Ruota: <b>⇧</b> scatto 5° · <b>⌥</b> libero<br><br><b>Maniglie</b><br><b>⇧</b> proporzionale · <b>⌥</b> dal centro<br><br>Con 2+ oggetti clicca quello <b>chiave</b>, poi allinea.',
+  en: '<b>View</b><br>Drag in empty space or with the right button: orbit<br><b>Space</b> + drag: pan · Pinch or wheel: zoom<br><b>⌘0</b> fit · double click: center<br><br><b>Objects</b><br><b>⇧</b> + drag: lock axis<br><b>⌘</b> + drag: move up and down · <b>[ ]</b> up and down<br><b>⌥</b> + drag: duplicate<br><b>⌘G</b> group · <b>⇧⌘G</b> ungroup<br><b>⇧</b> + click with Face: more faces<br>Layers: <b>⇧</b> + click adds · <b>⌘</b> + click range<br>Rotate: <b>⇧</b> 5° steps · <b>⌥</b> free<br><br><b>Handles</b><br><b>⇧</b> proportional · <b>⌥</b> from center<br><br>With 2+ objects click the <b>key</b> one, then align.',
 };
 const NAMEMAP = { Scatola: 'Box', Cilindro: 'Cylinder', Sfera: 'Sphere', Cono: 'Cone', Prisma: 'Prism', Toro: 'Torus', Pezzo: 'Part' };
 const RULES = [

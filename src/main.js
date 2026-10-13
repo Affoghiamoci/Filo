@@ -152,7 +152,9 @@ function updateViewCube() {
   }
 }
 let tween = null;
-function animateTo(to, ms = 320) {
+function viewOn(k) { document.querySelectorAll('#views [data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === k)); }
+function animateTo(to, ms = 320, keep = false) {
+  if (!keep) viewOn(null);
   const from = { az: cam.az, el: cam.el, dist: cam.dist, fov: cam.fov, t: cam.target.clone() };
   let daz = (to.az ?? cam.az) - cam.az;
   daz = ((daz + 540) % 360) - 180;
@@ -180,7 +182,7 @@ function panPixels(dx, dy) {
   applyCamera();
 }
 function orbitPixels(dx, dy) {
-  cam.fov = BASE_FOV; tween = null;
+  cam.fov = BASE_FOV; tween = null; viewOn(null);
   cam.az -= dx * 0.3;
   cam.el = clamp(cam.el + dy * 0.3, -89.9, 89.9);
   applyCamera();
@@ -191,7 +193,7 @@ function fitView() {
   else box.set(new THREE.Vector3(-BEDX / 2, -BEDY / 2, 0), new THREE.Vector3(BEDX / 2, BEDY / 2, 0));
   const c = box.getCenter(new THREE.Vector3());
   const r = Math.max(box.getSize(new THREE.Vector3()).length() / 2, 25);
-  animateTo({ target: c, dist: clamp(r / Math.sin(BASE_FOV * D2R / 2) * 1.25, 60, 2500) });
+  animateTo({ target: c, dist: clamp(r / Math.sin(BASE_FOV * D2R / 2) * 1.25, 60, 2500) }, 320, true);
 }
 const VIEWS = { front: { az: 0, el: 0, fov: ORTHO_FOV }, top: { az: 0, el: 89.9, fov: ORTHO_FOV }, right: { az: 90, el: 0, fov: ORTHO_FOV }, iso: { az: 35, el: 28, fov: BASE_FOV } };
 
@@ -1992,7 +1994,7 @@ $('#viewcube').addEventListener('click', e => {
   const O = ORTHO_FOV, V = { front: { az: 0, el: 0, fov: O }, back: { az: 180, el: 0, fov: O }, right: { az: 90, el: 0, fov: O }, left: { az: -90, el: 0, fov: O }, top: { az: cam.az, el: 89.9, fov: O }, bottom: { az: cam.az, el: -89.9, fov: O } };
   animateTo(V[b.dataset.vc]);
 });
-$('#views').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if (b) animateTo(VIEWS[b.dataset.view]); });
+$('#views').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if (b) { animateTo(VIEWS[b.dataset.view]); viewOn(b.dataset.view); } });
 $('#b-dims').addEventListener('click', () => setDims());
 function setXray(on) {   // contorni delle parti coperte, attivabile e disattivabile
   state.xray = on ?? !state.xray;
@@ -2017,7 +2019,7 @@ setSnap(1, false);
 /* distanza dei pallini */
 const DOTS = [2, 5, 10];
 const dotMenu = $('#dotmenu');
-dotMenu.innerHTML = '<div class="mh">Distanza griglia</div>' + DOTS.map(v => `<button class="btn" data-dot="${v}"><span>${v} mm</span></button>`).join('');
+dotMenu.innerHTML = '<div class="mh">Distanza griglia</div>' + DOTS.map(v => `<button class="btn" data-dot="${v}"><span>${v} mm</span><em>${v === 2 ? 'fitta' : v === 5 ? 'media' : 'larga'}</em></button>`).join('');
 function setDots(v, announce = true) {
   dotStep = gridStep = v; buildBedDots(v);
   $('#b-dots em').textContent = v + ' mm';
@@ -2027,23 +2029,45 @@ function setDots(v, announce = true) {
 }
 $('#b-dots').addEventListener('click', e => {
   e.stopPropagation();
-  const r = e.currentTarget.getBoundingClientRect();
-  dotMenu.style.left = Math.round(r.left + r.width / 2) + 'px';
-  dotMenu.classList.toggle('hidden');
+  bedMenu.classList.add('hidden');
+  dotMenu.classList.toggle('hidden'); anchorMenu(dotMenu, e.currentTarget); menuState();
 });
-document.addEventListener('pointerdown', e => { if (!e.target.closest('#dotmenu,#b-dots')) dotMenu.classList.add('hidden'); });
+document.addEventListener('pointerdown', e => { if (!e.target.closest('#dotmenu,#b-dots')) { dotMenu.classList.add('hidden'); menuState(); } });
 dotMenu.addEventListener('click', e => {
   const b = e.target.closest('[data-dot]');
-  if (b) { setDots(+b.dataset.dot); dotMenu.classList.add('hidden'); canvas.focus(); }
+  if (b) { setDots(+b.dataset.dot); dotMenu.classList.add('hidden'); menuState(); canvas.focus(); }
 });
 let _d = 10; try { const sv = +localStorage.getItem('forma.dots'); if (DOTS.includes(sv)) _d = sv; } catch (e) {}
 setDots(_d, false);
+
+/* descrizioni al passaggio sulla barra bassa */
+(function () {
+  const bar = $('#bar'); let tm = null, cur = null;
+  const hide = () => { clearTimeout(tm); tipEl.classList.remove('show', 'up'); if (cur && cur.dataset.t) { cur.title = cur.dataset.t; delete cur.dataset.t; } cur = null; };
+  bar.addEventListener('pointerover', e => {
+    const b = e.target.closest('.btn'); if (!b || b === cur) return;
+    hide(); cur = b;
+    if (b.title) { b.dataset.t = b.title; b.removeAttribute('title'); }
+    const name = (b.querySelector('em') ? [...b.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('') : b.textContent).trim();
+    const desc = (b.dataset.t || '').replace(/\s*\([^)]*\)\s*$/, '');
+    if (!desc && !b.dataset.k) { return; }
+    tm = setTimeout(() => {
+      tipEl.innerHTML = `<b>${tr(name)}</b>${b.dataset.k ? `<kbd>${tr(b.dataset.k)}</kbd>` : ''}${desc ? `<small>${tr(desc)}</small>` : ''}`;
+      const r = b.getBoundingClientRect();
+      tipEl.classList.add('up');
+      tipEl.style.left = r.left + r.width / 2 + 'px'; tipEl.style.top = r.top - 10 + 'px';
+      tipEl.classList.add('show');
+    }, 350);
+  });
+  bar.addEventListener('pointerleave', hide); bar.addEventListener('pointerdown', hide);
+  bar.addEventListener('pointerout', e => { if (cur && !cur.contains(e.relatedTarget)) hide(); });
+})();
 /* piatto di stampa */
 const BEDS = [
   ['A1 mini', 180, 180], ['A1 · P1S · X1C · P2S', 256, 256], ['H2S', 340, 320], ['H2D', 350, 320], ['Max (40 cm)', 400, 400]
 ];
 const bedMenu = $('#bedmenu');
-bedMenu.innerHTML = BEDS.map(([n, w, d], i) => `<button class="btn" data-bed="${i}"><span>${n}</span><em>${w}×${d}</em></button>`).join('') +
+bedMenu.innerHTML = '<div class="mh">Piatto di stampa</div>' + BEDS.map(([n, w, d], i) => `<button class="btn" data-bed="${i}"><span>${n}</span><em>${w}×${d}</em></button>`).join('') +
   `<div class="cust"><label class="f">L<input id="bed-w" type="number" min="20" max="400" step="1"></label><label class="f">P<input id="bed-d" type="number" min="20" max="400" step="1"></label><button class="btn primary" id="bed-go">OK</button></div>`;
 function syncBedUI() {
   $('#b-bed').firstChild.textContent = 'Piatto ';
@@ -2051,12 +2075,18 @@ function syncBedUI() {
   $('#bed-w').value = BEDX; $('#bed-d').value = BEDY;
   bedMenu.querySelectorAll('[data-bed]').forEach(b => { const p = BEDS[b.dataset.bed]; b.classList.toggle('on', p[1] === BEDX && p[2] === BEDY); });
 }
-$('#b-bed').addEventListener('click', e => { e.stopPropagation(); bedMenu.classList.toggle('hidden'); });
-document.addEventListener('pointerdown', e => { if (!e.target.closest('#bedmenu,#b-bed')) bedMenu.classList.add('hidden'); });
+function anchorMenu(menu, btn) {
+  const r = btn.getBoundingClientRect(), w = menu.offsetWidth || 220;
+  menu.style.left = Math.round(clamp(r.left + r.width / 2, w / 2 + 8, innerWidth - w / 2 - 8)) + 'px';
+  menu.style.bottom = Math.round(innerHeight - $('#bar').getBoundingClientRect().top + 8) + 'px';
+}
+function menuState() { $('#b-bed').classList.toggle('open', !bedMenu.classList.contains('hidden')); $('#b-dots').classList.toggle('open', !dotMenu.classList.contains('hidden')); }
+$('#b-bed').addEventListener('click', e => { e.stopPropagation(); dotMenu.classList.add('hidden'); bedMenu.classList.toggle('hidden'); anchorMenu(bedMenu, e.currentTarget); menuState(); });
+document.addEventListener('pointerdown', e => { if (!e.target.closest('#bedmenu,#b-bed')) bedMenu.classList.add('hidden'); menuState(); });
 bedMenu.addEventListener('click', e => {
   const b = e.target.closest('[data-bed]');
-  if (b) { const p = BEDS[b.dataset.bed]; setBed(p[1], p[2]); syncBedUI(); toast(`Piatto: ${p[0]} ${p[1]}×${p[2]} mm`); bedMenu.classList.add('hidden'); }
-  if (e.target.closest('#bed-go')) { setBed(+$('#bed-w').value, +$('#bed-d').value); syncBedUI(); toast(`Piatto: ${BEDX}×${BEDY} mm`); bedMenu.classList.add('hidden'); }
+  if (b) { const p = BEDS[b.dataset.bed]; setBed(p[1], p[2]); syncBedUI(); toast(`Piatto: ${p[0]} ${p[1]}×${p[2]} mm`); bedMenu.classList.add('hidden'); menuState(); }
+  if (e.target.closest('#bed-go')) { setBed(+$('#bed-w').value, +$('#bed-d').value); syncBedUI(); toast(`Piatto: ${BEDX}×${BEDY} mm`); bedMenu.classList.add('hidden'); menuState(); }
 });
 try { const sv = JSON.parse(localStorage.getItem('forma.bed')); if (Array.isArray(sv)) setBed(sv[0], sv[1], false); } catch (e) {}
 syncBedUI();
@@ -3445,7 +3475,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '0.7.9';
+const APP_VERSION = '0.8.0';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
@@ -3511,6 +3541,7 @@ function renderLayers() {
   }
   layersList.innerHTML = html || '<p class="hint">Nessun oggetto. Aggiungine uno dalla barra a sinistra.</p>';
 }
+let layerAnchor = null;
 layersList.addEventListener('click', e => {
   const tb = e.target.closest('.lbt');
   if (tb) {
@@ -3531,6 +3562,22 @@ layersList.addEventListener('click', e => {
   let list;
   if (r.dataset.g) list = objects.filter(o => o.userData.gid === +r.dataset.g);
   else { const m = objects.find(o => o.userData.id === +r.dataset.id); list = m ? [m] : []; }
+  const key = r.dataset.g ? 'g' + r.dataset.g : 'i' + r.dataset.id;
+  if (!layerAnchor && selection[0]) layerAnchor = 'i' + selection[0].userData.id;
+  if ((e.metaKey || e.ctrlKey) && layerAnchor) {
+    const rows = [...layersList.querySelectorAll('.lrow')], keyOf = x => x.dataset.g ? 'g' + x.dataset.g : 'i' + x.dataset.id;
+    const a = rows.findIndex(x => keyOf(x) === layerAnchor), b = rows.indexOf(r);
+    if (a >= 0 && b >= 0) {
+      const set = new Set();
+      rows.slice(Math.min(a, b), Math.max(a, b) + 1).forEach(x => {
+        if (x.dataset.g) objects.filter(o => o.userData.gid === +x.dataset.g).forEach(o => set.add(o));
+        else { const o = objects.find(o => o.userData.id === +x.dataset.id); if (o) set.add(o); }
+      });
+      setSelection([...set].filter(o => o.visible && !o.userData.locked));
+      return;
+    }
+  }
+  layerAnchor = key;
   if (e.shiftKey) {
     const all = list.every(m => selection.includes(m));
     setSelection(all ? selection.filter(m => !list.includes(m)) : [...new Set([...selection, ...list])]);
