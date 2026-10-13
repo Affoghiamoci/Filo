@@ -2554,6 +2554,17 @@ $('#b-info').addEventListener('click', () => infoDlg.showModal());
 $('#info-close').addEventListener('click', () => infoDlg.close());
 infoDlg.addEventListener('click', e => { if (e.target === infoDlg) infoDlg.close(); });
 initI18n();
+// avviso mobile: una volta per sessione
+(function () {
+  const mobile = (window.matchMedia && matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 900) || /Android|iPhone|iPod|Mobile/i.test(navigator.userAgent);
+  let seen = false; try { seen = sessionStorage.getItem('forma.mobile') === '1'; } catch (e) {}
+  if (!mobile || seen) return;
+  const d = $('#dlg-mobile');
+  const close = () => { try { sessionStorage.setItem('forma.mobile', '1'); } catch (e) {} d.close(); };
+  $('#mob-ok').addEventListener('click', close);
+  d.addEventListener('cancel', () => { try { sessionStorage.setItem('forma.mobile', '1'); } catch (e) {} });
+  setTimeout(() => { try { d.showModal(); } catch (e) {} }, 400);
+})();
 window.forma = { edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyTexture, applyPush, selectFaceFromHit, texUI, layout, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole };
 
 

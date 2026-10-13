@@ -416,3 +416,11 @@ label.f input{text-overflow:clip}
 
 #nav-toggle{transition:color .12s}
 #nav-toggle:hover{color:#FF6A00}
+
+/* avviso mobile */
+#dlg-mobile{border:1px solid var(--line);border-top:3px solid #FF6A00;border-radius:2px;padding:0;background:var(--panel);color:var(--text);width:min(400px,calc(100vw - 32px));box-shadow:0 12px 0 rgba(0,0,0,.08);margin:auto}
+#dlg-mobile::backdrop{background:rgba(10,10,12,.4);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.mob-idx{display:block;font:normal 11px/1 var(--mono);letter-spacing:.14em;color:#FF6A00;margin-bottom:8px}
+.mob-t{display:block;font:400 34px/.9 'VT323',var(--mono);margin-bottom:12px;color:var(--text)}
+.mob-card .info-actions{border-top:0;padding-top:4px}
+.mob-card .btn{flex:1}
