@@ -1929,7 +1929,7 @@ $('#b-fit').addEventListener('click', fitView);
 function setSnap(v, announce = true) {
   state.snap = v;
   document.querySelectorAll('#snaps [data-snap]').forEach(b => b.classList.toggle('on', parseFloat(b.dataset.snap) === v));
-  gridStep = clamp(v * 10, 5, 20); buildBedDots(gridStep);
+  gridStep = v < 5 ? v * 5 : v * 2; buildBedDots(gridStep);
   if (announce) toast(`Griglia: ${String(v).replace('.', ',')} mm`);
 }
 $('#snaps').addEventListener('click', e => {
