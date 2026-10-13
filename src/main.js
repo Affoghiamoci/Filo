@@ -1296,7 +1296,7 @@ function exportList() {
   const sel = selection.filter(m => !m.userData.hole);
   return sel.length ? sel : objects.filter(m => !m.userData.hole && !m.userData.hidden);
 }
-const exportName = list => (list.length === 1 ? list[0].userData.name : 'forma').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'forma';
+const exportName = list => (list.length === 1 ? list[0].userData.name : 'filo-3d').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'filo-3d';
 function download(data, type, filename) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([data], { type }));
@@ -1558,7 +1558,7 @@ $('#exp-fmt').addEventListener('click', e => { const b = e.target.closest('butto
 $('#exp-cancel').addEventListener('click', () => dlgExp.close());
 $('#exp-form').addEventListener('submit', e => {
   e.preventDefault();
-  const n = expName.value.replace(/\.(3mf|stl)$/i, '').replace(/[\\/:*?"<>|]+/g, '-').trim() || 'forma';
+  const n = expName.value.replace(/\.(3mf|stl)$/i, '').replace(/[\\/:*?"<>|]+/g, '-').trim() || 'filo-3d';
   dlgExp.close();
   expFmt === '3mf' ? export3MF(n) : exportSTL(n);
 });
@@ -2482,26 +2482,12 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '0.6.2';
-const REPO = ''; // "utente/repo" su GitHub: quando verrà pubblicato basterà compilarlo e il controllo si attiva
+const APP_VERSION = '0.7.1';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
 $('#info-close').addEventListener('click', () => infoDlg.close());
 infoDlg.addEventListener('click', e => { if (e.target === infoDlg) infoDlg.close(); });
-const newer = (a, b) => { const x = a.split('.').map(Number), y = b.split('.').map(Number); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
-if (REPO) {
-  $('#upd-btn').disabled = false;
-  $('#upd-msg').textContent = 'Controlla se è disponibile una versione più recente.';
-  $('#upd-btn').addEventListener('click', async () => {
-    const msg = $('#upd-msg');
-    try {
-      const r = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`);
-      const j = await r.json(), v = String(j.tag_name || '').replace(/^v/, '');
-      msg.textContent = v && newer(v, APP_VERSION) ? `Disponibile la versione ${v}.` : 'Hai già la versione più recente.';
-    } catch (e) { msg.textContent = 'Impossibile controllare ora: riprova più tardi.'; }
-  });
-}
 initI18n();
 window.forma = { edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyTexture, applyPush, selectFaceFromHit, texUI, layout, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole };
 

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 9' shape-rendering='crispEdges' fill='%23ff6a00'%3E%3Crect x='0' y='0' width='1' height='1'/%3E%3Crect x='0' y='4' width='1' height='1'/%3E%3Crect x='0' y='8' width='1' height='1'/%3E%3Crect x='1' y='1' width='1' height='1'/%3E%3Crect x='1' y='4' width='1' height='1'/%3E%3Crect x='1' y='7' width='1' height='1'/%3E%3Crect x='2' y='2' width='1' height='1'/%3E%3Crect x='2' y='4' width='1' height='1'/%3E%3Crect x='2' y='6' width='1' height='1'/%3E%3Crect x='3' y='3' width='1' height='1'/%3E%3Crect x='3' y='4' width='1' height='1'/%3E%3Crect x='3' y='5' width='1' height='1'/%3E%3Crect x='4' y='0' width='1' height='1'/%3E%3Crect x='4' y='1' width='1' height='1'/%3E%3Crect x='4' y='2' width='1' height='1'/%3E%3Crect x='4' y='3' width='1' height='1'/%3E%3Crect x='4' y='4' width='1' height='1'/%3E%3Crect x='4' y='5' width='1' height='1'/%3E%3Crect x='4' y='6' width='1' height='1'/%3E%3Crect x='4' y='7' width='1' height='1'/%3E%3Crect x='4' y='8' width='1' height='1'/%3E%3Crect x='5' y='3' width='1' height='1'/%3E%3Crect x='5' y='4' width='1' height='1'/%3E%3Crect x='5' y='5' width='1' height='1'/%3E%3Crect x='6' y='2' width='1' height='1'/%3E%3Crect x='6' y='4' width='1' height='1'/%3E%3Crect x='6' y='6' width='1' height='1'/%3E%3Crect x='7' y='1' width='1' height='1'/%3E%3Crect x='7' y='4' width='1' height='1'/%3E%3Crect x='7' y='7' width='1' height='1'/%3E%3Crect x='8' y='0' width='1' height='1'/%3E%3Crect x='8' y='4' width='1' height='1'/%3E%3Crect x='8' y='8' width='1' height='1'/%3E%3C/svg%3E">
-<title>Forma · modellatore 3D semplice</title>
+<title>Filo 3D · modellatore 3D semplice</title>
 <style><!--CSS--></style>
 </head>
 <body>
@@ -14,7 +14,7 @@
 <aside id="side" class="panel">
   <header>
     <svg class="logo" viewBox="0 0 9 9" shape-rendering="crispEdges" fill="#ff6a00" aria-hidden="true"><rect x="0" y="0" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="0" y="8" width="1" height="1"/><rect x="1" y="1" width="1" height="1"/><rect x="1" y="4" width="1" height="1"/><rect x="1" y="7" width="1" height="1"/><rect x="2" y="2" width="1" height="1"/><rect x="2" y="4" width="1" height="1"/><rect x="2" y="6" width="1" height="1"/><rect x="3" y="3" width="1" height="1"/><rect x="3" y="4" width="1" height="1"/><rect x="3" y="5" width="1" height="1"/><rect x="4" y="0" width="1" height="1"/><rect x="4" y="1" width="1" height="1"/><rect x="4" y="2" width="1" height="1"/><rect x="4" y="3" width="1" height="1"/><rect x="4" y="4" width="1" height="1"/><rect x="4" y="5" width="1" height="1"/><rect x="4" y="6" width="1" height="1"/><rect x="4" y="7" width="1" height="1"/><rect x="4" y="8" width="1" height="1"/><rect x="5" y="3" width="1" height="1"/><rect x="5" y="4" width="1" height="1"/><rect x="5" y="5" width="1" height="1"/><rect x="6" y="2" width="1" height="1"/><rect x="6" y="4" width="1" height="1"/><rect x="6" y="6" width="1" height="1"/><rect x="7" y="1" width="1" height="1"/><rect x="7" y="4" width="1" height="1"/><rect x="7" y="7" width="1" height="1"/><rect x="8" y="0" width="1" height="1"/><rect x="8" y="4" width="1" height="1"/><rect x="8" y="8" width="1" height="1"/></svg>
-    <div class="titles"><b>forma</b></div>
+    <div class="titles"><b>filo 3d</b></div>
     <button id="side-toggle" class="icon-btn" title="Riduci o espandi la barra (Tab)" aria-label="Riduci o espandi la barra laterale"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M9.5 4.5v15"/></svg></button>
   </header>
   <div id="tools"></div>
@@ -27,7 +27,7 @@
       <button data-theme="auto" title="Automatico" aria-label="Automatico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 0 0 16z" fill="currentColor"/></svg></button>
       <button data-theme="dark" title="Scuro" aria-label="Scuro"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button>
     </div></div>
-    <button id="b-info" class="icon-btn" title="Info e aggiornamenti" aria-label="Info e aggiornamenti"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.1"/></svg></button>
+    <button id="b-info" class="icon-btn" title="Info" aria-label="Info"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.1"/></svg></button>
   </div>
 </aside>
 
@@ -180,19 +180,28 @@
     <button id="info-close" class="icon-btn" aria-label="Chiudi">×</button>
     <div class="info-head">
       <svg class="logo" viewBox="0 0 9 9" shape-rendering="crispEdges" fill="#ff6a00" aria-hidden="true"><rect x="0" y="0" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="0" y="8" width="1" height="1"/><rect x="1" y="1" width="1" height="1"/><rect x="1" y="4" width="1" height="1"/><rect x="1" y="7" width="1" height="1"/><rect x="2" y="2" width="1" height="1"/><rect x="2" y="4" width="1" height="1"/><rect x="2" y="6" width="1" height="1"/><rect x="3" y="3" width="1" height="1"/><rect x="3" y="4" width="1" height="1"/><rect x="3" y="5" width="1" height="1"/><rect x="4" y="0" width="1" height="1"/><rect x="4" y="1" width="1" height="1"/><rect x="4" y="2" width="1" height="1"/><rect x="4" y="3" width="1" height="1"/><rect x="4" y="4" width="1" height="1"/><rect x="4" y="5" width="1" height="1"/><rect x="4" y="6" width="1" height="1"/><rect x="4" y="7" width="1" height="1"/><rect x="4" y="8" width="1" height="1"/><rect x="5" y="3" width="1" height="1"/><rect x="5" y="4" width="1" height="1"/><rect x="5" y="5" width="1" height="1"/><rect x="6" y="2" width="1" height="1"/><rect x="6" y="4" width="1" height="1"/><rect x="6" y="6" width="1" height="1"/><rect x="7" y="1" width="1" height="1"/><rect x="7" y="4" width="1" height="1"/><rect x="7" y="7" width="1" height="1"/><rect x="8" y="0" width="1" height="1"/><rect x="8" y="4" width="1" height="1"/><rect x="8" y="8" width="1" height="1"/></svg>
-      <b class="word">forma</b>
-      <span class="ver">v<span id="ver-num">0.6.2</span></span>
+      <b class="word">filo 3d</b>
+      <span class="ver">v<span id="ver-num">0.7.1</span></span>
     </div>
-    <p>Forma è un modellatore 3D semplice per creare e modificare oggetti da stampare in 3D: forme di base, fori, testo, allineamenti e importazione di file 3MF, STL e SVG. Pensato per oggetti pratici come mollette, ganci e scatoline.</p>
+    <p>Filo 3D è un modellatore 3D semplice per creare e modificare oggetti da stampare in 3D: forme di base, fori, testo, allineamenti e importazione di file 3MF, STL e SVG. Pensato per oggetti pratici come mollette, ganci e scatoline.</p>
     <p>Questa app è stata generata con l’ausilio dell’intelligenza artificiale.</p>
-    <div class="info-row"><span class="lbl">GitHub</span><span>Sarà disponibile su GitHub quando verrà pubblicata.</span></div>
-    <div class="info-row"><span class="lbl">Aggiornamenti</span><span id="upd-msg">Il controllo automatico degli aggiornamenti su GitHub arriverà in futuro.</span></div>
-    <div class="info-row"><span class="lbl">Licenze</span><div><span>Forma usa software libero di terze parti, tutto open source e usabile liberamente, anche per scopi commerciali.</span><!--LICENSES--></div></div>
+    <div class="info-row"><span class="lbl">Novità</span><div class="cl">
+      <b>0.7.1</b>
+      <ul><li>Nuovo strumento Spigolo: raccordi e smussi</li><li>Nuove forme: cono, prisma con n lati e toro</li><li>Tasti adattati a Windows e Linux</li><li>Tema chiaro, scuro o automatico</li><li>Misure con il tasto M</li></ul>
+      <details><summary>Versioni precedenti</summary>
+        <b>0.6.2</b>
+        <ul><li>Cronologia con anteprima (F8)</li><li>Livelli con blocco e nascondi</li><li>Testo 3D con font tuoi e importazione SVG</li><li>Colori per ogni oggetto</li><li>Nome del file all’esportazione</li><li>Correzioni su foro con testo e lati dei gruppi</li></ul>
+        <b>0.5.6</b>
+        <ul><li>Ridimensionamento di gruppi e oggetti ruotati</li><li>Blocco sull’asse con Maiusc</li><li>Schermata di trascinamento file</li><li>Allineamento sempre disponibile</li></ul>
+        <b>Prime versioni</b>
+        <ul><li>Forme base, fori, combinazione, gruppi e rotazione</li><li>Strumento Lato per spingere e tirare</li><li>Esportazione 3MF e STL, italiano e inglese</li></ul>
+      </details>
+    </div></div>
+    <div class="info-row"><span class="lbl">Licenze</span><div><span>Filo 3D usa software libero di terze parti, tutto open source e usabile liberamente, anche per scopi commerciali.</span><!--LICENSES--></div></div>
     <div class="info-actions">
       <a class="btn primary" id="kofi" href="https://ko-fi.com/affogo" target="_blank" rel="noopener noreferrer">Dona su Ko-fi</a>
-      <button class="btn" id="upd-btn" disabled>Controlla aggiornamenti</button>
     </div>
-    <p class="small">Se Forma ti è utile, puoi sostenerne lo sviluppo con una donazione.</p>
+    <p class="small">Se Filo 3D ti è utile, puoi sostenerne lo sviluppo con una donazione.</p>
   </div>
 </dialog>
 

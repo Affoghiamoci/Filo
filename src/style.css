@@ -396,3 +396,10 @@ kbd{font-feature-settings:"zero" 1}
 .eh-a button{border-color:var(--line)}
 .eh-a button:hover{background:#FF6A00;border-color:#FF6A00;color:#fff}
 .eh-a button:hover kbd{color:rgba(255,255,255,.8)}
+/* novità */
+.cl b{display:block;font:600 11px var(--mono);letter-spacing:.08em;color:var(--text);margin:8px 0 2px}
+.cl>b:first-child{margin-top:0;color:#FF6A00}
+.cl ul{margin:0;padding-left:16px;font-size:12px;line-height:1.5;color:var(--muted)}
+.cl details{margin-top:8px}
+.cl summary{cursor:pointer;font:500 10.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.cl summary:hover{color:var(--text)}
