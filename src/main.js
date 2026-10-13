@@ -1867,7 +1867,12 @@ function computeFace(m, t0) {
     parent[find(ids[t * 3 + 2])] = find(ra);
   }
   const root = find(ids[t0 * 3]);
-  const curvedList = curvedTris(geo, t0);
+  let curvedList = curvedTris(geo, t0), full = false;
+  // cilindro circolare: il lato è un pezzo unico, tutto intorno (non solo la metà vicino al clic)
+  if (curvedList && m.userData.kind === 'cylinder' && Math.abs(m.userData.p.w - m.userData.p.d) < 0.01 && Math.abs(nz) < 0.02) {
+    const side = []; for (let t = 0; t < nTri; t++) if (ok[t] && Math.abs(nrm[t * 3 + 2]) < 0.02) side.push(t);
+    if (side.length) { curvedList = side; full = true; }
+  }
   const tris = curvedList || cand.filter(t => find(ids[t * 3]) === root);
   m.updateMatrixWorld(true);
   const pos = geo.attributes.position, idx = geo.index;
@@ -1896,7 +1901,7 @@ function computeFace(m, t0) {
     }
   });
   if (curvedList) { // un lato curvo si muove rigido lungo l'asse del mondo più vicino (su/giù, avanti/indietro), non in diagonale
-    avg.normalize();
+    if (full) avg.copy(n); avg.normalize();
     const ax = Math.abs(avg.x) >= Math.abs(avg.y) && Math.abs(avg.x) >= Math.abs(avg.z) ? 'x' : Math.abs(avg.y) >= Math.abs(avg.z) ? 'y' : 'z';
     n.set(0, 0, 0); n[ax] = Math.sign(avg[ax]) || 1;
   }
@@ -1926,7 +1931,7 @@ function computeFace(m, t0) {
     area += Math.abs((T[o + 2] - T[o]) * (T[o + 5] - T[o + 1]) - (T[o + 4] - T[o]) * (T[o + 3] - T[o + 1])) / 2;
   }
   const W = b.umax - b.umin, H = b.vmax - b.vmin;
-  return { obj: m, n, u: uAx, v: vAx, o: org, world, vn, tri2d, b, W, H, area, curved: !!curvedList, rect: !curvedList && area >= W * H * 0.995, triSet: new Set(tris) };
+  return { obj: m, n, u: uAx, v: vAx, o: org, world, vn, tri2d, b, W, H, area, curved: !!curvedList, full, rect: !curvedList && area >= W * H * 0.995, triSet: new Set(tris) };
 }
 function inRegion(fs, x, y) {
   const T = fs.tri2d;
@@ -2569,6 +2574,12 @@ function pushVertical(obj, fs, dist) {
 const FLAT_MSG = 'Il lato arriverebbe a spessore zero: il pezzo sparirebbe. Usa una distanza minore';
 function isFlat(b) { return Math.min(b.size.x, b.size.y, b.size.z) < 0.1; }   // un pezzo senza spessore sparisce e non si può più modificare
 function pushOne(obj, faces, dist) {
+  if (faces.length === 1 && faces[0].full && obj.userData.kind === 'cylinder') {   // lato intero di un cilindro: allarga o stringe il raggio
+    const u = obj.userData, nd = u.p.w + 2 * dist;
+    if (nd < 0.2) return { err: FLAT_MSG };
+    setSize(obj, 'w', nd); setSize(obj, 'd', nd);
+    return { mesh: obj, ext: false };
+  }
   if (faces.length === 1 && faces[0].curved) {
     let pv = null; try { pv = pushVertical(obj, faces[0], dist); } catch (e) { pv = null; }
     if (pv && pv.err) return { err: pv.err };

@@ -110,6 +110,7 @@ const EN = {
   'Clicca un punto o un lato, poi un secondo. Su due lati paralleli misura la distanza tra i piani.': 'Click a point or a side, then a second one. On two parallel sides it measures the distance between the planes.',
   'Ora clicca il secondo punto o lato.': 'Now click the second point or side.',
   'Distanza tra i due lati paralleli': 'Distance between the two parallel sides',
+  'Cilindro: il lato è un pezzo unico, si allarga con Lato e resta un cilindro modificabile': 'Cylinder: the side is a single piece, widen it with Side and it stays an editable cylinder',
   'Texture anche sui cilindri (canne, anelli, esagoni, punti)': 'Textures on cylinders too (tubes, rings, hexagons, dots)',
   'Strumento Distanza (D): misura tra due punti o due lati': 'Distance tool (D): measures between two points or two sides',
   'Cubo di orientamento: mostra da dove guardi e porta alla vista con un clic': 'Orientation cube: shows where you are looking from and jumps to a view with one click',
