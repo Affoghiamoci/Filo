@@ -3290,15 +3290,16 @@ function applyEdges() {
   const obj = edgeSel[0].obj;
   if (heavyGuard([obj])) return;
   // i 4 spigoli verticali di una scatola: raccordo o smusso restano parametrici (stesso campo Raggio)
-  if (obj.userData.kind === 'box' && edgeSel.length === 4 && Math.abs(obj.rotation.x) < 1e-6 && Math.abs(obj.rotation.y) < 1e-6 && (obj.userData.p.t ?? 100) >= 99.9 && !(obj.userData.p.r > 0.001)) {
-    const u = obj.userData, corners = new Set(); obj.updateMatrixWorld(true);
+  if (obj.userData.kind === 'box' && edgeSel.length === 4 && !(obj.userData.p.r > 0.001)) {
+    const u = obj.userData, corners = new Set(), tt = (u.p.t ?? 100) / 100; obj.updateMatrixWorld(true);
     const ok = edgeSel.every(x => {
       const P = x.chain.pts; if (P.length !== 2) return false;
-      const L = P.map(p => obj.worldToLocal(p.clone()));
-      const cx = Math.sign(L[0].x), cy = Math.sign(L[0].y);
-      if (!(Math.abs(Math.abs(L[0].x) - u.p.w / 2) < 0.01 && Math.abs(Math.abs(L[0].y) - u.p.d / 2) < 0.01 && Math.abs(L[1].x - L[0].x) < 0.01 && Math.abs(L[1].y - L[0].y) < 0.01)) return false;
-      if (Math.abs(Math.abs(L[0].z - L[1].z) - u.p.h) > 0.01) return false;
-      corners.add(cx + ',' + cy); return true;
+      const L = P.map(p => obj.worldToLocal(p.clone())).sort((a, b) => a.z - b.z);
+      if (Math.abs(L[0].z) > 0.01 || Math.abs(L[1].z - u.p.h) > 0.01) return false;
+      if (!(Math.abs(Math.abs(L[0].x) - u.p.w / 2) < 0.01 && Math.abs(Math.abs(L[0].y) - u.p.d / 2) < 0.01)) return false;
+      if (!(Math.abs(Math.abs(L[1].x) - u.p.w / 2 * tt) < 0.01 && Math.abs(Math.abs(L[1].y) - u.p.d / 2 * tt) < 0.01)) return false;
+      if (Math.sign(L[0].x) !== Math.sign(L[1].x) || Math.sign(L[0].y) !== Math.sign(L[1].y)) return false;
+      corners.add(Math.sign(L[0].x) + ',' + Math.sign(L[0].y)); return true;
     });
     if (ok && corners.size === 4) {
       if (size >= Math.min(u.p.w, u.p.d) / 2) return toast('La misura è troppo grande per questa scatola');
@@ -3309,14 +3310,15 @@ function applyEdges() {
     }
   }
   // bordo alto o basso di una scatola (anello chiuso a Z = altezza o Z = 0): resta parametrico
-  if (obj.userData.kind === 'box' && Math.abs(obj.rotation.x) < 1e-6 && Math.abs(obj.rotation.y) < 1e-6 && (obj.userData.p.t ?? 100) >= 99.9) {
-    const loop = selectedLoop(), u = obj.userData;
+  if (obj.userData.kind === 'box') {
+    const loop = selectedLoop(), u = obj.userData, tt = (u.p.t ?? 100) / 100;
     if (loop && loop.length >= 4) {
       obj.updateMatrixWorld(true);
       const L = loop.map(p => obj.worldToLocal(p.clone()));
       const top = L.every(v => Math.abs(v.z - u.p.h) < 0.01), bot = L.every(v => Math.abs(v.z) < 0.01);
       const ex = Math.max(...L.map(v => Math.abs(v.x))), ey = Math.max(...L.map(v => Math.abs(v.y)));
-      if ((top || bot) && Math.abs(ex - u.p.w / 2) < 0.01 && Math.abs(ey - u.p.d / 2) < 0.01) {
+      const kk = top ? tt : 1;
+      if ((top || bot) && Math.abs(ex - u.p.w / 2 * kk) < 0.01 && Math.abs(ey - u.p.d / 2 * kk) < 0.01) {
         if (size >= Math.min(u.p.w, u.p.d) / 2 || size >= u.p.h) return toast('La misura è troppo grande per questa scatola');
         u.p[top ? 'ft' : 'fb'] = size; u.p.rm = edgeMode.v === 'chamfer' ? 'chamfer' : null;
         obj.geometry.dispose(); obj.geometry = buildGeometry('box', u.p); refreshEdges(obj); obj.updateMatrixWorld(true);
