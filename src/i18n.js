@@ -85,7 +85,7 @@ const EN = {
   'Impossibile controllare ora: riprova più tardi.': 'Could not check right now: try again later.',
   'Hai già la versione più recente.': 'You already have the latest version.',
   'Modello complesso: per tenerlo fluido ho ridotto risoluzione, ombre e bordi. Per modificarlo conviene semplificarlo prima (Bambu Studio: tasto destro, Semplifica modello).': 'Complex model: to keep it smooth I lowered resolution, shadows and edges. Simplify it first to edit it (Bambu Studio: right click, Simplify model).',
-  'a contatto': 'touching', 'Calamita tra lati: spostando un pezzo, i lati paralleli vicini si agganciano a contatto': 'Face snap: when moving a piece, nearby parallel sides snap together',
+  'a contatto': 'touching', 'angolo su angolo': 'corner to corner', 'Calamita tra lati: spostando un pezzo, lati e angoli vicini si agganciano a contatto': 'Snap: when moving a piece, nearby sides and corners snap together',
   'Angoli verticali': 'Vertical corners', 'Bordo alto': 'Top edge', 'Bordo basso': 'Bottom edge',
   'Ripeti': 'Repeat', "Nido d'ape": 'Honeycomb', 'Cerchio': 'Circle', 'Colonne': 'Columns', 'Righe': 'Rows', 'Passo X': 'Step X', 'Passo Y': 'Step Y', 'Copie': 'Copies', 'Angolo': 'Angle', 'Centro X': 'Center X', 'Centro Y': 'Center Y',
   'Le righe dispari sono spostate di mezzo passo': 'Odd rows are shifted by half a step',

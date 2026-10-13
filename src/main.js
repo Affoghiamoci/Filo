@@ -1206,9 +1206,10 @@ canvas.addEventListener('pointermove', e => {
     let dxs = snapV(base.x + raw.x) - base.x, dys = snapV(base.y + raw.y) - base.y;
     // ⇧ = blocca sull'asse X o Y (quello in cui ti sei mosso di più)
     if (e.shiftKey) { if (Math.abs(raw.x) >= Math.abs(raw.y)) dys = 0; else dxs = 0; }
-    const sh = new THREE.Vector3(dxs, dys, 0), sn = e.shiftKey ? null : snapFaces(ensureSnap(drag, 'snap', drag.start), sh, 'xy');
-    if (sn) { dxs += sn.c.x; dys += sn.c.y; }
-    showSnap(sn, sh, e);
+    const sh = new THREE.Vector3(dxs, dys, 0), SI = e.shiftKey ? null : ensureSnap(drag, 'snap', drag.start);
+    const sv = SI ? snapVerts(SI, sh) : null, sn = SI && !sv ? snapFaces(SI, sh, 'xy') : null;
+    if (sv) { dxs += sv.c.x; dys += sv.c.y; } else if (sn) { dxs += sn.c.x; dys += sn.c.y; }
+    showSnap(sn, sh, e); if (sv || vtxMark.visible) showVertex(sv, e);
     drag.start.forEach((p0, m) => { m.position.set(p0.x + dxs, p0.y + dys, p0.z); m.updateMatrixWorld(true); });
     touch(); syncPanel(); updateHandles();
   } else if (drag.mode === 'move' && drag.vert) {
@@ -1236,7 +1237,7 @@ canvas.addEventListener('pointerup', e => {
   if (!drag) return;
   const d = drag; drag = null;
   updateCursor(false);
-  if (d.mode === 'move') { guide.visible = false; dragRead.style.display = 'none'; dirty = true; }
+  if (d.mode === 'move') { vtxMark.visible = false; guide.visible = false; dragRead.style.display = 'none'; dirty = true; }
   if (d.mode === 'rotate') { dragRead.style.display = 'none'; if (d.moved && d.rot.delta !== 0) commit(); return; }
   if (d.mode === 'edgescale') {
     dragRead.style.display = 'none'; ringPrev.visible = false;
@@ -1296,7 +1297,9 @@ function ensureSnap(d, key, map) {
   if (d[key]) return d[key];
   const mov = [], stat = [];
   for (const m of objects) { if (!m.visible) continue; (map.has(m) ? mov : stat).push(...worldPlanes(m)); }
-  return (d[key] = { mov: mov.slice(0, 120), stat: stat.slice(0, 400) });
+  const movC = [], statC = [];
+  for (const m of objects) { if (!m.visible) continue; (map.has(m) ? movC : statC).push(...worldCorners(m)); }
+  return (d[key] = { mov: mov.slice(0, 120), stat: stat.slice(0, 400), movC: movC.slice(0, 400), statC: statC.slice(0, 3000) });
 }
 // s = spostamento dall'inizio; mode 'xy' per i lati verticali, 'z' per quelli orizzontali. Restituisce la correzione.
 function snapFaces(info, s, mode) {
@@ -1336,6 +1339,52 @@ function showSnap(sn, s, e) {
   dragRead.style.display = 'block';
   dragRead.style.left = e.clientX + 18 + 'px'; dragRead.style.top = e.clientY - 12 + 'px';
   dragRead.textContent = tr('a contatto');
+  dirty = true;
+}
+/* calamita tra angoli (apici): un vertice del pezzo si aggancia a un vertice di un altro */
+function worldCorners(m) {
+  const geo = m.geometry, info = meshInfo(geo), pos = geo.attributes.position, idx = geo.index;
+  m.updateMatrixWorld(true);
+  const out = [], v = new THREE.Vector3();
+  if (info.nTri > 60000) {                                  // modelli pesanti: solo gli otto angoli dell'ingombro
+    const bb = new THREE.Box3().setFromObject(m);
+    for (const x of [bb.min.x, bb.max.x]) for (const y of [bb.min.y, bb.max.y]) for (const z of [bb.min.z, bb.max.z]) out.push(new THREE.Vector3(x, y, z));
+    return out;
+  }
+  const first = new Int32Array(info.nVerts).fill(-1), sharp = new Uint8Array(info.nVerts), seen = new Int32Array(info.nVerts).fill(-1);
+  for (let t = 0; t < info.nTri; t++) {
+    if (!info.ok[t]) continue;
+    for (let k = 0; k < 3; k++) {
+      const id = info.ids[t * 3 + k];
+      if (first[id] < 0) { first[id] = t; seen[id] = idx ? idx.getX(t * 3 + k) : t * 3 + k; continue; }
+      const a = first[id] * 3, b = t * 3;
+      if (info.nrm[a] * info.nrm[b] + info.nrm[a + 1] * info.nrm[b + 1] + info.nrm[a + 2] * info.nrm[b + 2] < 0.92) sharp[id] = 1;
+    }
+  }
+  for (let id = 0; id < info.nVerts; id++) if (sharp[id] && seen[id] >= 0) out.push(v.fromBufferAttribute(pos, seen[id]).clone().applyMatrix4(m.matrixWorld));
+  if (out.length > 160) { const step = out.length / 160, r = []; for (let i = 0; i < 160; i++) r.push(out[Math.floor(i * step)]); return r; }
+  return out;
+}
+function snapVerts(info, s) {
+  const tol = Math.min(8, worldPerPixel() * 10);
+  let best = null, bd = tol;
+  for (const a of info.movC) for (const b of info.statC) {
+    const dx = b.x - (a.x + s.x), dy = b.y - (a.y + s.y), d = Math.hypot(dx, dy) + Math.abs(b.z - a.z) * 0.15;
+    if (d < bd) { bd = d; best = { c: new THREE.Vector3(dx, dy, 0), at: b }; }
+  }
+  return best;
+}
+const vtxMark = (() => {
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: handleTexture('#ff6a00'), sizeAttenuation: false, depthTest: false, depthWrite: false, transparent: true }));
+  sp.scale.setScalar(0.022); sp.renderOrder = 999; sp.visible = false; scene.add(sp); return sp;
+})();
+function showVertex(sv, e) {
+  vtxMark.visible = !!sv;
+  if (sv) {
+    vtxMark.position.copy(sv.at);
+    dragRead.style.display = 'block'; dragRead.style.left = e.clientX + 18 + 'px'; dragRead.style.top = e.clientY - 12 + 'px';
+    dragRead.textContent = tr('angolo su angolo'); guide.visible = false;
+  }
   dirty = true;
 }
 function moveVertical(e) {
