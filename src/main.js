@@ -1105,7 +1105,7 @@ canvas.addEventListener('pointermove', e => {
   else if (drag.mode === 'move' && !drag.vert) {
     if (drag.toggle && !selection.includes(drag.hit)) {
       setSelection(withGroups([drag.hit]));
-      drag.start = new Map(selection.map(m => [m, m.position.clone()]));
+      drag.start = new Map(selection.map(m => [m, m.position.clone()])); drag.snap = null;
       drag.gp = groundPoint(e);
     }
     const gp = groundPoint(e);
@@ -1116,6 +1116,9 @@ canvas.addEventListener('pointermove', e => {
     let dxs = snapV(base.x + raw.x) - base.x, dys = snapV(base.y + raw.y) - base.y;
     // ⇧ = blocca sull'asse X o Y (quello in cui ti sei mosso di più)
     if (e.shiftKey) { if (Math.abs(raw.x) >= Math.abs(raw.y)) dys = 0; else dxs = 0; }
+    const sh = new THREE.Vector3(dxs, dys, 0), sn = e.shiftKey ? null : snapFaces(ensureSnap(drag, 'snap', drag.start), sh, 'xy');
+    if (sn) { dxs += sn.c.x; dys += sn.c.y; }
+    showSnap(sn, sh, e);
     drag.start.forEach((p0, m) => { m.position.set(p0.x + dxs, p0.y + dys, p0.z); m.updateMatrixWorld(true); });
     touch(); syncPanel(); updateHandles();
   } else if (drag.mode === 'move' && drag.vert) {
@@ -1143,6 +1146,7 @@ canvas.addEventListener('pointerup', e => {
   if (!drag) return;
   const d = drag; drag = null;
   updateCursor(false);
+  if (d.mode === 'move') { guide.visible = false; dragRead.style.display = 'none'; dirty = true; }
   if (d.mode === 'rotate') { dragRead.style.display = 'none'; if (d.moved && d.rot.delta !== 0) commit(); return; }
   if (d.mode === 'edgescale') {
     dragRead.style.display = 'none'; ringPrev.visible = false;
@@ -1177,6 +1181,73 @@ canvas.addEventListener('pointerup', e => {
   } else if (d.mode === 'handle') { if (d.moved) commit(); else openHandlePopup(d.h, d.handle); }
   else if (d.emptyClick && !d.moved && !d.shift) setSelection([]);
 });
+/* calamita tra lati: facce parallele e opposte vicine si agganciano a contatto (0 mm) */
+function worldPlanes(m) {
+  const info = meshInfo(m.geometry);
+  if (info.nTri > 80000) return [];
+  m.updateMatrixWorld(true);
+  const geo = m.geometry, pos = geo.attributes.position, idx = geo.index, mw = m.matrixWorld;
+  const nm = new THREE.Matrix3().getNormalMatrix(mw);
+  const groups = new Map(), wn = new THREE.Vector3(), V = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()], e1 = new THREE.Vector3(), e2 = new THREE.Vector3();
+  for (let t = 0; t < info.nTri; t++) {
+    if (!info.ok[t]) continue;
+    wn.set(info.nrm[t * 3], info.nrm[t * 3 + 1], info.nrm[t * 3 + 2]).applyMatrix3(nm).normalize();
+    for (let k = 0; k < 3; k++) V[k].fromBufferAttribute(pos, idx ? idx.getX(t * 3 + k) : t * 3 + k).applyMatrix4(mw);
+    const d = wn.dot(V[0]);
+    const key = Math.round(wn.x * 200) + ',' + Math.round(wn.y * 200) + ',' + Math.round(wn.z * 200) + ',' + Math.round(d * 20);
+    let g = groups.get(key);
+    if (!g) { g = { n: wn.clone(), d, min: new THREE.Vector3(Infinity, Infinity, Infinity), max: new THREE.Vector3(-Infinity, -Infinity, -Infinity), area: 0 }; groups.set(key, g); }
+    for (let k = 0; k < 3; k++) { g.min.min(V[k]); g.max.max(V[k]); }
+    g.area += e1.subVectors(V[1], V[0]).cross(e2.subVectors(V[2], V[0])).length() / 2;
+  }
+  return [...groups.values()].filter(g => g.area > 4).sort((a, b) => b.area - a.area).slice(0, 60);
+}
+function ensureSnap(d, key, map) {
+  if (d[key]) return d[key];
+  const mov = [], stat = [];
+  for (const m of objects) { if (!m.visible) continue; (map.has(m) ? mov : stat).push(...worldPlanes(m)); }
+  return (d[key] = { mov: mov.slice(0, 120), stat: stat.slice(0, 400) });
+}
+// s = spostamento dall'inizio; mode 'xy' per i lati verticali, 'z' per quelli orizzontali. Restituisce la correzione.
+function snapFaces(info, s, mode) {
+  const tol = Math.min(6, worldPerPixel() * 8), pad = tol + 0.05;
+  let best = null;
+  for (const M of info.mov) for (const S of info.stat) {
+    if (M.n.dot(S.n) > -0.998) continue;
+    const mask = mode === 'z' ? S.n.z * S.n.z : S.n.x * S.n.x + S.n.y * S.n.y;
+    if (mask < 0.6 || (mode === 'z' && Math.abs(S.n.z) < 0.8)) continue;
+    const g = (-M.d + S.n.dot(s)) - S.d;
+    if (Math.abs(g) > tol || (best && Math.abs(g) >= Math.abs(best.g))) continue;
+    let ok = true;
+    for (const ax of ['x', 'y', 'z']) if (M.min[ax] + s[ax] > S.max[ax] + pad || M.max[ax] + s[ax] < S.min[ax] - pad) { ok = false; break; }
+    if (!ok) continue;
+    const c = mode === 'z' ? new THREE.Vector3(0, 0, -g / S.n.z) : new THREE.Vector3(-g * S.n.x / mask, -g * S.n.y / mask, 0);
+    best = { g, c, M, S };
+  }
+  return best;
+}
+function showSnap(sn, s, e) {
+  if (!sn) { if (guide.visible || dragRead.style.display !== 'none') { guide.visible = false; dragRead.style.display = 'none'; dirty = true; } return; }
+  const { S, M } = sn, sh = s.clone().add(sn.c);
+  const lo = new THREE.Vector3(Math.max(S.min.x, M.min.x + sh.x), Math.max(S.min.y, M.min.y + sh.y), Math.max(S.min.z, M.min.z + sh.z));
+  const hi = new THREE.Vector3(Math.min(S.max.x, M.max.x + sh.x), Math.min(S.max.y, M.max.y + sh.y), Math.min(S.max.z, M.max.z + sh.z));
+  const n = S.n.clone(), u = Math.abs(n.z) > 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 0, 1).cross(n).normalize(), v = n.clone().cross(u);
+  let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+  const c = new THREE.Vector3(), ctr = lo.clone().add(hi).multiplyScalar(0.5);
+  for (const x of [lo.x, hi.x]) for (const y of [lo.y, hi.y]) for (const z of [lo.z, hi.z]) {
+    c.set(x, y, z).sub(ctr); const a = c.dot(u), b = c.dot(v);
+    u0 = Math.min(u0, a); u1 = Math.max(u1, a); v0 = Math.min(v0, b); v1 = Math.max(v1, b);
+  }
+  const mg = 4, gw = Math.max(u1 - u0, 1) + mg * 2, gh = Math.max(v1 - v0, 1) + mg * 2;
+  guide.scale.set(gw, gh, 1); guideMat.uniforms.uSize.value.set(gw, gh);
+  guide.position.copy(ctr).addScaledVector(n, S.d - n.dot(ctr));
+  guide.quaternion.setFromRotationMatrix(basisMatrix(u, v, n, new THREE.Vector3()));
+  guide.visible = true;
+  dragRead.style.display = 'block';
+  dragRead.style.left = e.clientX + 18 + 'px'; dragRead.style.top = e.clientY - 12 + 'px';
+  dragRead.textContent = tr('a contatto');
+  dirty = true;
+}
 function moveVertical(e) {
   const d = drag;
   if (!d.vstart) {
@@ -1193,7 +1264,10 @@ function moveVertical(e) {
   const hit = d.vplane ? raycaster.ray.intersectPlane(d.vplane, new THREE.Vector3()) : null;
   const dz = hit && d.vz0 !== null ? hit.z - d.vz0 : -(e.clientY - d.vy0) * worldPerPixel();
   const base = d.vstart.get(d.hit) ?? [...d.vstart.values()][0];
-  const ddz = snapV(base.z + dz) - base.z;
+  let ddz = snapV(base.z + dz) - base.z;
+  const shz = new THREE.Vector3(0, 0, ddz), snz = snapFaces(ensureSnap(d, 'snapz', d.vstart), shz, 'z');
+  if (snz) ddz += snz.c.z;
+  showSnap(snz, shz, e);
   d.vstart.forEach((p0, m) => { m.position.z = p0.z + ddz; m.updateMatrixWorld(true); });
   touch(); syncPanel(); updateHandles();
 }
@@ -2994,7 +3068,6 @@ async function importFiles(files) {
       setSelection(made); touch(); commit(); fitView();
       const tris = made.reduce((s, m) => s + m.geometry.index.count / 3, 0);
       toast(`Importato ${f.name}: ${made.length} ${made.length === 1 ? 'oggetto' : 'oggetti'}, ${tris.toLocaleString('it-IT')} triangoli`);
-      if (made.some(m => m.userData.heavy)) setTimeout(() => toast(`Modello molto pesante (${tris.toLocaleString('it-IT')} triangoli): ho spento bordi, ombre e anteprima dei lati per tenerlo fluido. Per modificarlo conviene semplificarlo prima (in Bambu Studio: tasto destro, Semplifica modello).`, 9000), 2600);
     } catch (err) { console.error(err); toast(`Impossibile leggere ${f.name}`); }
   }
 }

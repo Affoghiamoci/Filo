@@ -464,3 +464,6 @@ label.f input::-webkit-inner-spin-button,label.f input::-webkit-outer-spin-butto
 
 #perf-note{position:fixed;top:64px;left:calc(var(--sw,312px) + (100vw - var(--sw,312px)) / 2);transform:translateX(-50%);display:flex;align-items:center;gap:10px;max-width:min(560px,calc(100vw - var(--sw,312px) - 32px));padding:8px 8px 8px 14px;font:500 12px var(--mono);color:var(--muted);border-left:2px solid var(--accent);z-index:30}
 #perf-note span{line-height:1.4}
+
+#p-r-wrap .seg{margin:0 0 8px}
+.grid1.rnd label.f input{width:70px;margin-left:auto}
