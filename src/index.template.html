@@ -120,6 +120,11 @@
   <h4>Misura</h4>
   <div class="row2"><label class="f">Di<input id="e-size" type="number" step="0.5" min="0.1" placeholder="2"><em>mm</em></label><button class="btn primary" id="e-go">Applica</button></div>
   <p class="hint">Raccordo: spigolo arrotondato. Smusso: taglio a 45°.</p>
+  <div id="e-scale-box" class="hidden">
+    <h4>Ridimensiona</h4>
+    <div class="row2"><label class="f">Scala<input id="e-scale" type="number" step="5" min="1" placeholder="100"><em>%</em></label><button class="btn primary" id="e-scale-go">Scala</button></div>
+    <p class="hint">Rimpicciolisce o ingrandisce l'anello selezionato. Sul bordo superiore di un cilindro, 50 % lo trasforma in un cono tronco.</p>
+  </div>
 </div>
 </aside>
 
@@ -235,7 +240,7 @@
     <p>Questa app è stata generata con l’ausilio dell’intelligenza artificiale.</p>
     <div class="info-row"><span class="lbl">Novità</span><div class="cl">
       <b>0.7.2</b>
-      <ul><li>Selettore della lingua nel menu iniziale</li><li>Con il lucchetto attivo, Maiusc ridimensiona senza proporzioni</li><li>Copia, taglia e incolla (⌘C, ⌘X, ⌘V)</li><li>Modelli molto pesanti più fluidi, con avviso</li><li>Angoli di rotazione più coerenti dopo i quarti di giro</li><li>Avviso per chi apre Filo da mobile</li><li>Contatore di visite anonimo sul sito ufficiale</li><li>Strumento Distanza (D): misura tra due punti o due lati</li><li>Texture anche sui cilindri (canne, anelli, esagoni, punti)</li><li>Cilindro: il lato è un pezzo unico, si allarga con Lato e resta un cilindro modificabile</li><li>Vista Raggi X (Z): mostra i contorni delle parti coperte</li><li>Lato curvo di un cilindro: profilo pulito, senza fessure</li><li>Esporta: un solo passaggio, con scelta del formato nella finestra</li><li>Scanalature su lati piatti e cilindri, un clic dal pannello Lato</li><li>Lato: non si può più spingere fino a spessore zero</li><li>Cubo di orientamento: mostra da dove guardi e porta alla vista con un clic</li><li>Lingua, tema e info in basso con lo stesso stile</li><li>Numeri nei campi non più coperti dalle freccette</li><li>Import 3MF: ignora i volumi modificatori dei file Bambu e Orca</li><li>Nuovo menu iniziale numerato</li><li>Raccordi e smussi con superficie liscia</li><li>Il tasto T non cancella più il testo appena creato</li></ul>
+      <ul><li>Selettore della lingua nel menu iniziale</li><li>Con il lucchetto attivo, Maiusc ridimensiona senza proporzioni</li><li>Copia, taglia e incolla (⌘C, ⌘X, ⌘V)</li><li>Modelli molto pesanti più fluidi, con avviso</li><li>Angoli di rotazione più coerenti dopo i quarti di giro</li><li>Avviso per chi apre Filo da mobile</li><li>Contatore di visite anonimo sul sito ufficiale</li><li>Strumento Distanza (D): misura tra due punti o due lati</li><li>Texture anche sui cilindri (canne, anelli, esagoni, punti)</li><li>Cilindro: il lato è un pezzo unico, si allarga con Lato e resta un cilindro modificabile</li><li>Spigolo ad anello: si ridimensiona in % (un cilindro diventa un cono)</li><li>Vista Raggi X (Z): mostra i contorni delle parti coperte</li><li>Lato curvo di un cilindro: profilo pulito, senza fessure</li><li>Esporta: un solo passaggio, con scelta del formato nella finestra</li><li>Scanalature su lati piatti e cilindri, un clic dal pannello Lato</li><li>Lato: non si può più spingere fino a spessore zero</li><li>Cubo di orientamento: mostra da dove guardi e porta alla vista con un clic</li><li>Lingua, tema e info in basso con lo stesso stile</li><li>Numeri nei campi non più coperti dalle freccette</li><li>Import 3MF: ignora i volumi modificatori dei file Bambu e Orca</li><li>Nuovo menu iniziale numerato</li><li>Raccordi e smussi con superficie liscia</li><li>Il tasto T non cancella più il testo appena creato</li></ul>
       <details><summary>Versioni precedenti</summary>
         <b>0.7.1</b>
         <ul><li>Nuovo strumento Spigolo: raccordi e smussi</li><li>Nuove forme: cono, prisma con n lati e toro</li><li>Tasti adattati a Windows e Linux</li><li>Tema chiaro, scuro o automatico</li><li>Misure con il tasto M</li></ul>

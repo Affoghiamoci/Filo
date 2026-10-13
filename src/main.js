@@ -3012,9 +3012,62 @@ function updateEdgePanel() {
   EF.info.textContent = n ? `· ${n} ${n === 1 ? 'spigolo' : 'spigoli'}` : '';
   EF.hint.textContent = n ? 'Scegli il tipo e la misura, poi Applica.' : 'Clicca uno spigolo del pezzo. Maiusc + clic: aggiungi o togli spigoli.';
   EF.go.disabled = !n;
+  $('#e-scale-box').classList.toggle('hidden', !(n === 1 && edgeSel[0].chain.closed));
   document.querySelectorAll('#e-type button').forEach(b => b.classList.toggle('on', b.dataset.v === edgeMode.v));
 }
 document.querySelectorAll('#e-type button').forEach(b => b.addEventListener('click', () => { edgeMode.v = b.dataset.v; updateEdgePanel(); }));
+// ridimensiona un anello chiuso (es. il bordo superiore di un cilindro): i vertici si spostano radialmente, il pezzo diventa un tronco di cono
+function scaleEdge(obj, chain, f) {
+  const P = chain.pts, c = new THREE.Vector3();
+  P.forEach(p => c.add(p)); c.divideScalar(P.length);
+  const nrm = new THREE.Vector3();
+  for (let i = 0; i < P.length; i++) { const a = P[i].clone().sub(c), b = P[(i + 1) % P.length].clone().sub(c); nrm.add(a.cross(b)); }
+  if (nrm.lengthSq() < 1e-9) return { err: 'Questo spigolo non è un anello piano' };
+  nrm.normalize();
+  const u = obj.userData;
+  // cilindro o cono dritto: resta un cono modificabile
+  if ((u.kind === 'cylinder' || u.kind === 'cone') && Math.abs(u.p.w - u.p.d) < 0.01 && P.length >= 24 && Math.abs(Math.abs(nrm.z) - 1) < 1e-3 && Math.abs(obj.rotation.x) < 1e-6 && Math.abs(obj.rotation.y) < 1e-6) {
+    obj.updateMatrixWorld(true);
+    const zBase = obj.position.z, top = Math.abs(c.z - (zBase + u.p.h)) < 0.02, bottom = Math.abs(c.z - zBase) < 0.02;
+    const rad = P.reduce((m, p) => m + Math.hypot(p.x - c.x, p.y - c.y), 0) / P.length;
+    const q0 = u.kind === 'cone' ? (u.p.q ?? 0) : 100;
+    if (top && Math.abs(rad - u.p.w / 2 * q0 / 100) < 0.05) {
+      const q = q0 * f;
+      if (q >= 1 && q <= 100) { u.kind = 'cone'; u.p.q = q; obj.geometry.dispose(); obj.geometry = buildGeometry('cone', u.p); refreshEdges(obj); obj.updateMatrixWorld(true); return { mesh: obj }; }
+    } else if (bottom && u.kind === 'cone' && Math.abs(rad - u.p.w / 2) < 0.05) {
+      const q = q0 / f, w = u.p.w * f;
+      if (q >= 1 && q <= 100 && w >= 0.2) { u.p.w = w; u.p.d = w; u.p.q = q; obj.geometry.dispose(); obj.geometry = buildGeometry('cone', u.p); refreshEdges(obj); obj.updateMatrixWorld(true); return { mesh: obj }; }
+    }
+  }
+  const arr = worldPositions(obj), key = (x, y, z) => Math.round(x * 2000) + ',' + Math.round(y * 2000) + ',' + Math.round(z * 2000);
+  const set = new Set(P.map(p => key(p.x, p.y, p.z))), d = new THREE.Vector3();
+  for (let i = 0; i < arr.length; i += 3) {
+    if (!set.has(key(arr[i], arr[i + 1], arr[i + 2]))) continue;
+    d.set(arr[i] - c.x, arr[i + 1] - c.y, arr[i + 2] - c.z);
+    d.addScaledVector(nrm, -d.dot(nrm)).multiplyScalar(f - 1);
+    arr[i] += d.x; arr[i + 1] += d.y; arr[i + 2] += d.z;
+  }
+  const g = geometryFromPositions(arr), tmp = new THREE.Mesh(g);
+  const baked = bakeResult(tmp, obj.userData.name);
+  if (!baked) return { err: 'Il risultato è vuoto' };
+  const nm = replaceWithMerged(obj, baked, true);
+  nm.userData.color = obj.userData.color ?? null;
+  return { mesh: nm };
+}
+function applyEdgeScale() {
+  const pct = parseFloat($('#e-scale').value);
+  if (edgeSel.length !== 1 || !edgeSel[0].chain.closed) return;
+  if (!(pct >= 1 && pct <= 1000)) return toast('Scrivi una scala in % (da 1 a 1000)');
+  const { obj, chain } = edgeSel[0];
+  if (heavyGuard([obj])) return;
+  const r = scaleEdge(obj, chain, pct / 100);
+  if (r.err) return toast(r.err);
+  clearEdges(); setSelection([r.mesh]); touch(); commit();
+  $('#e-scale').value = '';
+  toast('Spigolo ridimensionato');
+}
+$('#e-scale-go').addEventListener('click', applyEdgeScale);
+$('#e-scale').addEventListener('keydown', e => { if (e.key === 'Enter') applyEdgeScale(); });
 function applyEdges() {
   const size = parseFloat(EF.size.value);
   if (!edgeSel.length) return;
@@ -3078,7 +3131,7 @@ try {
   d.addEventListener('cancel', () => { try { sessionStorage.setItem('forma.mobile', '1'); } catch (e) {} });
   setTimeout(() => { try { d.showModal(); } catch (e) {} }, 400);
 })();
-window.forma = { edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyTexture, applyGrooves, gUI, applyPush, selectFaceFromHit, texUI, layout, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole };
+window.forma = { applyEdgeScale, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyTexture, applyGrooves, gUI, applyPush, selectFaceFromHit, texUI, layout, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole };
 
 
 /* ------------------------------------------------------------------ livelli */
