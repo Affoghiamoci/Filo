@@ -1101,7 +1101,7 @@ canvas.addEventListener('pointerup', e => {
   }
   if (d.mode === 'facepush') {
     const dist = d.fd.dist;
-    if (d.fd.fs.full && d.fd.fs.obj.userData.kind === 'cylinder') { d.fd.fs.obj.scale.set(1, 1, 1); selMeshes.forEach(m => { m.visible = true; }); }
+    if (d.fd.fs.full && ['cylinder', 'cone'].includes(d.fd.fs.obj.userData.kind)) { d.fd.fs.obj.scale.set(1, 1, 1); selMeshes.forEach(m => { m.visible = true; }); }
     if (d.moved && Math.abs(dist) > 1e-4) applyPush(dist); else { selMeshes.forEach(m => m.position.set(0, 0, 0)); updateFaceHandle(); TF.push.focus(); }
     return;
   }
@@ -1896,8 +1896,13 @@ function computeFace(m, t0) {
   const root = find(ids[t0 * 3]);
   let curvedList = curvedTris(geo, t0), full = false;
   m.updateMatrixWorld(true);
+  // cilindro o cono parametrico: tutto il lato (senza i coperchi) è un pezzo unico
+  if (curvedList && ['cylinder', 'cone'].includes(m.userData.kind) && Math.abs(m.userData.p.w - m.userData.p.d) < 0.01 && Math.abs(Math.abs(nz) - 1) > 0.02) {
+    const side = []; for (let t = 0; t < nTri; t++) if (ok[t] && Math.abs(Math.abs(nrm[t * 3 + 2]) - 1) > 0.02) side.push(t);
+    if (side.length) { curvedList = side; full = true; }
+  }
   // lato curvo verticale che gira tutto intorno (cilindro, anche già modificato): un pezzo unico
-  if (curvedList && Math.abs(nz) < 0.02) {
+  if (curvedList && !full && Math.abs(nz) < 0.02) {
     const P = geo.attributes.position, I = geo.index, V = new THREE.Vector3(), tv = t => [0, 1, 2].map(j => V.clone().fromBufferAttribute(P, I ? I.getX(t * 3 + j) : t * 3 + j).applyMatrix4(m.matrixWorld));
     const xy = [], seenK = new Set(); let zA = Infinity, zB = -Infinity;
     for (const t of curvedList) for (const v of tv(t)) { zA = Math.min(zA, v.z); zB = Math.max(zB, v.z); const k = Math.round(v.x * 500) + ',' + Math.round(v.y * 500); if (!seenK.has(k)) { seenK.add(k); xy.push([v.x, v.y]); } }
@@ -1943,7 +1948,7 @@ function computeFace(m, t0) {
     }
   });
   if (curvedList) { // un lato curvo si muove rigido lungo l'asse del mondo più vicino (su/giù, avanti/indietro), non in diagonale
-    if (full) avg.copy(n); avg.normalize();
+    if (full) avg.set(n.x, n.y, 0).normalize(); avg.normalize();
     const ax = Math.abs(avg.x) >= Math.abs(avg.y) && Math.abs(avg.x) >= Math.abs(avg.z) ? 'x' : Math.abs(avg.y) >= Math.abs(avg.z) ? 'y' : 'z';
     n.set(0, 0, 0); n[ax] = Math.sign(avg[ax]) || 1;
   }
@@ -2373,7 +2378,7 @@ function exitDepth(obj, fs) {
 }
 function grooveCylinder(obj, o, fs) {
   const rp = ringParams(fs);
-  if (!rp) return { err: 'Le scanalature funzionano su cilindri circolari' };
+  if (!rp) return { err: 'Le scanalature funzionano solo su lati piatti e su cilindri circolari, non su coni, sfere e tori' };
   if (!rp.full) return { err: 'Il lato curvo deve girare tutto intorno (cilindro circolare)' };
   const R = rp.R, H = rp.zB - rp.zA, mg = o.margin, p0 = o.pitch;
   let g, N;
@@ -2600,7 +2605,7 @@ function pushVertical(obj, fs, dist) {
 const FLAT_MSG = 'Il lato arriverebbe a spessore zero: il pezzo sparirebbe. Usa una distanza minore';
 function isFlat(b) { return Math.min(b.size.x, b.size.y, b.size.z) < 0.1; }   // un pezzo senza spessore sparisce e non si può più modificare
 function pushOne(obj, faces, dist) {
-  if (faces.length === 1 && faces[0].full && obj.userData.kind === 'cylinder') {   // lato intero di un cilindro: allarga o stringe il raggio
+  if (faces.length === 1 && faces[0].full && ['cylinder', 'cone'].includes(obj.userData.kind)) {   // lato intero di un cilindro: allarga o stringe il raggio
     const u = obj.userData, nd = u.p.w + 2 * dist;
     if (nd < 0.2) return { err: FLAT_MSG };
     setSize(obj, 'w', nd); setSize(obj, 'd', nd);
@@ -2750,7 +2755,7 @@ function moveFaceDrag(e, fd) {
   const tol = worldPerPixel() * 9;
   let best = null;
   for (const p of fd.planes) if (Math.abs(p) > 0.01 && Math.abs(p - dist) < tol && (best === null || Math.abs(p - dist) < Math.abs(best - dist))) best = p;
-  const par = fs.full && fs.obj.userData.kind === 'cylinder';
+  const par = fs.full && ['cylinder', 'cone'].includes(fs.obj.userData.kind);
   if (par) { best = null; snapped = false; }
   if (best !== null) { dist = best; snapped = true; } else dist = snapV(dist);
   if (par) dist = Math.max(dist, -(fs.obj.userData.p.w / 2 - 0.2));      // il raggio non scende sotto 0,2 mm
@@ -3041,10 +3046,12 @@ function clearEdges() {
 const EF = { size: $('#e-size'), go: $('#e-go'), info: $('#e-info'), hint: $('#e-hint') };
 function updateEdgePanel() {
   const n = edgeSel.length;
-  EF.info.textContent = n ? `· ${n} ${n === 1 ? 'spigolo' : 'spigoli'}` : '';
+  EF.info.textContent = n ? `· ${n} ${n === 1 ? 'spigolo' : 'spigoli'}` : tr('· nessuno selezionato');
   EF.hint.textContent = n ? 'Scegli il tipo e la misura, poi Applica.' : 'Clicca uno spigolo del pezzo. Maiusc + clic: aggiungi o togli spigoli.';
   EF.go.disabled = !n;
-  $('#e-scale-box').classList.toggle('hidden', !selectedLoop());
+  const lp = !!selectedLoop();
+  $('#e-fillet-box').classList.toggle('dim', !n); $('#e-scale-box').classList.toggle('dim', !lp);
+  $('#e-size').disabled = !n; $('#e-scale').disabled = !lp; $('#e-scale-go').disabled = !lp;
   document.querySelectorAll('#e-type button').forEach(b => b.classList.toggle('on', b.dataset.v === edgeMode.v));
 }
 document.querySelectorAll('#e-type button').forEach(b => b.addEventListener('click', () => { edgeMode.v = b.dataset.v; updateEdgePanel(); }));

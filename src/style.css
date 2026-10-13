@@ -459,3 +459,5 @@ label.f input::-webkit-inner-spin-button,label.f input::-webkit-outer-spin-butto
 .ruler-pt{position:absolute;left:0;top:0;width:9px;height:9px;border-radius:50%;background:#fff;border:2px solid var(--accent);display:none;pointer-events:none}
 
 .seg3{grid-template-columns:repeat(3,1fr)}
+
+#p-edge .dim{opacity:.4;pointer-events:none}
