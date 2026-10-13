@@ -1,9 +1,9 @@
 // Traduzione IT ⇄ EN: i testi originali sono in italiano, l'inglese si applica al volo su tutto il DOM.
 const EN = {
-  'Distanza pallini': 'Dot spacing',
-  'Distanza tra i pallini della griglia': 'Spacing of the grid dots',
-  'Scatto di spostamento e distanza dei pallini separati': 'Move step and dot spacing now separate', 'Scatto': 'Step', 'Scatto mm': 'Step mm',
-  'Di quanto si sposta un oggetto': 'How far an object moves',
+  'Distanza griglia': 'Grid spacing',
+  'Distanza tra i punti della griglia': 'Spacing of the grid points',
+  'Scatto di spostamento e distanza della griglia separati': 'Move step and grid spacing now separate', 'Scatto': 'Step', 'Scatto mm': 'Step mm',
+  'Di quanto si sposta un oggetto, in mm': 'How far an object moves, in mm',
   'Filo · modellatore 3D semplice': 'Filo · simple 3D modeler',
   // barra laterale
   'Strumenti': 'Tools', 'Forme': 'Shapes', 'Modifica': 'Edit', 'Modelli': 'Templates',
@@ -208,7 +208,7 @@ const RULES = [
   [/^Attenzione: i pezzi superano il piatto da (.*) mm$/, (m) => `Warning: the parts exceed the ${m[1]} mm plate`],
   [/^Griglia: (.*) mm$/, (m) => `Grid: ${m[1].replace(',', '.')} mm`],
   [/^Scatto: (.*) mm$/, (m) => `Step: ${m[1].replace(',', '.')} mm`],
-  [/^Pallini ogni (.*) mm$/, (m) => `Dots every ${m[1]} mm`],
+  [/^Griglia ogni (.*) mm$/, (m) => `Grid every ${m[1]} mm`],
   [/^Piatto: (.*)$/, (m) => `Plate: ${m[1]}`],
   [/^Texture applicata: (\d+) elementi(?: su (\d+) lati)?$/, (m) => `Texture applied: ${m[1]} elements${m[2] ? ` on ${m[2]} faces` : ''}`],
   [/^(?:(\d+) lati|Lato) (estruso|tirato|spinto) di (.*) mm(?: \(.*\))?$/, (m) => `${m[1] ? m[1] + ' faces' : 'Face'} ${{ estruso: 'extruded', tirato: 'pulled', spinto: 'pushed' }[m[2]]} by ${m[3]} mm${m[2] === 'estruso' ? ' (face outline, neighbours untouched)' : ''}`],

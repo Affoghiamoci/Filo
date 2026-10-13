@@ -2017,13 +2017,13 @@ setSnap(1, false);
 /* distanza dei pallini */
 const DOTS = [2, 5, 10];
 const dotMenu = $('#dotmenu');
-dotMenu.innerHTML = '<div class="mh">Distanza pallini</div>' + DOTS.map(v => `<button class="btn" data-dot="${v}"><span>${v} mm</span></button>`).join('');
+dotMenu.innerHTML = '<div class="mh">Distanza griglia</div>' + DOTS.map(v => `<button class="btn" data-dot="${v}"><span>${v} mm</span></button>`).join('');
 function setDots(v, announce = true) {
   dotStep = gridStep = v; buildBedDots(v);
   $('#b-dots em').textContent = v + ' mm';
   dotMenu.querySelectorAll('[data-dot]').forEach(b => b.classList.toggle('on', +b.dataset.dot === v));
   try { localStorage.setItem('forma.dots', String(v)); } catch (e) {}
-  if (announce) toast(`Pallini ogni ${v} mm`);
+  if (announce) toast(`Griglia ogni ${v} mm`);
 }
 $('#b-dots').addEventListener('click', e => {
   e.stopPropagation();
