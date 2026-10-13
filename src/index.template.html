@@ -66,7 +66,7 @@
     </div>
     <div id="p-r-wrap">
       <h4>Angoli e bordi</h4>
-      <div class="seg" id="p-rm"><button data-v="fillet" class="on">Raccordo</button><button data-v="chamfer">Smusso</button></div>
+      <div class="seg" id="p-rm"><button data-v="fillet" class="on">Arrotondato</button><button data-v="chamfer">Smussato</button></div>
       <div class="grid1 rnd"><label class="f" title="Spigoli verticali">Angoli verticali<input id="p-r" type="number" step="0.5" min="0"></label><label class="f" title="Bordo superiore">Bordo alto<input id="p-ft" type="number" step="0.5" min="0"></label><label class="f" title="Bordo inferiore">Bordo basso<input id="p-fb" type="number" step="0.5" min="0"></label></div>
     </div>
     <div id="p-t-wrap">
@@ -133,10 +133,10 @@
   <p class="hint" id="e-hint"></p>
   <div id="e-fillet-box">
   <h4>Tipo</h4>
-  <div class="seg" id="e-type"><button data-v="fillet" class="on">Raccordo</button><button data-v="chamfer">Smusso</button></div>
+  <div class="seg" id="e-type"><button data-v="fillet" class="on">Arrotondato</button><button data-v="chamfer">Smussato</button></div>
   <h4>Misura</h4>
   <div class="row2"><label class="f">Di<input id="e-size" type="number" step="0.5" min="0.1" placeholder="2"><em>mm</em></label><button class="btn primary" id="e-go">Applica</button></div>
-  <p class="hint">Raccordo: spigolo arrotondato. Smusso: taglio a 45°.</p>
+  <p class="hint">Arrotondato: spigolo tondo. Smussato: taglio a 45°.</p>
   </div>
   <div id="e-scale-box">
     <h4>Ridimensiona</h4>
@@ -262,9 +262,9 @@
       <ul><li>Strumento Distanza (D) e vista Raggi X (Z)</li><li>Ripeti: copie in griglia, nido d'ape o in cerchio</li><li>Cilindro: il lato è un pezzo unico, si allarga o si stringe trascinando</li><li>Spigoli ad anello (cerchi o tutti i lati di una faccia): si ridimensionano trascinando o in %</li><li>Cima % su scatola, cilindro e prisma (tronchi e coni)</li><li>Scatola: raccordo e smusso su angoli, bordo alto e basso restano modificabili</li><li>Se un'operazione divide un oggetto in più parti, diventano un gruppo</li><li>Calamita tra lati: spostando un pezzo, lati e angoli vicini si agganciano a contatto</li><li>Frecce su e giù nei campi numerici (⇧ per salti da 10 passi)</li><li>Viste Davanti, Sopra e Destra senza prospettiva, per allineare con precisione</li><li>Cubo di orientamento e lingua scelta dal menu iniziale</li><li>Copia, taglia e incolla (⌘C, ⌘X, ⌘V), anche sul posto (⌘⇧V)</li><li>Esporta in un solo passaggio</li><li>Modelli pesanti più fluidi, con un avviso quando riduco risoluzione e ombre, e import 3MF di Bambu e Orca corretto</li><li>Contatore di visite anonimo sul sito ufficiale</li></ul>
       <details><summary>Versioni precedenti</summary>
         <b>0.7.2</b>
-        <ul><li>Raccordi e smussi con superficie liscia</li><li>Lucchetto: Maiusc ridimensiona senza proporzioni</li><li>Angoli di rotazione più coerenti</li></ul>
+        <ul><li>Spigoli arrotondati e smussati con superficie liscia</li><li>Lucchetto: Maiusc ridimensiona senza proporzioni</li><li>Angoli di rotazione più coerenti</li></ul>
         <b>0.7.1</b>
-        <ul><li>Nuovo strumento Spigolo: raccordi e smussi</li><li>Nuove forme: cono, prisma con n lati e toro</li><li>Tasti adattati a Windows e Linux</li><li>Tema chiaro, scuro o automatico</li><li>Misure con il tasto M</li></ul>
+        <ul><li>Nuovo strumento Spigolo: arrotondare e smussare</li><li>Nuove forme: cono, prisma con n lati e toro</li><li>Tasti adattati a Windows e Linux</li><li>Tema chiaro, scuro o automatico</li><li>Misure con il tasto M</li></ul>
         <b>0.6.2</b>
         <ul><li>Cronologia con anteprima (F8)</li><li>Livelli con blocco e nascondi</li><li>Testo 3D con font tuoi e importazione SVG</li><li>Colori per ogni oggetto</li><li>Nome del file all’esportazione</li><li>Correzioni su foro con testo e lati dei gruppi</li></ul>
         <b>0.5.6</b>

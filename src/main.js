@@ -1830,7 +1830,7 @@ const TOOLS = [
     { id: 'move', icon: 'move', name: 'Sposta', key: 'V', desc: 'Seleziona e muovi gli oggetti', run: () => setTool('move') },
     { id: 'rotate', icon: 'rotate', name: 'Ruota', key: 'R', desc: 'Ruota con scatto a 15°', run: () => setTool('rotate') },
     { id: 'face', icon: 'face', name: 'Lato', key: 'L', desc: 'Spingi o tira un lato piatto', run: () => setTool('face') },
-    { id: 'edge', icon: 'edge', name: 'Spigolo', key: 'E', desc: 'Raccorda o smussa uno spigolo', run: () => setTool('edge') },
+    { id: 'edge', icon: 'edge', name: 'Spigolo', key: 'E', desc: 'Arrotonda o smussa uno spigolo', run: () => setTool('edge') },
     { id: 'ruler', icon: 'dist', name: 'Distanza', key: 'D', desc: 'Misura tra due punti o lati', run: () => setTool('ruler') },
   ]],
   ['Forme', [
@@ -3226,7 +3226,7 @@ function applyEdges() {
       u.p.r = size; u.p.rm = edgeMode.v === 'chamfer' ? 'chamfer' : null;
       obj.geometry.dispose(); obj.geometry = buildGeometry('box', u.p); refreshEdges(obj); obj.updateMatrixWorld(true);
       clearEdges(); setSelection([obj]); touch(); commit(); EF.size.value = '';
-      return toast(edgeMode.v === 'fillet' ? 'Raccordo applicato: resta modificabile dal pannello' : 'Smusso applicato: resta modificabile dal pannello');
+      return toast(edgeMode.v === 'fillet' ? 'Arrotondamento applicato: resta modificabile dal pannello' : 'Smusso applicato: resta modificabile dal pannello');
     }
   }
   // bordo alto o basso di una scatola (anello chiuso a Z = altezza o Z = 0): resta parametrico
@@ -3243,12 +3243,12 @@ function applyEdges() {
         u.p[top ? 'ft' : 'fb'] = size; u.p.rm = edgeMode.v === 'chamfer' ? 'chamfer' : null;
         obj.geometry.dispose(); obj.geometry = buildGeometry('box', u.p); refreshEdges(obj); obj.updateMatrixWorld(true);
         clearEdges(); setSelection([obj]); touch(); commit(); EF.size.value = '';
-        return toast(edgeMode.v === 'fillet' ? 'Raccordo applicato: resta modificabile dal pannello' : 'Smusso applicato: resta modificabile dal pannello');
+        return toast(edgeMode.v === 'fillet' ? 'Arrotondamento applicato: resta modificabile dal pannello' : 'Smusso applicato: resta modificabile dal pannello');
       }
     }
   }
   const cutters = edgeSel.map(x => cutter(x.chain, edgeMode.v, size));
-  if (cutters.some(g => !g)) return toast('Questo spigolo è troppo particolare per un raccordo');
+  if (cutters.some(g => !g)) return toast('Questo spigolo è troppo particolare per arrotondarlo');
   obj.updateMatrixWorld(true);
   let g0 = obj.geometry.index ? obj.geometry.toNonIndexed() : obj.geometry.clone();
   g0.applyMatrix4(obj.matrixWorld);
@@ -3265,7 +3265,7 @@ function applyEdges() {
   const nm = replaceWithMerged(obj, baked);
   nm.userData.color = obj.userData.color ?? null;
   EF.size.value = '';
-  toast(`${edgeMode.v === 'fillet' ? 'Raccordo' : 'Smusso'} di ${fmt(size)} mm su ${n} ${n === 1 ? 'spigolo' : 'spigoli'}`);
+  toast(`${edgeMode.v === 'fillet' ? 'Arrotondamento' : 'Smusso'} di ${fmt(size)} mm su ${n} ${n === 1 ? 'spigolo' : 'spigoli'}`);
 }
 EF.go.addEventListener('click', applyEdges);
 EF.size.addEventListener('keydown', e => { if (e.key === 'Enter') applyEdges(); });
