@@ -90,6 +90,8 @@ const EN = {
   'Angoli di rotazione più coerenti dopo i quarti di giro': 'More consistent rotation angles after quarter turns',
   'Meglio da computer': 'Better on a computer', 'Filo non è ottimizzato per il mobile: è pensato per mouse e tastiera, con scorciatoie e maniglie di precisione. Da telefono o tablet puoi guardarlo e provarlo, ma alcune cose saranno scomode.': 'Filo is not optimized for mobile: it is made for mouse and keyboard, with shortcuts and precision handles. On a phone or tablet you can look around and try it, but some things will be awkward.', 'Ho capito': 'Got it',
   'Avviso per chi apre Filo da mobile': 'Warning for people opening Filo on mobile',
+  'Lato: non si può più spingere fino a spessore zero': 'Side tool: you can no longer push a side down to zero thickness',
+  'Il lato arriverebbe a spessore zero: il pezzo sparirebbe. Usa una distanza minore': 'The side would reach zero thickness and the piece would vanish. Use a smaller distance',
   'Cubo di orientamento: mostra da dove guardi e porta alla vista con un clic': 'Orientation cube: shows where you are looking from and jumps to a view with one click',
   'Dietro': 'Back', 'Sinistra': 'Left', 'Sotto': 'Bottom',
   'Lingua, tema e info in basso con lo stesso stile': 'Language, theme and info buttons at the bottom share the same style',

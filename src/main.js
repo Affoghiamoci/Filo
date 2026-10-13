@@ -363,6 +363,7 @@ function setSize(m, key, v) {
   const u = m.userData;
   v = Math.max(0.1, v);
   if (u.kind === 'merged') {
+    if (!(u.base[key] > 1e-3)) return;   // pezzo piatto: non si può scalare da zero
     const ax = { w: 'x', d: 'y', h: 'z' }[key];
     m.scale[ax] = v / u.base[key];
     u.p[key] = v;
@@ -2186,6 +2187,8 @@ function applyPush(distArg) {
   if (ext) return toast(`${nFaces > 1 ? nFaces + ' lati' : 'Lato'} estruso di ${fmt(Math.abs(dist))} mm (sagoma del lato, senza deformare i vicini)`);
   toast((nFaces > 1 ? `${nFaces} lati ` : 'Lato ') + (dist > 0 ? `tirato di ${fmt(dist)} mm` : `spinto di ${fmt(Math.abs(dist))} mm`));
 }
+const FLAT_MSG = 'Il lato arriverebbe a spessore zero: il pezzo sparirebbe. Usa una distanza minore';
+function isFlat(b) { return Math.min(b.size.x, b.size.y, b.size.z) < 0.1; }   // un pezzo senza spessore sparisce e non si può più modificare
 function pushOne(obj, faces, dist) {
   obj.updateMatrixWorld(true);
   let g = obj.geometry.index ? obj.geometry.toNonIndexed() : obj.geometry.clone();
@@ -2226,10 +2229,12 @@ function pushOne(obj, faces, dist) {
   if (spiky) {
     let b2 = null;
     try { b2 = prismPush(obj, faces.slice(), dist); } catch (e) { b2 = null; }
+    if (b2 && isFlat(b2)) return { err: FLAT_MSG };
     if (b2) return { mesh: replaceWithMerged(obj, b2, true), ext: true };
   }
   const baked = bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(arr) }, obj.userData.name);
   if (!baked) return { err: 'Il risultato è vuoto' };
+  if (isFlat(baked)) return { err: FLAT_MSG };
   return { mesh: replaceWithMerged(obj, baked, true) };
 }
 /* maniglia del lato: trascina lungo la normale, con calamita sui piani vicini */
