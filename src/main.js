@@ -1100,10 +1100,20 @@ function updateCursor(grabbing) {
 /* ------------------------------------------------------------- pannello */
 /* ---------------------------------------------------------------- rotazione */
 const _qId = new THREE.Quaternion(), _eu = new THREE.Euler();
-const eulerDeg = m => { _eu.setFromQuaternion(m.quaternion, 'XYZ'); const r = v => Math.round(v / D2R * 100) / 100 + 0; return { rx: r(_eu.x), ry: r(_eu.y), rz: r(_eu.z) }; };
+// Angoli come in Blender: prima X, poi Y, poi Z (attorno agli assi del piatto). Ordine 'ZYX' di three.
+const _rm = new THREE.Matrix4();
+const eulerDeg = m => {
+  const e = _rm.makeRotationFromQuaternion(m.quaternion).elements; // colonne: e[0..3] = prima colonna
+  const m31 = Math.max(-1, Math.min(1, e[2]));
+  let x, y = Math.asin(-m31), z;
+  if (Math.abs(m31) < 0.99999) { x = Math.atan2(e[6], e[10]); z = Math.atan2(e[1], e[0]); }
+  else { x = Math.atan2(-e[9], e[5]); z = 0; }   // cardano bloccato: tutto sulla X, Z a zero
+  const r = v => Math.round(v / D2R * 100) / 100 + 0;
+  return { rx: r(x), ry: r(y), rz: r(z) };
+};
 function setEulerDeg(m, rx, ry, rz) {
   const b0 = worldBox(m), c0 = b0.getCenter(new THREE.Vector3()), grounded = Math.abs(b0.min.z) < 0.02;
-  m.quaternion.setFromEuler(new THREE.Euler(rx * D2R, ry * D2R, rz * D2R, 'XYZ'));
+  m.quaternion.setFromEuler(new THREE.Euler(rx * D2R, ry * D2R, rz * D2R, 'ZYX'));
   m.updateMatrixWorld(true);
   m.position.add(c0.sub(worldBox(m).getCenter(new THREE.Vector3())));
   m.updateMatrixWorld(true);
@@ -1128,10 +1138,19 @@ function applyRot(items, axis, ang, c) {
   }
   touch(); syncPanel(); updateHandles();
 }
+// dopo i quarti di giro toglie il rumore numerico: la matrice di rotazione torna fatta solo di 0, 1 e -1
+function snapQuat(m) {
+  const e = new THREE.Matrix4().makeRotationFromQuaternion(m.quaternion).elements;
+  const R = [0, 1, 2, 4, 5, 6, 8, 9, 10];
+  if (!R.every(i => Math.abs(e[i] - Math.round(e[i])) < 1e-4)) return;
+  R.forEach(i => { e[i] = Math.round(e[i]); });
+  m.quaternion.setFromRotationMatrix(new THREE.Matrix4().fromArray(e)); m.updateMatrixWorld(true);
+}
 function rotateSelection(ax, deg) {
   if (!selection.length) return;
   const c = selBox().getCenter(new THREE.Vector3());
   applyRot(startRot(), AXV[ax], deg * D2R, c);
+  selection.forEach(snapQuat);
   commit();
 }
 // anelli di rotazione (strumento Ruota)
