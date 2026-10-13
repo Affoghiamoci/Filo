@@ -403,3 +403,7 @@ kbd{font-feature-settings:"zero" 1}
 .cl details{margin-top:8px}
 .cl summary{cursor:pointer;font:500 10.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .cl summary:hover{color:var(--text)}
+/* titolo card iniziale: font pixel, allineato allo [ 0 ] */
+.eh-top{align-items:baseline;gap:12px;margin-bottom:2px}
+#empty-hint .eh-top b,.eh-top b{font:400 36px/1 'VT323',var(--mono);letter-spacing:.02em}
+.eh-top i{font:normal 13px/1 'VT323',var(--mono);font-size:22px}
