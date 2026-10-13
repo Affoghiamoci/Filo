@@ -77,6 +77,7 @@ buildBedDots(10);
 const outline = new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0x8e8e98, transparent: true, opacity: 0.8 }));
 scene.add(outline);
 let gridStep = 10;
+let dotStep = 10;
 function setBed(w, d, refit = true) {
   BEDX = clamp(Math.round(w) || 180, 20, 400); BEDY = clamp(Math.round(d) || 180, 20, 400);
   bed.geometry.dispose(); bed.geometry = new THREE.PlaneGeometry(BEDX, BEDY);
@@ -85,7 +86,7 @@ function setBed(w, d, refit = true) {
   const R = Math.max(BEDX, BEDY) * 0.5 + 80;
   Object.assign(sun.shadow.camera, { left: -R, right: R, top: R, bottom: -R });
   sun.shadow.camera.updateProjectionMatrix();
-  buildBedDots(gridStep);
+  buildBedDots(dotStep);
   try { localStorage.setItem('forma.bed', JSON.stringify([BEDX, BEDY])); } catch (e) {}
   if (refit && typeof fitView === 'function' && !objects.length) fitView();
   dirty = true;
@@ -2006,14 +2007,37 @@ $('#b-fit').addEventListener('click', fitView);
 function setSnap(v, announce = true) {
   state.snap = v;
   document.querySelectorAll('#snaps [data-snap]').forEach(b => b.classList.toggle('on', parseFloat(b.dataset.snap) === v));
-  gridStep = Math.max(v, 2); buildBedDots(gridStep);
-  if (announce) toast(`Griglia: ${String(v).replace('.', ',')} mm`);
+  if (announce) toast(`Scatto: ${String(v).replace('.', ',')} mm`);
 }
 $('#snaps').addEventListener('click', e => {
   const b = e.target.closest('[data-snap]');
   if (b) { setSnap(parseFloat(b.dataset.snap)); canvas.focus(); }
 });
 setSnap(1, false);
+/* distanza dei pallini */
+const DOTS = [2, 5, 10];
+const dotMenu = $('#dotmenu');
+dotMenu.innerHTML = '<div class="mh">Distanza pallini</div>' + DOTS.map(v => `<button class="btn" data-dot="${v}"><span>${v} mm</span></button>`).join('');
+function setDots(v, announce = true) {
+  dotStep = gridStep = v; buildBedDots(v);
+  $('#b-dots em').textContent = v + ' mm';
+  dotMenu.querySelectorAll('[data-dot]').forEach(b => b.classList.toggle('on', +b.dataset.dot === v));
+  try { localStorage.setItem('forma.dots', String(v)); } catch (e) {}
+  if (announce) toast(`Pallini ogni ${v} mm`);
+}
+$('#b-dots').addEventListener('click', e => {
+  e.stopPropagation();
+  const r = e.currentTarget.getBoundingClientRect();
+  dotMenu.style.left = Math.round(r.left + r.width / 2) + 'px';
+  dotMenu.classList.toggle('hidden');
+});
+document.addEventListener('pointerdown', e => { if (!e.target.closest('#dotmenu,#b-dots')) dotMenu.classList.add('hidden'); });
+dotMenu.addEventListener('click', e => {
+  const b = e.target.closest('[data-dot]');
+  if (b) { setDots(+b.dataset.dot); dotMenu.classList.add('hidden'); canvas.focus(); }
+});
+let _d = 10; try { const sv = +localStorage.getItem('forma.dots'); if (DOTS.includes(sv)) _d = sv; } catch (e) {}
+setDots(_d, false);
 /* piatto di stampa */
 const BEDS = [
   ['A1 mini', 180, 180], ['A1 · P1S · X1C · P2S', 256, 256], ['H2S', 340, 320], ['H2D', 350, 320], ['Max (40 cm)', 400, 400]
