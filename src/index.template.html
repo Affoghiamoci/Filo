@@ -154,12 +154,35 @@
 </div>
 
 <div id="bedmenu" class="panel hidden"></div>
-<div id="empty-hint"><div class="eh-card">
-  <div class="eh-top"><i>[ 0 ]</i><b>Inizia</b></div>
-  <div class="eh-row"><div class="eh-t"><b>Forme</b><span>Blocchi, cilindri, coni, poligoni e anelli da combinare e forare.</span></div><div class="eh-a"><button data-eh="box">Scatola <kbd>B</kbd></button><button data-eh="cylinder">Cilindro <kbd>C</kbd></button><button data-eh="sphere">Sfera <kbd>S</kbd></button><button data-eh="cone">Cono <kbd>O</kbd></button><button data-eh="prism">Prisma <kbd>P</kbd></button><button data-eh="torus">Toro</button></div></div>
-  <div class="eh-row"><div class="eh-t"><b>Testo</b><span>Scrivi in 3D con 4 font a scelta o carica il tuo (TTF, OTF, WOFF).</span></div><div class="eh-a"><button data-eh="text">Testo <kbd>T</kbd></button></div></div>
-  <div class="eh-row"><div class="eh-t"><b>Importa</b><span>Apri un 3MF o STL da modificare, oppure un SVG: diventa un solido da 1 mm. Puoi anche trascinare il file qui.</span></div><div class="eh-a"><button data-eh="import">Importa <kbd>⌘O</kbd></button></div></div>
-  <div class="eh-row"><div class="eh-t"><b>Modelli</b><span>Scatolina con coperchio su misura, pronta da stampare.</span></div><div class="eh-a"><button data-eh="box-model">Scatolina</button></div></div>
+<div id="empty-hint"><div class="ew">
+  <div class="ew-head"><div class="ew-title"><i>[ 0 ]</i><b>Inizia</b></div><em>Filo 3D</em></div>
+  <section class="ew-sec">
+    <span class="ew-n">01</span>
+    <div class="ew-t"><b>Forme</b><span>Blocchi, cilindri, coni, poligoni e anelli da combinare e forare.</span></div>
+    <div class="ew-grid">
+      <button class="ew-tile" data-eh="box" data-ic="box">Scatola <kbd>B</kbd></button>
+      <button class="ew-tile" data-eh="cylinder" data-ic="cylinder">Cilindro <kbd>C</kbd></button>
+      <button class="ew-tile" data-eh="sphere" data-ic="sphere">Sfera <kbd>S</kbd></button>
+      <button class="ew-tile" data-eh="cone" data-ic="cone">Cono <kbd>O</kbd></button>
+      <button class="ew-tile" data-eh="prism" data-ic="prism">Prisma <kbd>P</kbd></button>
+      <button class="ew-tile" data-eh="torus" data-ic="torus">Toro</button>
+    </div>
+  </section>
+  <section class="ew-sec">
+    <span class="ew-n">02</span>
+    <div class="ew-t"><b>Testo</b><span>Scrivi in 3D con 4 font a scelta o carica il tuo (TTF, OTF, WOFF).</span></div>
+    <button class="ew-tile ew-go" data-eh="text" data-ic="text">Testo <kbd>T</kbd></button>
+  </section>
+  <section class="ew-sec">
+    <span class="ew-n">03</span>
+    <div class="ew-t"><b>Importa</b><span>Apri un 3MF o STL da modificare, oppure un SVG: diventa un solido da 1 mm. Puoi anche trascinare il file qui.</span></div>
+    <button class="ew-tile ew-go" data-eh="import" data-ic="import">Importa <kbd>⌘O</kbd></button>
+  </section>
+  <section class="ew-sec">
+    <span class="ew-n">04</span>
+    <div class="ew-t"><b>Modelli</b><span>Scatolina con coperchio su misura, pronta da stampare.</span></div>
+    <button class="ew-tile ew-go" data-eh="box-model" data-ic="model">Scatolina</button>
+  </section>
 </div></div>
 <div id="hpop" class="panel hidden"><span id="hpop-chip" class="chip">X+</span><span class="lbl">allunga di</span><input id="hpop-val" type="number" step="1" placeholder="0" title="Valore negativo per accorciare. Invio per applicare"><span class="lbl">mm</span></div>
 <div id="dropin"><div class="di-box"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg><b>Rilascia per importare</b><span>File 3MF, STL o SVG</span></div></div>

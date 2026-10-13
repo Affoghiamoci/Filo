@@ -2716,6 +2716,8 @@ function syncTextPanel() {
 
 
 /* -------------------------------------------------------------- benvenuto */
+I.import = '<path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M4 19h16"/>';
+document.querySelectorAll('#empty-hint [data-ic]').forEach(el => el.insertAdjacentHTML('afterbegin', `<svg viewBox="0 0 24 24">${I[el.dataset.ic] || ''}</svg>`));
 $('#empty-hint').addEventListener('click', e => {
   const b = e.target.closest('[data-eh]');
   if (!b) return;
