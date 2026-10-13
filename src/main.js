@@ -1735,10 +1735,55 @@ function exportSTL(nameArg) {
 }
 // 3MF: archivio zip con un oggetto per pezzo, in millimetri (Z verso l'alto, come nello slicer)
 /* Rimuove triangoli collassati e, dove due pezzi si toccano lungo uno spigolo (spigolo usato da 4 triangoli), separa i vertici: ogni pezzo resta una superficie chiusa. */
+/* T-giunzioni (un vertice che cade in mezzo a uno spigolo del vicino): lo spigolo lungo viene spezzato, così la superficie risulta chiusa. */
+function fixTJunctions(P, tris) {
+  const key = (a, b) => a < b ? a * 4294967296 + b : b * 4294967296 + a;
+  let T = Array.from(tris);
+  for (let pass = 0; pass < 4; pass++) {
+    const use = new Map(), nT = T.length / 3;
+    for (let t = 0; t < nT; t++) for (let k = 0; k < 3; k++) { const e = key(T[t * 3 + k], T[t * 3 + (k + 1) % 3]); use.set(e, (use.get(e) || 0) + 1); }
+    const openV = new Set();
+    for (let t = 0; t < nT; t++) for (let k = 0; k < 3; k++) if (use.get(key(T[t * 3 + k], T[t * 3 + (k + 1) % 3])) === 1) { openV.add(T[t * 3 + k]); openV.add(T[t * 3 + (k + 1) % 3]); }
+    if (!openV.size || openV.size > 60000) break;
+    const CELL = 2, grid = new Map(), ck = (x, y, z) => Math.floor(x / CELL) + ',' + Math.floor(y / CELL) + ',' + Math.floor(z / CELL);
+    for (const v of openV) { const k = ck(P[v * 3], P[v * 3 + 1], P[v * 3 + 2]); (grid.get(k) || grid.set(k, []).get(k)).push(v); }
+    const out = []; let changed = false;
+    for (let t = 0; t < nT; t++) {
+      const tri = [T[t * 3], T[t * 3 + 1], T[t * 3 + 2]];
+      let done = false;
+      for (let k = 0; k < 3 && !done; k++) {
+        const a = tri[k], b = tri[(k + 1) % 3], c = tri[(k + 2) % 3];
+        if (use.get(key(a, b)) !== 1) continue;
+        const ax = P[a * 3], ay = P[a * 3 + 1], az = P[a * 3 + 2], dx = P[b * 3] - ax, dy = P[b * 3 + 1] - ay, dz = P[b * 3 + 2] - az, L2 = dx * dx + dy * dy + dz * dz;
+        if (L2 < 1e-12) continue;
+        const cand = [], x0 = Math.min(ax, ax + dx) - 0.01, x1 = Math.max(ax, ax + dx) + 0.01, y0 = Math.min(ay, ay + dy) - 0.01, y1 = Math.max(ay, ay + dy) + 0.01, z0 = Math.min(az, az + dz) - 0.01, z1 = Math.max(az, az + dz) + 0.01;
+        for (let gx = Math.floor(x0 / CELL); gx <= Math.floor(x1 / CELL); gx++) for (let gy = Math.floor(y0 / CELL); gy <= Math.floor(y1 / CELL); gy++) for (let gz = Math.floor(z0 / CELL); gz <= Math.floor(z1 / CELL); gz++) {
+          for (const v of grid.get(gx + ',' + gy + ',' + gz) || []) {
+            if (v === a || v === b) continue;
+            const wx = P[v * 3] - ax, wy = P[v * 3 + 1] - ay, wz = P[v * 3 + 2] - az, s = (wx * dx + wy * dy + wz * dz) / L2;
+            if (s <= 1e-4 || s >= 1 - 1e-4) continue;
+            const ex = wx - s * dx, ey = wy - s * dy, ez = wz - s * dz;
+            if (ex * ex + ey * ey + ez * ez < 1e-6) cand.push([s, v]);
+          }
+        }
+        if (!cand.length) continue;
+        cand.sort((p, q) => p[0] - q[0]);
+        const chain = [a, ...cand.map(x => x[1]), b];
+        for (let i = 0; i < chain.length - 1; i++) out.push(chain[i], chain[i + 1], c);
+        done = true; changed = true;
+      }
+      if (!done) out.push(tri[0], tri[1], tri[2]);
+    }
+    T = out;
+    if (!changed) break;
+  }
+  return Uint32Array.from(T);
+}
 function repairForExport(P, I) {
   const key = (a, b) => a < b ? a * 4294967296 + b : b * 4294967296 + a;
-  const tris = [];
+  let tris = [];
   for (let t = 0; t < I.length; t += 3) if (I[t] !== I[t + 1] && I[t + 1] !== I[t + 2] && I[t] !== I[t + 2]) tris.push(I[t], I[t + 1], I[t + 2]);
+  tris = Array.from(fixTJunctions(P, tris));
   const nT = tris.length / 3, use = new Map();
   for (let t = 0; t < nT; t++) for (let k = 0; k < 3; k++) { const e = key(tris[t * 3 + k], tris[t * 3 + (k + 1) % 3]); use.set(e, (use.get(e) || 0) + 1); }
   let bad = 0; for (const n of use.values()) if (n > 2) bad++;
@@ -1788,7 +1833,7 @@ function build3MF(list) {
     objs += `<object id="${id}" name="${esc(m.userData.name)}" type="model"${ci >= 0 ? ` pid="${list.length + 1}" pindex="${ci}"` : ''}><mesh><vertices>${vs}</vertices><triangles>${ts}</triangles></mesh></object>`;
     items += `<item objectid="${id}"/>`;
   });
-  const model = `<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"><metadata name="Application">Forma</metadata><resources>${mats}${objs}</resources><build>${items}</build></model>`;
+  const model = `<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"><metadata name="Application">Filo</metadata><resources>${mats}${objs}</resources><build>${items}</build></model>`;
   const types = '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>';
   const rels = '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>';
   return zipSync({ '[Content_Types].xml': strToU8(types), '_rels/.rels': strToU8(rels), '3D/3dmodel.model': strToU8(model) });
@@ -2647,6 +2692,56 @@ function pushVertical(obj, fs, dist) {
 }
 const FLAT_MSG = 'Il lato arriverebbe a spessore zero: il pezzo sparirebbe. Usa una distanza minore';
 function isFlat(b) { return Math.min(b.size.x, b.size.y, b.size.z) < 0.1; }   // un pezzo senza spessore sparisce e non si può più modificare
+/* Il lato è arrivato a filo con un'altra superficie: tutte le facce nello stesso piano diventano un'unica superficie (unione 2D + nuova triangolazione),
+   così le pareti collassate non lasciano triangoli doppi o spigoli non chiusi. */
+function mergeFlush(arr, orig, n, dP) {
+  const nT = arr.length / 9, K = 1000, C = ClipperLib;
+  const u = Math.abs(n.z) > 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 0, 1).cross(n).normalize(), v = n.clone().cross(u);
+  const A = new THREE.Vector3(), B = new THREE.Vector3(), Cc = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3();
+  const inPlane = new Uint8Array(nT), paths = [], lookup = new Map();
+  let untouched = 0, count = 0;
+  for (let t = 0; t < nT; t++) {
+    A.fromArray(arr, t * 9); B.fromArray(arr, t * 9 + 3); Cc.fromArray(arr, t * 9 + 6);
+    if (Math.abs(n.dot(A) - dP) > 2e-3 || Math.abs(n.dot(B) - dP) > 2e-3 || Math.abs(n.dot(Cc) - dP) > 2e-3) continue;
+    inPlane[t] = 1; count++;
+    let same = true; for (let j = 0; j < 9 && same; j++) same = arr[t * 9 + j] === orig[t * 9 + j];
+    if (same) untouched++;
+    e1.subVectors(B, A); e2.subVectors(Cc, A);
+    if (e1.cross(e2).dot(n) <= 1e-9) continue;                       // solo le facce rivolte come il lato: le altre sono pareti collassate
+    const pl = [A, B, Cc].map(p => { const X = Math.round(p.dot(u) * K), Y = Math.round(p.dot(v) * K); const k = X + ',' + Y; if (!lookup.has(k)) lookup.set(k, p.toArray()); return { X, Y }; });
+    paths.push(pl);
+  }
+  if (!count || !untouched || !paths.length) return null;
+  const cl = new C.Clipper(C.Clipper.ioPreserveCollinear), tree = new C.PolyTree();
+  cl.AddPaths(paths, C.PolyType.ptSubject, true);
+  cl.Execute(C.ClipType.ctUnion, tree, C.PolyFillType.pftNonZero, C.PolyFillType.pftNonZero);
+  const add = [], p3 = p => { const k = p.X + ',' + p.Y; return lookup.get(k) || n.clone().multiplyScalar(dP).addScaledVector(u, p.X / K).addScaledVector(v, p.Y / K).toArray(); };
+  const thin = pl => { let a2 = 0, per = 0; for (let i = 0; i < pl.length; i++) { const p = pl[i], q = pl[(i + 1) % pl.length]; a2 += p.X * q.Y - q.X * p.Y; per += Math.hypot(q.X - p.X, q.Y - p.Y); } return per > 0 && Math.abs(a2) / per / K < 0.05; };   // spicchi sottilissimi lasciati dalle pareti curve collassate
+  const walk = node => {
+    for (const o of node.Childs()) {
+      if (o.IsHole()) { walk(o); continue; }
+      const contour = o.Contour(), holes = o.Childs().filter(h => !thin(h.Contour())).map(h => h.Contour());
+      const all = [...contour, ...holes.flat()];
+      const cv = contour.map(p => new THREE.Vector2(p.X / K, p.Y / K)), hv = holes.map(h => h.map(p => new THREE.Vector2(p.X / K, p.Y / K)));
+      for (const [i, j, k] of THREE.ShapeUtils.triangulateShape(cv, hv)) {
+        const a = p3(all[i]), b = p3(all[j]), c = p3(all[k]);
+        A.fromArray(a); B.fromArray(b); Cc.fromArray(c);
+        e1.subVectors(B, A).cross(e2.subVectors(Cc, A));
+        if (e1.length() / Math.max(1e-9, A.distanceTo(B), B.distanceTo(Cc), Cc.distanceTo(A)) < 2e-3) continue;   // punti quasi allineati: nessuna superficie
+        const flip = e1.dot(n) < 0;
+        add.push(...(flip ? [...a, ...c, ...b] : [...a, ...b, ...c]));
+      }
+      for (const h of o.Childs()) if (!thin(h.Contour())) walk(h);       // le isole dentro uno spicchio scartato sono già coperte dal riempimento
+    }
+  };
+  walk(tree);
+  if (!add.length) return null;
+  const out = new Float32Array((nT - count) * 9 + add.length);
+  let w = 0;
+  for (let t = 0; t < nT; t++) if (!inPlane[t]) { out.set(arr.subarray(t * 9, t * 9 + 9), w); w += 9; }
+  out.set(add, w);
+  return out;
+}
 function pushOne(obj, faces, dist) {
   if (faces.length === 1 && faces[0].full && ['cylinder', 'cone'].includes(obj.userData.kind)) {   // lato intero di un cilindro: allarga o stringe il raggio
     const u = obj.userData, nd = u.p.w + 2 * dist;
@@ -2679,7 +2774,7 @@ function pushOne(obj, faces, dist) {
   obj.updateMatrixWorld(true);
   let g = obj.geometry.index ? obj.geometry.toNonIndexed() : obj.geometry.clone();
   g.applyMatrix4(obj.matrixWorld);
-  const pos = g.attributes.position, arr = new Float32Array(pos.array);
+  const pos = g.attributes.position; let arr = new Float32Array(pos.array);
   const q = v => Math.round(v * 2000);
   const key = (x, y, z) => q(x) + ',' + q(y) + ',' + q(z);
   const disp = new Map();
@@ -2701,9 +2796,24 @@ function pushOne(obj, faces, dist) {
     arr[i] += d[0]; arr[i + 1] += d[1]; arr[i + 2] += d[2]; moved++;
   }
   // se lo spostamento stira troppo i triangoli vicini (spuntoni), si passa all'estrusione per CSG
-  let spiky = false;
-  const orig = pos.array, maxEdge = (A, t) => { let m = 0; for (let j = 0; j < 3; j++) { const a = t * 9 + j * 3, b = t * 9 + ((j + 1) % 3) * 3; m = Math.max(m, Math.hypot(A[a] - A[b], A[a + 1] - A[b + 1], A[a + 2] - A[b + 2])); } return m; };
-  for (let t = 0; t < arr.length / 9 && !spiky; t++) {
+  let spiky = false, flushed = false;
+  const orig = pos.array;
+  {   // pareti che collassano a zero (il lato arriva a filo con un'altra superficie): lo spostamento lascerebbe triangoli doppi, meglio l'unione per CSG
+    const hOf = (A, t) => { const a = t * 9; let m2 = 0; const e = [[0, 3], [3, 6], [6, 0]].map(([i, j]) => { const l = Math.hypot(A[a + i] - A[a + j], A[a + i + 1] - A[a + j + 1], A[a + i + 2] - A[a + j + 2]); m2 = Math.max(m2, l); return l; });
+      const s = (e[0] + e[1] + e[2]) / 2, ar = Math.sqrt(Math.max(0, s * (s - e[0]) * (s - e[1]) * (s - e[2]))); return m2 > 1e-9 ? 2 * ar / m2 : 0; };
+    let collapsed = 0;
+    for (let t = 0; t < arr.length / 9; t++) {
+      let touched = false; for (let j = 0; j < 9 && !touched; j++) touched = arr[t * 9 + j] !== orig[t * 9 + j];
+      if (touched && hOf(arr, t) < 0.05 && hOf(orig, t) > 0.05) collapsed++;
+    }
+    if (collapsed) {
+      const f0 = faces[0], dP = f0.n.x * f0.world[0] + f0.n.y * f0.world[1] + f0.n.z * f0.world[2] + dist;
+      const merged = mergeFlush(arr, orig, f0.n, dP);
+      if (merged) { arr = merged; flushed = true; }
+    }
+  }
+  const maxEdge = (A, t) => { let m = 0; for (let j = 0; j < 3; j++) { const a = t * 9 + j * 3, b = t * 9 + ((j + 1) % 3) * 3; m = Math.max(m, Math.hypot(A[a] - A[b], A[a + 1] - A[b + 1], A[a + 2] - A[b + 2])); } return m; };
+  for (let t = 0; t < arr.length / 9 && !spiky && !flushed; t++) {
     let touched = false;
     for (let j = 0; j < 9 && !touched; j++) touched = arr[t * 9 + j] !== orig[t * 9 + j];
     if (!touched) continue;
@@ -2780,7 +2890,7 @@ function updateFaceHandle() {
 }
 // piani paralleli (normale uguale o opposta) di tutti gli oggetti, come distanza lungo n dal lato
 function collectPlanes(fs) {
-  const base = fs.n.dot(faceCenter(fs)), set = new Set(), v = new THREE.Vector3(), wn = new THREE.Vector3();
+  const base = fs.n.dot(faceCenter(fs)), set = new Map(), v = new THREE.Vector3(), wn = new THREE.Vector3();
   for (const m of objects) {
     m.updateMatrixWorld(true);
     const info = meshInfo(m.geometry), geo = m.geometry, pos = geo.attributes.position, idx = geo.index;
@@ -2790,10 +2900,11 @@ function collectPlanes(fs) {
       wn.set(info.nrm[t * 3], info.nrm[t * 3 + 1], info.nrm[t * 3 + 2]).applyMatrix3(nm).normalize();
       if (Math.abs(wn.dot(fs.n)) < 0.9999) continue;
       v.fromBufferAttribute(pos, idx ? idx.getX(t * 3) : t * 3).applyMatrix4(m.matrixWorld);
-      set.add(Math.round((fs.n.dot(v) - base) * 50) / 50);
+      const d = fs.n.dot(v) - base, k = Math.round(d * 50);
+      if (!set.has(k)) set.set(k, d);                                   // valore esatto: così a filo non resta una parete di 0,01 mm
     }
   }
-  return [...set];
+  return [...set.values()];
 }
 function faceDragAxis(fs, ray) { // parametro lungo la normale più vicino al raggio
   const w0 = groupCenter().sub(ray.origin), b = fs.n.dot(ray.direction), d = fs.n.dot(w0), e = ray.direction.dot(w0);
