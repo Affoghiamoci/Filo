@@ -413,3 +413,6 @@ label.f input{text-overflow:clip}
 #theme{gap:4px;padding:2px;border:0;background:var(--field);border-radius:2px;overflow:visible}
 #theme button{width:32px;height:26px;border-radius:2px}
 #foot .ctl{gap:10px}
+
+#nav-toggle{transition:color .12s}
+#nav-toggle:hover{color:#FF6A00}

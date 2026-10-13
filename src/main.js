@@ -1,4 +1,5 @@
-import { initI18n } from './i18n.js';
+import { initI18n, tr } from './i18n.js';
+import { computeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
 import * as THREE from 'three';
 import { STLExporter } from 'three/addons/exporters/STLExporter.js';
 import { mergeVertices, mergeGeometries, toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -152,8 +153,11 @@ function fitView() {
 }
 const VIEWS = { front: { az: 0, el: 0 }, top: { az: 0, el: 89.9 }, right: { az: 90, el: 0 }, iso: { az: 35, el: 28 } };
 
+let pixelRatio = 0;
+function wantPixelRatio() { return objects.some(o => o.userData.heavy) ? 1 : Math.min(window.devicePixelRatio || 1, 2); }
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
+  const pr = wantPixelRatio(); if (pr !== pixelRatio) { pixelRatio = pr; renderer.setPixelRatio(pr); }
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
@@ -271,7 +275,7 @@ function matFor(m) {
 }
 function refreshEdges(m) {
   if (m.userData.edges) { m.remove(m.userData.edges); m.userData.edges.geometry.dispose(); }
-  const e = new THREE.LineSegments(featureEdges(m.geometry, 30),
+  const e = new THREE.LineSegments(m.userData.heavy ? new THREE.BufferGeometry() : featureEdges(m.geometry, 30),
     new THREE.LineBasicMaterial({ color: EDGE.normal, transparent: true, opacity: 0.55 }));
   e.raycast = () => {};
   m.add(e);
@@ -286,12 +290,21 @@ function styleObject(m) {
   e.material.color.setHex(isKey ? EDGE.key : sel ? EDGE.sel : EDGE.normal);
   e.material.opacity = sel ? 1 : 0.55;
 }
+const HEAVY = 250000;   // oltre questa soglia: niente bordi, ombre e anteprima dei lati
+const triCount = g => g.index ? g.index.count / 3 : g.attributes.position.count / 3;
+function heavyGuard(list) {
+  const n = list.reduce((a, m) => a + triCount(m.geometry), 0);
+  if (n < 400000) return false;
+  return !confirm(tr('Modello molto pesante') + ` (${n.toLocaleString('it-IT')}). ` + tr('Questa operazione può bloccare il browser per diversi minuti. Conviene semplificarlo prima (in Bambu Studio: tasto destro, Semplifica modello). Continuare lo stesso?'));
+}
 function makeMesh(d) {
   const geo = d.kind === 'merged' ? d.geo : buildGeometry(d.kind, d.p);
   const m = new Brush(geo, d.hole ? M.hole : M.solid);
-  m.castShadow = true;
+  const nt = triCount(geo), heavy = nt > HEAVY;
+  if (nt > 20000 && !geo.boundsTree) { try { geo.computeBoundsTree(); } catch (e) { console.warn(e); } }
+  m.castShadow = !heavy;
   m.receiveShadow = false;
-  m.userData = { id: d.id ?? nextId++, name: d.name, kind: d.kind, p: { ...d.p }, hole: !!d.hole, base: d.base ? { ...d.base } : null, geo: d.kind === 'merged' ? geo : null, gid: d.gid ?? null, color: d.color ?? null, text: d.text ? { ...d.text } : null, hidden: !!d.hidden, locked: !!d.locked };
+  m.userData = { id: d.id ?? nextId++, name: d.name, kind: d.kind, p: { ...d.p }, hole: !!d.hole, base: d.base ? { ...d.base } : null, geo: d.kind === 'merged' ? geo : null, gid: d.gid ?? null, color: d.color ?? null, text: d.text ? { ...d.text } : null, hidden: !!d.hidden, locked: !!d.locked, heavy };
   m.visible = !d.hidden;
   if (d.pos) m.position.fromArray(d.pos);
   if (d.q) m.quaternion.fromArray(d.q); else m.rotation.z = (d.rot || 0) * D2R;
@@ -412,15 +425,13 @@ function setSelection(list) {
 const history = [];
 let hIdx = -1;
 const visState = new Map(); // blocca e nascondi non fanno parte della cronologia
+const entryOf = m => ({
+  id: m.userData.id, name: m.userData.name, kind: m.userData.kind, p: { ...m.userData.p }, hole: m.userData.hole,
+  base: m.userData.base ? { ...m.userData.base } : null, geo: m.userData.geo, gid: m.userData.gid ?? null,
+  pos: m.position.toArray(), q: m.quaternion.toArray(), scale: m.scale.toArray(), color: m.userData.color ?? null, text: m.userData.text ? { ...m.userData.text } : null,
+});
 function snapshot() {
-  return {
-    sel: selection.map(m => m.userData.id),
-    list: objects.map(m => ({
-      id: m.userData.id, name: m.userData.name, kind: m.userData.kind, p: { ...m.userData.p }, hole: m.userData.hole,
-      base: m.userData.base ? { ...m.userData.base } : null, geo: m.userData.geo, gid: m.userData.gid ?? null,
-      pos: m.position.toArray(), q: m.quaternion.toArray(), scale: m.scale.toArray(), color: m.userData.color ?? null, text: m.userData.text ? { ...m.userData.text } : null,
-    })),
-  };
+  return { sel: selection.map(m => m.userData.id), list: objects.map(entryOf) };
 }
 // descrive in poche parole che cosa è cambiato rispetto al passaggio precedente
 function describeChange(prev, cur) {
@@ -479,7 +490,7 @@ const undo = () => { if (hIdx > 0) { restore(history[--hIdx]); scheduleHistory()
 const redo = () => { if (hIdx < history.length - 1) { restore(history[++hIdx]); scheduleHistory(); } };
 
 /* ------------------------------------------------------------ operazioni */
-function touch() { dirty = dimsDirty = true; $('#empty-hint').classList.toggle('hidden', objects.length > 0); scheduleLayers(); updateRotGizmo(); }
+function touch() { dirty = dimsDirty = true; if (wantPixelRatio() !== pixelRatio) resize(); $('#empty-hint').classList.toggle('hidden', objects.length > 0); scheduleLayers(); updateRotGizmo(); }
 const evaluator = new Evaluator();
 evaluator.attributes = ['position', 'normal'];
 
@@ -517,6 +528,7 @@ function combine() {
   const solids = selection.filter(m => !m.userData.hole);
   const holes = selection.filter(m => m.userData.hole);
   if (selection.length < 2 || !solids.length) return toast('Seleziona almeno due oggetti, di cui un solido (⇧ + clic)');
+  if (heavyGuard(selection)) return;
   const first = selection.length;
   const res = combineBrushes(solids, holes);
   const baked = bakeResult(res);
@@ -545,6 +557,29 @@ function duplicateSelection(offset = true) {
   touch();
   if (offset) commit();
   return copies;
+}
+/* copia, taglia, incolla (appunti interni: gli oggetti restano nell'app) */
+let clip = null, pasteN = 0;
+function copySelection(quiet) {
+  if (!selection.length) return false;
+  clip = selection.map(entryOf); pasteN = 0;
+  if (!quiet) toast(`Copiato${clip.length > 1 ? `: ${clip.length} oggetti` : ''}`);
+  return true;
+}
+function cutSelection() { if (copySelection(true)) { deleteSelection(); toast('Tagliato'); } }
+function pasteClip() {
+  if (!clip || !clip.length) return toast('Niente da incollare');
+  pasteN++;
+  const gmap = new Map();
+  const made = clip.map(d => {
+    let gid = null;
+    if (d.gid != null) { if (!gmap.has(d.gid)) gmap.set(d.gid, nextGid++); gid = gmap.get(d.gid); }
+    const name = d.name.replace(/ copia( \d+)?$/, '') + (d.name.endsWith(' copia') ? '' : '');
+    return makeMesh({ ...d, id: undefined, gid, name, p: { ...d.p }, base: d.base ? { ...d.base } : null, text: d.text ? { ...d.text } : null,
+      pos: [d.pos[0] + 12 * pasteN, d.pos[1] + 12 * pasteN, d.pos[2]], q: d.q.slice(), scale: d.scale.slice() });
+  });
+  setSelection(made); touch(); commit();
+  toast(`Incollato${made.length > 1 ? `: ${made.length} oggetti` : ''}`);
 }
 function deleteSelection() {
   if (!selection.length) return;
@@ -824,6 +859,9 @@ function axisParam(origin, axis, ray) {
 
 /* --------------------------------------------------------- interazione */
 const raycaster = new THREE.Raycaster();
+raycaster.firstHitOnly = true;
+THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
+THREE.Mesh.prototype.raycast = acceleratedRaycast;
 const ndc = new THREE.Vector2();
 const ground = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
 function setRay(e) {
@@ -1565,12 +1603,12 @@ $('#exp-form').addEventListener('submit', e => {
   expFmt === '3mf' ? export3MF(n) : exportSTL(n);
 });
 let toastT;
-function toast(msg) {
+function toast(msg, ms = 2400) {
   const t = $('#toast');
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(toastT);
-  toastT = setTimeout(() => t.classList.remove('show'), 2400);
+  toastT = setTimeout(() => t.classList.remove('show'), ms);
 }
 
 /* ------------------------------------------------------------ tastiera */
@@ -1590,6 +1628,9 @@ window.addEventListener('keydown', e => {
     if (k === 'z') { stop(); e.shiftKey ? redo() : undo(); }
     else if (k === 'y') { stop(); redo(); }
     else if (k === 'd') { stop(); duplicateSelection(true); }
+    else if (k === 'c') { stop(); copySelection(); }
+    else if (k === 'x') { stop(); cutSelection(); }
+    else if (k === 'v') { stop(); pasteClip(); }
     else if (k === 'a') { stop(); setSelection([...objects]); }
     else if (k === 'e') { stop(); combine(); }
     else if (k === 'g') { stop(); e.shiftKey ? ungroupSelection() : groupSelection(); }
@@ -1837,7 +1878,7 @@ function clearFace(sync = true) {
 function hideHover() { if (hoverMesh) { dropMesh(hoverMesh); hoverMesh = null; hoverFs = null; dirty = true; } }
 function updateHover(e) {
   const hit = pickHit(e);
-  if (!hit) return hideHover();
+  if (!hit || hit.object.userData.heavy) return hideHover();
   if (hoverFs && hoverFs.obj === hit.object && hoverFs.triSet.has(hit.faceIndex)) return;
   hideHover();
   const fs = computeFace(hit.object, hit.faceIndex);
@@ -2010,6 +2051,7 @@ function applyTexture() {
   if (!faceSel) return;
   if (faceSet.some(f => f.curved)) return toast('Le texture funzionano sui lati piatti');
   const o = texOpts(), obj = faceSel.obj, faces = faceSet.slice();
+  if (heavyGuard([obj])) return;
   let acc = obj, total = 0;
   obj.updateMatrixWorld(true);
   for (const fs of faces) {
@@ -2351,6 +2393,7 @@ async function importFiles(files) {
       setSelection(made); touch(); commit(); fitView();
       const tris = made.reduce((s, m) => s + m.geometry.index.count / 3, 0);
       toast(`Importato ${f.name}: ${made.length} ${made.length === 1 ? 'oggetto' : 'oggetti'}, ${tris.toLocaleString('it-IT')} triangoli`);
+      if (made.some(m => m.userData.heavy)) setTimeout(() => toast(`Modello molto pesante (${tris.toLocaleString('it-IT')} triangoli): ho spento bordi, ombre e anteprima dei lati per tenerlo fluido. Per modificarlo conviene semplificarlo prima (in Bambu Studio: tasto destro, Semplifica modello).`, 9000), 2600);
     } catch (err) { console.error(err); toast(`Impossibile leggere ${f.name}`); }
   }
 }
@@ -2453,6 +2496,7 @@ function applyEdges() {
   if (!edgeSel.length) return;
   if (!(size > 0)) return toast('Scrivi una misura in mm');
   const obj = edgeSel[0].obj;
+  if (heavyGuard([obj])) return;
   const cutters = edgeSel.map(x => cutter(x.chain, edgeMode.v, size));
   if (cutters.some(g => !g)) return toast('Questo spigolo è troppo particolare per un raccordo');
   obj.updateMatrixWorld(true);
