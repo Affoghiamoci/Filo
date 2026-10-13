@@ -102,6 +102,7 @@ const EN = {
   'Il cilindro è troppo basso per questo margine': 'The cylinder is too short for this margin',
   'Il cilindro è troppo basso per questo passo o margine': 'The cylinder is too short for this pitch or margin',
   'Nessuna scanalatura dentro la sagoma del lato': 'No grooves fit inside the shape of the side',
+  'Esporta: un solo passaggio, con scelta del formato nella finestra': 'Export: a single step, with the format choice in the dialog',
   'Cubo di orientamento: mostra da dove guardi e porta alla vista con un clic': 'Orientation cube: shows where you are looking from and jumps to a view with one click',
   'Dietro': 'Back', 'Sinistra': 'Left', 'Sotto': 'Bottom',
   'Lingua, tema e info in basso con lo stesso stile': 'Language, theme and info buttons at the bottom share the same style',
@@ -116,7 +117,7 @@ const EN = {
   'Forme base, fori, combinazione, gruppi e rotazione': 'Basic shapes, holes, combine, groups and rotation', 'Strumento Lato per spingere e tirare': 'Face tool to push and pull', 'Esportazione 3MF e STL, italiano e inglese': '3MF and STL export, Italian and English',
   'Dona su Ko-fi': 'Donate on Ko-fi',
   'Se Filo ti è utile, puoi sostenerne lo sviluppo con una donazione.': 'If Filo is useful to you, you can support its development with a donation.',
-  'Esporta ▾': 'Export ▾', 'Esporta il modello (⌘S)': 'Export the model (⌘S)', 'consigliato': 'recommended',
+  'Esporta il modello (⌘S)': 'Export the model (⌘S)', 'consigliato': 'recommended',
   'Millimetri, più pezzi in un file. Apre Bambu Studio senza sorprese.': 'Millimeters, several parts in one file. Opens in Bambu Studio without surprises.',
   'Solo la forma, compatibile con qualsiasi programma.': 'Shape only, compatible with any program.',
   // messaggi

@@ -1636,13 +1636,11 @@ window.addEventListener('dragenter', e => { if (hasFiles(e)) { dragN++; dropEl.c
 window.addEventListener('dragleave', e => { if (hasFiles(e) && --dragN <= 0) { dragN = 0; dropEl.classList.remove('show'); } });
 window.addEventListener('dragover', e => e.preventDefault());
 window.addEventListener('drop', e => { dragN = 0; dropEl.classList.remove('show'); e.preventDefault(); if (e.dataTransfer?.files?.length) importFiles([...e.dataTransfer.files]); });
-const expMenu = $('#expmenu');
-$('#b-export').addEventListener('click', e => { e.stopPropagation(); expMenu.classList.toggle('hidden'); });
-document.addEventListener('pointerdown', e => { if (!e.target.closest('#expmenu,#b-export')) expMenu.classList.add('hidden'); });
-expMenu.addEventListener('click', e => { const b = e.target.closest('[data-exp]'); if (!b) return; expMenu.classList.add('hidden'); askExport(b.dataset.exp); });
+$('#b-export').addEventListener('click', () => askExport(expFmt));
 const dlgExp = $('#dlg-exp'), expName = $('#exp-name');
 let expFmt = '3mf';
-function setExpFmt(f) { expFmt = f; document.querySelectorAll('#exp-fmt button').forEach(b => b.classList.toggle('on', b.dataset.v === f)); $('#exp-ext').textContent = '.' + f; }
+const EXP_HINT = { '3mf': 'Millimetri, più pezzi in un file. Apre Bambu Studio senza sorprese.', stl: 'Solo la forma, compatibile con qualsiasi programma.' };
+function setExpFmt(f) { expFmt = f; document.querySelectorAll('#exp-fmt button').forEach(b => b.classList.toggle('on', b.dataset.v === f)); $('#exp-ext').textContent = '.' + f; $('#exp-hint').textContent = EXP_HINT[f]; }
 function askExport(fmt = '3mf') {
   const list = exportList();
   if (!list.length) return toast('Niente da esportare: aggiungi almeno un solido');
@@ -1693,7 +1691,7 @@ window.addEventListener('keydown', e => {
     else if (k === 'e') { stop(); combine(); }
     else if (k === 'g') { stop(); e.shiftKey ? ungroupSelection() : groupSelection(); }
     else if (k === '0') { stop(); fitView(); }
-    else if (k === 's') { stop(); askExport('3mf'); }
+    else if (k === 's') { stop(); askExport(expFmt); }
     else if (k === 'o') { stop(); $('#file-in').click(); }
     else if (k === '=' || k === '+') { stop(); zoom(1 / 1.2); }
     else if (k === '-') { stop(); zoom(1.2); }

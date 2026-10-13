@@ -126,12 +126,7 @@
 <div id="topbar" class="panel">
   <button class="btn" id="b-import" title="Importa un file 3MF o STL (⌘O)">Importa <kbd class="o">⌘<span>O</span></kbd></button>
   <input type="file" id="file-in" accept=".3mf,.stl,.svg,.3MF,.STL,.SVG" multiple hidden>
-  <button class="btn primary" id="b-export" title="Esporta il modello (⌘S)">Esporta ▾</button>
-</div>
-
-<div id="expmenu" class="panel hidden">
-  <button class="btn" data-exp="3mf"><span>3MF <i>consigliato</i></span><em>Millimetri, più pezzi in un file. Apre Bambu Studio senza sorprese.</em></button>
-  <button class="btn" data-exp="stl"><span>STL</span><em>Solo la forma, compatibile con qualsiasi programma.</em></button>
+  <button class="btn primary" id="b-export" title="Esporta il modello (⌘S)">Esporta</button>
 </div>
 
 <aside id="layers" class="panel hidden">
@@ -213,6 +208,7 @@
     <label class="exp-lbl" for="exp-name">Nome del file</label>
     <div class="exp-row"><input id="exp-name" type="text" autocomplete="off" spellcheck="false"><span id="exp-ext">.3mf</span></div>
     <div class="seg" id="exp-fmt"><button type="button" data-v="3mf" class="on">3MF · consigliato</button><button type="button" data-v="stl">STL</button></div>
+    <p class="hint" id="exp-hint"></p>
     <div class="exp-actions"><button type="button" class="btn" id="exp-cancel">Annulla</button><button type="submit" class="btn primary">Esporta</button></div>
   </form>
 </dialog>
@@ -236,7 +232,7 @@
     <p>Questa app è stata generata con l’ausilio dell’intelligenza artificiale.</p>
     <div class="info-row"><span class="lbl">Novità</span><div class="cl">
       <b>0.7.2</b>
-      <ul><li>Selettore della lingua nel menu iniziale</li><li>Con il lucchetto attivo, Maiusc ridimensiona senza proporzioni</li><li>Copia, taglia e incolla (⌘C, ⌘X, ⌘V)</li><li>Modelli molto pesanti più fluidi, con avviso</li><li>Angoli di rotazione più coerenti dopo i quarti di giro</li><li>Avviso per chi apre Filo da mobile</li><li>Contatore di visite anonimo sul sito ufficiale</li><li>Scanalature su lati piatti e cilindri, un clic dal pannello Lato</li><li>Lato: non si può più spingere fino a spessore zero</li><li>Cubo di orientamento: mostra da dove guardi e porta alla vista con un clic</li><li>Lingua, tema e info in basso con lo stesso stile</li><li>Numeri nei campi non più coperti dalle freccette</li><li>Import 3MF: ignora i volumi modificatori dei file Bambu e Orca</li><li>Nuovo menu iniziale numerato</li><li>Raccordi e smussi con superficie liscia</li><li>Il tasto T non cancella più il testo appena creato</li></ul>
+      <ul><li>Selettore della lingua nel menu iniziale</li><li>Con il lucchetto attivo, Maiusc ridimensiona senza proporzioni</li><li>Copia, taglia e incolla (⌘C, ⌘X, ⌘V)</li><li>Modelli molto pesanti più fluidi, con avviso</li><li>Angoli di rotazione più coerenti dopo i quarti di giro</li><li>Avviso per chi apre Filo da mobile</li><li>Contatore di visite anonimo sul sito ufficiale</li><li>Esporta: un solo passaggio, con scelta del formato nella finestra</li><li>Scanalature su lati piatti e cilindri, un clic dal pannello Lato</li><li>Lato: non si può più spingere fino a spessore zero</li><li>Cubo di orientamento: mostra da dove guardi e porta alla vista con un clic</li><li>Lingua, tema e info in basso con lo stesso stile</li><li>Numeri nei campi non più coperti dalle freccette</li><li>Import 3MF: ignora i volumi modificatori dei file Bambu e Orca</li><li>Nuovo menu iniziale numerato</li><li>Raccordi e smussi con superficie liscia</li><li>Il tasto T non cancella più il testo appena creato</li></ul>
       <details><summary>Versioni precedenti</summary>
         <b>0.7.1</b>
         <ul><li>Nuovo strumento Spigolo: raccordi e smussi</li><li>Nuove forme: cono, prisma con n lati e toro</li><li>Tasti adattati a Windows e Linux</li><li>Tema chiaro, scuro o automatico</li><li>Misure con il tasto M</li></ul>
