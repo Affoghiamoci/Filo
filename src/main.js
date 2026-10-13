@@ -974,7 +974,7 @@ canvas.addEventListener('pointermove', e => {
       if (t === null) return;
       const len0 = hd.s0[AXK[hd.axis]];
       const newLen = Math.max(0.5, len0 * 0.03, snapV(len0 + (e.altKey ? 2 : 1) * hd.sign * (t - drag.t0)));
-      scaleOriented(hd, newLen, e.shiftKey || sizeLock, e.altKey);
+      scaleOriented(hd, newLen, sizeLock ? !e.shiftKey : e.shiftKey, e.altKey);
       return;
     }
     const t = axisParam(drag.h.origin, drag.h.axis, raycaster.ray);
@@ -982,9 +982,9 @@ canvas.addEventListener('pointermove', e => {
     const { st, axis, sign, lo, hi } = drag.h;
     const face = snapV((sign > 0 ? hi : lo) + (t - drag.t0));
     const delta = sign * (face - (sign > 0 ? hi : lo)), len0 = hi - lo;
-    // ⇧ = proporzionale su tutti gli assi, ⌥ = dal centro
+    // ⇧ = proporzionale su tutti gli assi (con il lucchetto attivo fa l'inverso: libero), ⌥ = dal centro
     const imp = withGroups(selection).some(m => m.userData.kind === 'merged');
-    scaleSelAxis(st, axis, Math.max(0.5, len0 * 0.03, len0 + (e.altKey ? 2 : 1) * delta), sign > 0 ? lo : hi, e.shiftKey || sizeLock || imp, e.altKey);
+    scaleSelAxis(st, axis, Math.max(0.5, len0 * 0.03, len0 + (e.altKey ? 2 : 1) * delta), sign > 0 ? lo : hi, sizeLock ? !e.shiftKey : (e.shiftKey || imp), e.altKey);
   }
 });
 canvas.addEventListener('pointerup', e => {
@@ -1171,7 +1171,7 @@ let gScale = null;
     if (!(v > 0) || selection.length < 2) return;
     const sig = () => selection.map(m => m.userData.id + m.position.toArray().join() + m.quaternion.toArray().join()).join('|');
     if (!gScale || gScale.sig !== sig()) { gScale = startScale(); gScale.sig = sig(); }
-    scaleSelAxis(gScale, ax, v);
+    scaleSelAxis(gScale, ax, v, undefined, sizeLock && !shiftDown);
     gScale.sig = sig();
   });
   el.addEventListener('focus', () => { gScale = null; });
@@ -1179,7 +1179,10 @@ let gScale = null;
   el.addEventListener('change', () => { gScale = null; syncPanel(); commit(); });
   el.addEventListener('keydown', e => { if (e.key === 'Enter') el.blur(); });
 });
-let sizeLock = false;
+let sizeLock = false, shiftDown = false;
+window.addEventListener('keydown', e => { if (e.key === 'Shift') shiftDown = true; });
+window.addEventListener('keyup', e => { if (e.key === 'Shift') shiftDown = false; });
+window.addEventListener('blur', () => { shiftDown = false; });
 try { sizeLock = localStorage.getItem('forma.lock') === '1'; } catch (e) {}
 function syncLock() { ['#p-lock', '#g-lock'].forEach(id => { $(id).classList.toggle('on', sizeLock); $(id).setAttribute('aria-pressed', sizeLock); }); }
 // con il lucchetto le tre misure cambiano in proporzione, partendo da quelle di inizio modifica
@@ -1194,7 +1197,7 @@ function bind(id, apply) {
   el.addEventListener('input', () => {
     const m = single(), v = parseFloat(el.value);
     if (!m || !Number.isFinite(v)) return;
-    if (sizeLock && 'wdh'.includes(id) && id.length === 1 && v > 0) {
+    if (sizeLock && !shiftDown && 'wdh'.includes(id) && id.length === 1 && v > 0) {
       if (!m.userData.lockS) { m.userData.lockS = { ...sizeOf(m) }; m.userData.lockC = m.position.clone(); }
       setSizeProp(m, id, v, m.userData.lockS);
     } else apply(m, v);
