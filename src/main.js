@@ -222,14 +222,20 @@ function buildGeometry(kind, p) {
   if (kind === 'box') {
     if (p.r <= 0.001) { g = new THREE.BoxGeometry(p.w, p.d, p.h); g.translate(0, 0, p.h / 2); }
     else g = mergeVertices(clean(new THREE.ExtrudeGeometry(roundedRectShape(p.w, p.d, p.r), { depth: p.h, bevelEnabled: false, curveSegments: 12 })));
+    const tt = clamp(p.t ?? 100, 1, 100) / 100;
+    if (tt < 0.9999) {                                                // cima più stretta: tronco di piramide
+      g = g.index ? g.toNonIndexed() : g; g.deleteAttribute('normal');
+      const a = g.attributes.position; for (let i = 0; i < a.count; i++) { const k = 1 + (tt - 1) * a.getZ(i) / p.h; a.setX(i, a.getX(i) * k); a.setY(i, a.getY(i) * k); }
+      g = toCreasedNormals(g, 30 * D2R); clean(g);
+    }
   } else if (kind === 'cylinder') {
-    g = new THREE.CylinderGeometry(1, 1, 1, 72, 1);
+    g = new THREE.CylinderGeometry(clamp(p.t ?? 100, 1, 100) / 100, 1, 1, 72, 1);
     g.rotateX(Math.PI / 2); g.scale(p.w / 2, p.d / 2, p.h); g.translate(0, 0, p.h / 2);
   } else if (kind === 'cone') {
     g = new THREE.CylinderGeometry(Math.max(p.q || 0, 1) / 100, 1, 1, 72, 1);
     g.rotateX(Math.PI / 2); g.scale(p.w / 2, p.d / 2, p.h); g.translate(0, 0, p.h / 2);
   } else if (kind === 'prism') {
-    g = new THREE.CylinderGeometry(1, 1, 1, Math.round(clamp(p.q || 6, 3, 64)), 1);
+    g = new THREE.CylinderGeometry(clamp(p.t ?? 100, 1, 100) / 100, 1, 1, Math.round(clamp(p.q || 6, 3, 64)), 1);
     g.rotateX(Math.PI / 2); g.rotateZ(Math.PI / 2); g.scale(p.w / 2, p.d / 2, p.h); g.translate(0, 0, p.h / 2);
   } else if (kind === 'torus') {
     const t = clamp(p.q || 25, 5, 50) / 100;
@@ -391,6 +397,14 @@ function setRadius(m, r) {
   u.p.r = clamp(r, 0, Math.min(u.p.w, u.p.d) / 2);
   m.geometry.dispose();
   m.geometry = buildGeometry('box', u.p);
+  refreshEdges(m);
+}
+function setTop(m, v) {
+  const u = m.userData;
+  if (!['box', 'cylinder', 'prism'].includes(u.kind)) return;
+  u.p.t = clamp(Math.round(v), 1, 100);
+  m.geometry.dispose();
+  m.geometry = buildGeometry(u.kind, u.p);
   refreshEdges(m);
 }
 const QSPEC = { cone: ['Cima %', 0, 100], prism: ['Lati', 3, 64], torus: ['Spessore %', 5, 50] };
@@ -1237,7 +1251,7 @@ function pickRing(e) {
   setRay(e);
   return raycaster.intersectObjects(rotPick, false)[0]?.object.userData.axis ?? null;
 }
-const ids = ['x', 'y', 'z', 'w', 'd', 'h', 'r', 'q', 'rx', 'ry', 'rz'];
+const ids = ['x', 'y', 'z', 'w', 'd', 'h', 'r', 't', 'q', 'rx', 'ry', 'rz'];
 const F = Object.fromEntries(ids.map(i => [i, $('#p-' + i)]));
 const single = () => (selection.length === 1 ? selection[0] : null);
 function syncPanel() {
@@ -1260,9 +1274,10 @@ function syncPanel() {
   if (m) {
     if (document.activeElement !== nameEl) nameEl.value = m.userData.name;
     nameEl.disabled = false;
-    const s = sizeOf(m), v = { x: m.position.x, y: m.position.y, z: m.position.z, w: s.w, d: s.d, h: s.h, r: m.userData.p.r ?? 0, q: m.userData.p.q ?? 0, ...eulerDeg(m) };
+    const s = sizeOf(m), v = { x: m.position.x, y: m.position.y, z: m.position.z, w: s.w, d: s.d, h: s.h, r: m.userData.p.r ?? 0, t: m.userData.p.t ?? 100, q: m.userData.p.q ?? 0, ...eulerDeg(m) };
     ids.forEach(i => { if (document.activeElement !== F[i]) F[i].value = fmt(v[i]); });
     $('#p-r-wrap').classList.toggle('hidden', m.userData.kind !== 'box');
+    $('#p-t-wrap').classList.toggle('hidden', !['box', 'cylinder', 'prism'].includes(m.userData.kind));
     const qs = QSPEC[m.userData.kind];
     $('#p-q-wrap').classList.toggle('hidden', !qs);
     if (qs) { const lab = $('#p-q-lab'); if (lab.dataset.k !== m.userData.kind) { lab.dataset.k = m.userData.kind; lab.firstChild.data = qs[0]; F.q.min = qs[1]; F.q.max = qs[2]; F.q.step = m.userData.kind === 'prism' ? 1 : 5; } }
@@ -1329,6 +1344,7 @@ bind('d', (m, v) => setSize(m, 'd', v));
 bind('h', (m, v) => setSize(m, 'h', v));
 bind('r', (m, v) => setRadius(m, v));
 bind('q', (m, v) => setQ(m, v));
+bind('t', (m, v) => setTop(m, v));
 ['rx', 'ry', 'rz'].forEach(id => bind(id, m => setEulerDeg(m, +F.rx.value || 0, +F.ry.value || 0, +F.rz.value || 0)));
 ['#p-lock', '#g-lock'].forEach(id => $(id).addEventListener('click', () => {
   sizeLock = !sizeLock; syncLock();
@@ -3041,18 +3057,18 @@ function scaleEdge(obj, chain, f) {
   if (nrm.lengthSq() < 1e-9) return { err: 'Questi spigoli non formano un anello piano' };
   nrm.normalize();
   const u = obj.userData;
-  // cilindro o cono dritto: resta un cono modificabile
+  // cilindro o cono dritto: resta parametrico (Cima %)
   if ((u.kind === 'cylinder' || u.kind === 'cone') && Math.abs(u.p.w - u.p.d) < 0.01 && P.length >= 24 && Math.abs(Math.abs(nrm.z) - 1) < 1e-3 && Math.abs(obj.rotation.x) < 1e-6 && Math.abs(obj.rotation.y) < 1e-6) {
-    obj.updateMatrixWorld(true);
-    const zBase = obj.position.z, top = Math.abs(c.z - (zBase + u.p.h)) < 0.02, bottom = Math.abs(c.z - zBase) < 0.02;
+    const kk = u.kind === 'cone' ? 'q' : 't', zBase = obj.position.z, top = Math.abs(c.z - (zBase + u.p.h)) < 0.02, bottom = Math.abs(c.z - zBase) < 0.02;
     const rad = P.reduce((m, p) => m + Math.hypot(p.x - c.x, p.y - c.y), 0) / P.length;
-    const q0 = u.kind === 'cone' ? (u.p.q ?? 0) : 100;
-    if (top && Math.abs(rad - u.p.w / 2 * q0 / 100) < 0.05) {
-      const q = q0 * f;
-      if (q >= 1 && q <= 100) { u.kind = 'cone'; u.p.q = q; obj.geometry.dispose(); obj.geometry = buildGeometry('cone', u.p); refreshEdges(obj); obj.updateMatrixWorld(true); return { mesh: obj }; }
-    } else if (bottom && u.kind === 'cone' && Math.abs(rad - u.p.w / 2) < 0.05) {
-      const q = q0 / f, w = u.p.w * f;
-      if (q >= 1 && q <= 100 && w >= 0.2) { u.p.w = w; u.p.d = w; u.p.q = q; obj.geometry.dispose(); obj.geometry = buildGeometry('cone', u.p); refreshEdges(obj); obj.updateMatrixWorld(true); return { mesh: obj }; }
+    const q0 = u.p[kk] ?? (kk === 't' ? 100 : 0);
+    const rebuild = () => { obj.geometry.dispose(); obj.geometry = buildGeometry(u.kind, u.p); refreshEdges(obj); obj.updateMatrixWorld(true); return { mesh: obj }; };
+    if (top && Math.abs(rad - u.p.w / 2 * Math.max(q0, 1) / 100) < 0.05) {
+      const q = Math.max(q0, 1) * f;
+      if (q >= 1 && q <= 100) { u.p[kk] = q; return rebuild(); }
+    } else if (bottom && Math.abs(rad - u.p.w / 2) < 0.05) {
+      const q = Math.max(q0, 1) / f, w = u.p.w * f;
+      if (q >= 1 && q <= 100 && w >= 0.2) { u.p.w = w; u.p.d = w; u.p[kk] = q; return rebuild(); }
     }
   }
   const arr = worldPositions(obj), key = (x, y, z) => Math.round(x * 2000) + ',' + Math.round(y * 2000) + ',' + Math.round(z * 2000);

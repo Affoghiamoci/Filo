@@ -122,7 +122,8 @@ const EN = {
   'Le texture funzionano sui lati piatti': 'Textures only work on flat faces',
   "Nessun riempimento trovato nell'SVG (i soli contorni non sono supportati)": 'No fill found in the SVG (outlines only are not supported)',
   'È già un gruppo: ⇧⌘G per separarlo': 'Already a group: ⇧⌘G to ungroup it',
-  'Fora': 'Pierce', 'Fora a filo: le scanalature attraversano il pezzo': 'Cut flush through: the grooves go through the piece',
+  'Cima % su scatola, cilindro e prisma (tronchi e coni)': 'Top % on box, cylinder and prism (frustums and cones)',
+  'Cima': 'Top', 'Fora': 'Pierce', 'Fora a filo: le scanalature attraversano il pezzo': 'Cut flush through: the grooves go through the piece',
   'Non trovo il retro del pezzo: usa Incidi': "Can't find the back of the piece: use Cut", 'Un cilindro pieno non si può forare: usa Incidi': "A solid cylinder can't be pierced: use Cut",
   'Il lato curvo deve girare tutto intorno (cilindro circolare)': 'The curved side must go all the way around (circular cylinder)', 'Le scanalature funzionano su cilindri circolari': 'Grooves work on circular cylinders',
   'Ridimensiona': 'Resize', 'Scala': 'Scale', "Trascina il quadratino arancione sull'anello oppure scrivi la scala. Funziona su un cerchio o su tutti gli spigoli di una faccia (Maiusc + clic). Sul bordo superiore di un cilindro, 50 % lo trasforma in un cono tronco.": 'Drag the orange square on the ring or type the scale. Works on a circle or on all the edges of a face (Shift + click). On the top edge of a cylinder, 50 % turns it into a truncated cone.',
@@ -149,7 +150,6 @@ const EN = {
   'Millimetri, più pezzi in un file. Apre Bambu Studio senza sorprese.': 'Millimeters, several parts in one file. Opens in Bambu Studio without surprises.',
   'Solo la forma, compatibile con qualsiasi programma.': 'Shape only, compatible with any program.',
   // messaggi
-  'È già un gruppo: ⇧⌘G per separarlo': 'Already a group: ⇧⌘G to ungroup it',
   'Seleziona almeno due oggetti da raggruppare': 'Select at least two objects to group',
   'Nessun gruppo selezionato': 'No group selected', 'Gruppo separato': 'Group ungrouped',
   'Seleziona almeno due oggetti, di cui un solido (⇧ + clic)': 'Select at least two objects, one of them solid (⇧ + click)',
