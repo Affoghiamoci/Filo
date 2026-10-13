@@ -109,7 +109,39 @@ function applyCamera() {
   camera.lookAt(cam.target);
   camera.updateMatrixWorld();
   dirty = true;
+  updateViewCube();
   if (typeof hpop !== 'undefined' && hpop) closeHandlePopup();
+}
+/* cubo di orientamento: faccette CSS 3D che seguono la camera */
+const VC = { S: 52, qi: new THREE.Quaternion(), els: null };
+const vcMap = w => { const v = w.clone().applyQuaternion(VC.qi); return new THREE.Vector3(v.x, -v.y, v.z); };   // mondo (Z su) -> CSS
+const vcMat = (u, d, n, t) => `matrix3d(${u.x},${u.y},${u.z},0,${d.x},${d.y},${d.z},0,${n.x},${n.y},${n.z},0,${t.x},${t.y},${t.z},1)`;
+function updateViewCube() {
+  if (!VC.els) {
+    const root = document.getElementById('viewcube');
+    if (!root) return;
+    const v3 = s => new THREE.Vector3(...s.split(',').map(Number));
+    root.querySelectorAll('.vca').forEach(e => { const c = e.cloneNode(); c.dataset.alt = '1'; e.after(c); });   // secondo piano a croce: la linea resta visibile anche di taglio
+    VC.els = { f: [...root.querySelectorAll('.vcf')].map(e => ({ e, n: v3(e.dataset.n) })), a: [...root.querySelectorAll('.vca')].map(e => ({ e, a: v3(e.dataset.a) })), l: [...root.querySelectorAll('.vcl')].map(e => ({ e, a: v3(e.dataset.a) })) };
+  }
+  VC.qi.copy(camera.quaternion).invert();
+  const H = VC.S / 2, Z = new THREE.Vector3(0, 0, 1), X = new THREE.Vector3(1, 0, 0);
+  for (const { e, n } of VC.els.f) {
+    const u = Math.abs(n.z) > 0.5 ? X.clone() : Z.clone().cross(n);
+    const d = u.clone().cross(n);                         // u × d = -n: nessuna immagine speculare
+    e.style.transform = vcMat(vcMap(u), vcMap(d), vcMap(n), vcMap(n).multiplyScalar(H));
+  }
+  const corner = new THREE.Vector3(-H, -H, -H);
+  for (const { e, a } of VC.els.a) {
+    const alt = e.dataset.alt === '1';
+    const p = a.x ? (alt ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0)) : (alt ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0));
+    if (a.z && alt) p.set(0, 1, 0);
+    e.style.transform = vcMat(vcMap(a), vcMap(p), vcMap(a.clone().cross(p)), vcMap(corner));
+  }
+  for (const { e, a } of VC.els.l) {
+    const t = vcMap(corner.clone().addScaledVector(a, VC.S + 20));
+    e.style.transform = `translate3d(${t.x}px,${t.y}px,${t.z}px) translate(-50%,-50%)`;
+  }
 }
 let tween = null;
 function animateTo(to, ms = 320) {
@@ -1552,6 +1584,11 @@ $('#tools').addEventListener('scroll', hideTip);
 try { if (localStorage.getItem('forma.mini') === '1') setMini(true, false); } catch (_) {}
 
 /* ----------------------------------------------------------- barra bassa */
+$('#viewcube').addEventListener('click', e => {
+  const b = e.target.closest('[data-vc]'); if (!b) return;
+  const V = { front: { az: 0, el: 0 }, back: { az: 180, el: 0 }, right: { az: 90, el: 0 }, left: { az: -90, el: 0 }, top: { az: cam.az, el: 89.9 }, bottom: { az: cam.az, el: -89.9 } };
+  animateTo(V[b.dataset.vc]);
+});
 $('#views').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if (b) animateTo(VIEWS[b.dataset.view]); });
 $('#b-dims').addEventListener('click', () => setDims());
 $('#b-fit').addEventListener('click', fitView);
