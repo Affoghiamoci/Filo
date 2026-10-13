@@ -688,32 +688,6 @@ function pasteClip() {
   setSelection(made); touch(); commit();
   toast(`Incollato${made.length > 1 ? `: ${made.length} oggetti` : ''}`);
 }
-// divide un pezzo unito in parti staccate (ogni gruppo di triangoli collegati diventa un oggetto)
-function splitPieces() {
-  const obj = selection.length === 1 ? selection[0] : null;
-  if (!obj || obj.userData.kind !== 'merged') return toast('Seleziona un pezzo unito (una scalanatura, una combinazione...)');
-  if (heavyGuard([obj])) return;
-  const arr = worldPositions(obj), nT = arr.length / 9, q = v => Math.round(v * 2000);
-  const ids = new Map(), parent = [];
-  const find = x => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
-  const vid = i => { const k = q(arr[i]) + ',' + q(arr[i + 1]) + ',' + q(arr[i + 2]); let id = ids.get(k); if (id === undefined) { id = parent.length; parent.push(id); ids.set(k, id); } return id; };
-  const tv = [];
-  for (let t = 0; t < nT; t++) { const a = vid(t * 9), b = vid(t * 9 + 3), c = vid(t * 9 + 6); tv.push(a); parent[find(b)] = find(a); parent[find(c)] = find(a); }
-  const comps = new Map();
-  for (let t = 0; t < nT; t++) { const r = find(tv[t]); if (!comps.has(r)) comps.set(r, []); comps.get(r).push(t); }
-  if (comps.size < 2) return toast('È già un pezzo solo: niente da separare');
-  if (comps.size > 400) return toast('Troppi pezzi da separare');
-  const u = obj.userData, name = u.name;
-  const parts = [...comps.values()].map(ts => { const a = new Float32Array(ts.length * 9); ts.forEach((t, k) => a.set(arr.subarray(t * 9, t * 9 + 9), k * 9)); return a; });
-  const baked = parts.map((a, i) => bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(a) }, `${name} ${i + 1}`)).filter(Boolean);
-  if (baked.length < 2) return toast('È già un pezzo solo: niente da separare');
-  const hole = u.hole, color = u.color ?? null;
-  removeMesh(obj);
-  const out = baked.map(bk => { const m = addMerged(bk); m.userData.hole = hole; m.userData.color = color; m.castShadow = !hole; return m; });
-  setSelection(out);
-  touch(); commit();
-  toast(`Separati ${out.length} pezzi: clicca un pezzo e premi Elimina, oppure ⌘G per raggrupparli`);
-}
 function deleteSelection() {
   if (!selection.length) return;
   [...selection].forEach(removeMesh);
@@ -1354,7 +1328,6 @@ function syncPanel() {
     ids.forEach(i => { if (document.activeElement !== F[i]) F[i].value = fmt(v[i]); });
     $('#p-r-wrap').classList.toggle('hidden', m.userData.kind !== 'box');
     document.querySelectorAll('#p-rm button').forEach(b => b.classList.toggle('on', (m.userData.p.rm === 'chamfer') === (b.dataset.v === 'chamfer')));
-    $('#p-split').classList.toggle('hidden', m.userData.kind !== 'merged');
     $('#p-t-wrap').classList.toggle('hidden', !['box', 'cylinder', 'prism'].includes(m.userData.kind));
     const qs = QSPEC[m.userData.kind];
     $('#p-q-wrap').classList.toggle('hidden', !qs);
@@ -1438,7 +1411,6 @@ document.querySelectorAll('#p-rm button').forEach(b => b.addEventListener('click
   toast(sizeLock ? 'Proporzioni bloccate: le misure cambiano insieme' : 'Proporzioni libere');
 }));
 syncLock();
-$('#p-split').addEventListener('click', splitPieces);
 $('#p-ground').addEventListener('click', () => {
   const m = single();
   if (m) { m.position.z -= worldBox(m).min.z; m.updateMatrixWorld(true); touch(); syncPanel(); updateHandles(); commit(); }
@@ -1653,7 +1625,6 @@ const TOOLS = [
     { icon: 'hole', name: 'Foro / Solido', key: 'X', desc: 'Trasforma in foro per scavare', run: toggleHole },
     { icon: 'combine', name: 'Combina', key: '⌘E', desc: 'Unisce i solidi, sottrae i fori', run: combine },
     { icon: 'group', name: 'Raggruppa', key: '⌘G', desc: 'Muove più oggetti come uno', run: groupSelection },
-    { icon: 'group', name: 'Separa pezzi', key: '', desc: 'Divide un pezzo in parti staccate', run: splitPieces },
     { icon: 'dup', name: 'Duplica', key: '⌘D', desc: 'Copia l’oggetto selezionato', run: () => duplicateSelection(true) },
     { icon: 'trash', name: 'Elimina', key: '⌫', desc: 'Rimuove la selezione', run: deleteSelection },
   ]],
@@ -2255,19 +2226,67 @@ function buildPattern(fs, o, els) {
   }
   return geos.length ? mergeGeometries(geos, false) : null;
 }
+// parti staccate di una geometria (coordinate locali): [{ts}] ordinate per dimensione; i frammenti minuscoli seguono la parte più grande
+function pieceGroups(geo) {
+  const g = geo.index ? geo.toNonIndexed() : geo, A = g.attributes.position.array, nT = A.length / 9, q = v => Math.round(v * 2000);
+  const ids = new Map(), parent = [];
+  const find = x => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
+  const vid = i => { const k = q(A[i]) + ',' + q(A[i + 1]) + ',' + q(A[i + 2]); let id = ids.get(k); if (id === undefined) { id = parent.length; parent.push(id); ids.set(k, id); } return id; };
+  const tv = [];
+  for (let t = 0; t < nT; t++) { const a = vid(t * 9), b = vid(t * 9 + 3), c = vid(t * 9 + 6); tv.push(a); parent[find(b)] = find(a); parent[find(c)] = find(a); }
+  // la CSG lascia giunture a T: un vertice a metà di uno spigolo altrui. Lo si collega a quello spigolo, altrimenti una superficie sembra divisa in due
+  if (nT > 120000) return null;
+  const P = new Array(parent.length);
+  for (let t = 0; t < nT; t++) for (let j = 0; j < 3; j++) P[tv[t] === undefined ? 0 : [tv[t], ids.get(q(A[t * 9 + 3]) + ',' + q(A[t * 9 + 4]) + ',' + q(A[t * 9 + 5])), ids.get(q(A[t * 9 + 6]) + ',' + q(A[t * 9 + 7]) + ',' + q(A[t * 9 + 8]))][j]] = [A[t * 9 + j * 3], A[t * 9 + j * 3 + 1], A[t * 9 + j * 3 + 2]];
+  const edges = new Map();
+  for (let t = 0; t < nT; t++) { const v = [tv[t], ids.get(q(A[t * 9 + 3]) + ',' + q(A[t * 9 + 4]) + ',' + q(A[t * 9 + 5])), ids.get(q(A[t * 9 + 6]) + ',' + q(A[t * 9 + 7]) + ',' + q(A[t * 9 + 8]))]; for (let k = 0; k < 3; k++) { const a = v[k], b = v[(k + 1) % 3]; if (a !== b) edges.set(a < b ? a + ',' + b : b + ',' + a, [a, b]); } }
+  const CELL = 2, grid = new Map(), ck = (x, y, z) => Math.floor(x / CELL) + ',' + Math.floor(y / CELL) + ',' + Math.floor(z / CELL);
+  for (const [a, b] of edges.values()) {
+    const pa = P[a], pb = P[b], lo = [0, 1, 2].map(i => Math.floor(Math.min(pa[i], pb[i]) / CELL)), hi = [0, 1, 2].map(i => Math.floor(Math.max(pa[i], pb[i]) / CELL));
+    if ((hi[0] - lo[0] + 1) * (hi[1] - lo[1] + 1) * (hi[2] - lo[2] + 1) > 400) continue;
+    for (let x = lo[0]; x <= hi[0]; x++) for (let y = lo[1]; y <= hi[1]; y++) for (let z = lo[2]; z <= hi[2]; z++) { const k = x + ',' + y + ',' + z; (grid.get(k) || grid.set(k, []).get(k)).push([a, b]); }
+  }
+  for (let v = 0; v < P.length; v++) {
+    const p = P[v]; if (!p) continue;
+    for (const [a, b] of grid.get(ck(p[0], p[1], p[2])) || []) {
+      if (a === v || b === v || find(v) === find(a)) continue;
+      const pa = P[a], pb = P[b], ex = pb[0] - pa[0], ey = pb[1] - pa[1], ez = pb[2] - pa[2], l2 = ex * ex + ey * ey + ez * ez;
+      if (l2 < 1e-12) continue;
+      const u = ((p[0] - pa[0]) * ex + (p[1] - pa[1]) * ey + (p[2] - pa[2]) * ez) / l2;
+      if (u <= 0 || u >= 1) continue;
+      const dx = pa[0] + u * ex - p[0], dy = pa[1] + u * ey - p[1], dz = pa[2] + u * ez - p[2];
+      if (dx * dx + dy * dy + dz * dz < 1e-6) parent[find(v)] = find(a);
+    }
+  }
+  const comps = new Map();
+  for (let t = 0; t < nT; t++) { const r = find(tv[t]); if (!comps.has(r)) comps.set(r, []); comps.get(r).push(t); }
+  const list = [...comps.values()].sort((x, y) => y.length - x.length);
+  const big = list.filter(c => c.length >= 12);
+  if (big.length < 2 || big.length > 400) return null;
+  list.filter(c => c.length < 12).forEach(c => big[0].push(...c));
+  return { A, parts: big };
+}
 function replaceWithMerged(old, baked, quiet = false) {
   const hole = old.userData.hole;
+  const pg = pieceGroups(baked.geo);
   removeMesh(old);
-  const nm = addMerged(baked);
-  nm.userData.hole = hole;
-  nm.userData.color = old.userData.color ?? null;
-  nm.userData.gid = old.userData.gid ?? null;
-  nm.userData.text = null;
-  nm.castShadow = !hole;
+  let pieces;
+  if (pg) {                                   // l'oggetto è ora fatto di più parti: diventano un gruppo
+    const off = baked.pos, gid = old.userData.gid ?? nextGid++;
+    pieces = pg.parts.map((ts, i) => {
+      const a = new Float32Array(ts.length * 9);
+      ts.forEach((t, k) => { for (let j = 0; j < 9; j++) a[k * 9 + j] = pg.A[t * 9 + j] + off[j % 3]; });
+      const bk = bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(a) }, `${baked.name} ${i + 1}`);
+      const m = addMerged(bk); m.userData.gid = gid; return m;
+    });
+  } else { pieces = [addMerged(baked)]; pieces[0].userData.gid = old.userData.gid ?? null; }
+  pieces.forEach(nm => { nm.userData.hole = hole; nm.userData.color = old.userData.color ?? null; nm.userData.text = null; nm.castShadow = !hole; });
+  const nm = pieces[0];
   if (quiet) return nm;
   clearFace(false);
-  setSelection([nm]);
+  setSelection(pieces);
   touch(); commit();
+  if (pieces.length > 1) toast(`Ora sono ${pieces.length} pezzi, raggruppati: per eliminarne uno aprilo dai Livelli (F7)`);
   return nm;
 }
 function applyTexture() {
@@ -2586,7 +2605,7 @@ function applyPush(distArg) {
   if (out.length) {
     TF.push.value = '';
     clearFace(false);
-    setSelection([...out, ...(fail ? [] : [])]);
+    setSelection(withGroups(out));
     touch(); commit();
   }
   if (fail) return toast(fail);
@@ -3363,7 +3382,7 @@ try {
   d.addEventListener('cancel', () => { try { sessionStorage.setItem('forma.mobile', '1'); } catch (e) {} });
   setTimeout(() => { try { d.showModal(); } catch (e) {} }, 400);
 })();
-window.forma = { splitPieces, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyTexture, applyGrooves, gUI, applyPush, selectFaceFromHit, texUI, layout, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole };
+window.forma = { applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyTexture, applyGrooves, gUI, applyPush, selectFaceFromHit, texUI, layout, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole };
 
 
 /* ------------------------------------------------------------------ livelli */
