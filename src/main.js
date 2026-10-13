@@ -22,7 +22,7 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
 /* ------------------------------------------------------------------ stato */
-const state = { tool: 'move', space: false, snap: 1, dims: false };
+const state = { tool: 'move', space: false, snap: 1, dims: false, xray: false };
 const objects = [];
 let selection = [];
 let keyObj = null;
@@ -313,6 +313,12 @@ function refreshEdges(m) {
   e.raycast = () => {};
   m.add(e);
   m.userData.edges = e;
+  // stessi spigoli, ma disegnati solo dove la superficie li copre: la "vista wireframe" delle parti nascoste
+  if (m.userData.xray) { m.remove(m.userData.xray); m.userData.xray.material.dispose(); }
+  const x = new THREE.LineSegments(e.geometry, new THREE.LineBasicMaterial({ color: EDGE.normal, transparent: true, opacity: 0.5, depthFunc: THREE.GreaterDepth, depthWrite: false }));
+  x.raycast = () => {}; x.renderOrder = 2; x.visible = state.xray;
+  m.add(x);
+  m.userData.xray = x;
   styleObject(m);
 }
 function styleObject(m) {
@@ -322,6 +328,8 @@ function styleObject(m) {
   const sel = selection.includes(m), isKey = m === keyObj;
   e.material.color.setHex(isKey ? EDGE.key : sel ? EDGE.sel : EDGE.normal);
   e.material.opacity = sel ? 1 : 0.55;
+  const x = m.userData.xray;
+  if (x) { x.material.color.setHex(isKey ? EDGE.key : sel ? EDGE.sel : EDGE.normal); x.material.opacity = sel ? 0.8 : 0.45; x.visible = state.xray; }
 }
 const HEAVY = 250000;   // oltre questa soglia: niente bordi, ombre e anteprima dei lati
 const triCount = g => g.index ? g.index.count / 3 : g.attributes.position.count / 3;
@@ -1593,6 +1601,15 @@ $('#viewcube').addEventListener('click', e => {
 });
 $('#views').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if (b) animateTo(VIEWS[b.dataset.view]); });
 $('#b-dims').addEventListener('click', () => setDims());
+function setXray(on) {   // contorni delle parti coperte, attivabile e disattivabile
+  state.xray = on ?? !state.xray;
+  $('#b-xray').classList.toggle('on', state.xray);
+  objects.forEach(styleObject);
+  dirty = true;
+  try { localStorage.setItem('forma.xray', state.xray ? '1' : '0'); } catch (e) {}
+}
+$('#b-xray').addEventListener('click', () => setXray());
+try { if (localStorage.getItem('forma.xray') === '1') setXray(true); } catch (e) {}
 $('#b-fit').addEventListener('click', fitView);
 function setSnap(v, announce = true) {
   state.snap = v;
@@ -1712,6 +1729,7 @@ window.addEventListener('keydown', e => {
   else if (k === 't') { e.preventDefault(); addText(); }
   else if (k === 'x') toggleHole();
   else if (k === 'm') setDims();
+  else if (k === 'w') setXray();
   else if (k === 'delete' || k === 'backspace') { e.preventDefault(); deleteSelection(); }
   else if (k === 'escape') { if (faceSel) clearFace(); else setSelection([]); }
 });
@@ -2371,9 +2389,111 @@ function applyPush(distArg) {
   if (ext) return toast(`${nFaces > 1 ? nFaces + ' lati' : 'Lato'} estruso di ${fmt(Math.abs(dist))} mm (sagoma del lato, senza deformare i vicini)`);
   toast((nFaces > 1 ? `${nFaces} lati ` : 'Lato ') + (dist > 0 ? `tirato di ${fmt(dist)} mm` : `spinto di ${fmt(Math.abs(dist))} mm`));
 }
+
+// Lato curvo di un solido "estruso in verticale" (cilindro, prisma, scatola arrotondata...): si sposta il profilo visto dall'alto, senza passare dal CSG.
+// Così i bordi restano netti e il piano superiore e inferiore non hanno fessure.
+function pushVertical(obj, fs, dist) {
+  if (Math.abs(fs.n.z) > 1e-3) return null;
+  obj.updateMatrixWorld(true);
+  const g = obj.geometry.index ? obj.geometry.toNonIndexed() : obj.geometry.clone();
+  g.applyMatrix4(obj.matrixWorld);
+  const A = g.attributes.position.array, nT = A.length / 9, q = x => Math.round(x * 2000);
+  const kxy = (x, y) => q(x) + ',' + q(y);
+  let zmin = Infinity, zmax = -Infinity;
+  for (let i = 2; i < A.length; i += 3) { zmin = Math.min(zmin, A[i]); zmax = Math.max(zmax, A[i]); }
+  const dir = new Map(), P = new Map();
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), nn = new THREE.Vector3();
+  for (let t = 0; t < nT; t++) {
+    const o = t * 9;
+    a.set(A[o], A[o + 1], A[o + 2]); b.set(A[o + 3], A[o + 4], A[o + 5]); c.set(A[o + 6], A[o + 7], A[o + 8]);
+    nn.subVectors(b, a).cross(c.clone().sub(a)); const l = nn.length(); if (l < 1e-9) continue; nn.divideScalar(l);
+    if (Math.abs(nn.z) < 1e-3) continue;                                  // parete verticale
+    if (Math.abs(nn.z) < 0.9999) return null;                             // inclinata: non è un'estrusione
+    if (nn.z < 0) continue;
+    if (Math.abs(a.z - zmax) > 1e-3) { if (Math.abs(a.z - zmin) < 1e-3) return null; return null; }
+    const v = [a, b, c].map(p => { const k = kxy(p.x, p.y); if (!P.has(k)) P.set(k, [p.x, p.y]); return k; });
+    for (let k = 0; k < 3; k++) { const e = v[k] + '>' + v[(k + 1) % 3]; dir.set(e, [v[k], v[(k + 1) % 3]]); }
+  }
+  // spigoli di bordo del piano superiore, concatenati in anelli
+  const next = new Map();
+  for (const [e, [u, w]] of dir) if (!dir.has(w + '>' + u)) { if (next.has(u)) return null; next.set(u, w); }
+  if (!next.size) return null;
+  const loops = [], seen = new Set();
+  for (const st of next.keys()) {
+    if (seen.has(st)) continue;
+    const loop = []; let cur = st;
+    while (cur !== undefined && !seen.has(cur)) { seen.add(cur); loop.push(cur); cur = next.get(cur); }
+    if (cur !== st) return null;
+    loops.push(loop);
+  }
+  // spigoli del lato scelto, visti dall'alto
+  const sel = new Set();
+  const w = fs.world;
+  for (let t = 0; t < w.length / 9; t++) {
+    // solo la metà rivolta verso la direzione di spinta: il profilo si stacca dove la curva è tangente, senza pieghe
+    const ex = w[t * 9 + 3] - w[t * 9], ey = w[t * 9 + 4] - w[t * 9 + 1], fx = w[t * 9 + 6] - w[t * 9], fy = w[t * 9 + 7] - w[t * 9 + 1], fz = w[t * 9 + 8] - w[t * 9 + 2], ez = w[t * 9 + 5] - w[t * 9 + 2];
+    const nx = ey * fz - ez * fy, ny = ez * fx - ex * fz, nl = Math.hypot(nx, ny) || 1;
+    if ((nx * fs.n.x + ny * fs.n.y) / nl < 0.02) continue;
+    const ks = [0, 1, 2].map(j => kxy(w[t * 9 + j * 3], w[t * 9 + j * 3 + 1]));
+    for (let j = 0; j < 3; j++) { const u = ks[j], v = ks[(j + 1) % 3]; if (u !== v) { sel.add(u + '|' + v); sel.add(v + '|' + u); } }
+  }
+  const dx = fs.n.x * dist, dy = fs.n.y * dist, out = [];
+  let moved = 0;
+  for (const loop of loops) {
+    const n = loop.length, isSel = i => sel.has(loop[i] + '|' + loop[(i + 1) % n]);
+    const ed = i => { const [x0, y0] = P.get(loop[i]), [x1, y1] = P.get(loop[(i + 1) % n]), l = Math.hypot(x1 - x0, y1 - y0) || 1; return [(x1 - x0) / l, (y1 - y0) / l]; };
+    const dd = Array.from({ length: n }, (_, i) => ed(i));
+    const facing = i => dd[i][1] * fs.n.x - dd[i][0] * fs.n.y;          // normale uscente del muro · direzione di spinta
+    const flags = Array.from({ length: n }, (_, i) => isSel(i) && facing(i) >= 0.02);
+    // la curva liscia si estende fino al punto in cui smette di guardare nella direzione di spinta, qualunque sia il punto cliccato
+    for (let ch = true, guard = 0; ch && guard < n; guard++) {
+      ch = false;
+      for (let i = 0; i < n; i++) {
+        if (!flags[i]) continue;
+        for (const j of [(i + 1) % n, (i + n - 1) % n]) {
+          if (flags[j] || facing(j) < 0.02) continue;
+          if (dd[i][0] * dd[j][0] + dd[i][1] * dd[j][1] < 0.94) continue;
+          flags[j] = true; ch = true;
+        }
+      }
+    }
+    if (!flags.some(Boolean)) { out.push(loop.map(k => P.get(k))); continue; }
+    let s0 = 0; while (flags[(s0 + n - 1) % n]) { s0 = (s0 + 1) % n; if (s0 === 0) break; }
+    const pts = [];
+    for (let m = 0; m < n; m++) {
+      const i = (s0 + m) % n, prevSel = flags[(i + n - 1) % n], curSel = flags[i], [x, y] = P.get(loop[i]);
+      if (!prevSel && !curSel) pts.push([x, y]);
+      else if (!prevSel && curSel) { pts.push([x, y], [x + dx, y + dy]); moved++; }
+      else if (prevSel && curSel) { pts.push([x + dx, y + dy]); moved++; }
+      else { pts.push([x + dx, y + dy], [x, y]); moved++; }
+    }
+    out.push(pts);
+  }
+  if (!moved) return null;
+  const K = 1000, C = ClipperLib;
+  const paths = out.map(pl => pl.map(([x, y]) => ({ X: Math.round(x * K), Y: Math.round(y * K) })));
+  const simp = C.Clipper.SimplifyPolygons(paths, C.PolyFillType.pftNonZero);
+  if (!simp.length) return { err: 'Il risultato è vuoto' };
+  const shapes = []; let cur = null;
+  const area = p => { let a2 = 0; for (let i = 0; i < p.length; i++) { const u = p[i], v = p[(i + 1) % p.length]; a2 += u.X * v.Y - v.X * u.Y; } return a2; };
+  for (const p of simp.sort((u, v) => Math.abs(area(v)) - Math.abs(area(u)))) {
+    const pts = p.map(t => new THREE.Vector2(t.X / K, t.Y / K));
+    if (area(p) > 0) { cur = new THREE.Shape(pts); shapes.push(cur); } else if (cur) cur.holes.push(new THREE.Path(pts));
+  }
+  const ex = new THREE.ExtrudeGeometry(shapes, { depth: zmax - zmin, bevelEnabled: false, curveSegments: 1 });
+  ex.translate(0, 0, zmin);
+  const pos = (ex.index ? ex.toNonIndexed() : ex).attributes.position.array;
+  const baked = bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(Float32Array.from(pos)) }, obj.userData.name);
+  return baked ? { baked } : { err: 'Il risultato è vuoto' };
+}
 const FLAT_MSG = 'Il lato arriverebbe a spessore zero: il pezzo sparirebbe. Usa una distanza minore';
 function isFlat(b) { return Math.min(b.size.x, b.size.y, b.size.z) < 0.1; }   // un pezzo senza spessore sparisce e non si può più modificare
 function pushOne(obj, faces, dist) {
+  if (faces.length === 1 && faces[0].curved) {
+    let pv = null; try { pv = pushVertical(obj, faces[0], dist); } catch (e) { pv = null; }
+    if (pv && pv.err) return { err: pv.err };
+    if (pv && pv.baked) { if (isFlat(pv.baked)) return { err: FLAT_MSG }; return { mesh: replaceWithMerged(obj, pv.baked, true), ext: true }; }
+  }
   obj.updateMatrixWorld(true);
   let g = obj.geometry.index ? obj.geometry.toNonIndexed() : obj.geometry.clone();
   g.applyMatrix4(obj.matrixWorld);
