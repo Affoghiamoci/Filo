@@ -2843,9 +2843,9 @@ function render() {
   edgeMat.resolution.set(canvas.clientWidth, canvas.clientHeight); edgeHoverMat.resolution.copy(edgeMat.resolution);
   if (rotGizmo.visible) updateRotGizmo();
   updateHandleFacing();
-  renderer.render(scene, camera);
-  updateDims();
+  updateDims();   // prima del disegno: la scatola e le linee delle misure compaiono subito, non al movimento successivo
   updateRuler();
+  renderer.render(scene, camera);
   // le maniglie hanno dimensione costante sullo schermo: nulla da aggiornare
 }
 function frame() {
