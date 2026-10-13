@@ -1,0 +1,4 @@
+node_modules/
+dist/
+*.bak*
+__pycache__/

@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 9' shape-rendering='crispEdges' fill='%23ff6a00'%3E%3Crect x='0' y='0' width='1' height='1'/%3E%3Crect x='0' y='4' width='1' height='1'/%3E%3Crect x='0' y='8' width='1' height='1'/%3E%3Crect x='1' y='1' width='1' height='1'/%3E%3Crect x='1' y='4' width='1' height='1'/%3E%3Crect x='1' y='7' width='1' height='1'/%3E%3Crect x='2' y='2' width='1' height='1'/%3E%3Crect x='2' y='4' width='1' height='1'/%3E%3Crect x='2' y='6' width='1' height='1'/%3E%3Crect x='3' y='3' width='1' height='1'/%3E%3Crect x='3' y='4' width='1' height='1'/%3E%3Crect x='3' y='5' width='1' height='1'/%3E%3Crect x='4' y='0' width='1' height='1'/%3E%3Crect x='4' y='1' width='1' height='1'/%3E%3Crect x='4' y='2' width='1' height='1'/%3E%3Crect x='4' y='3' width='1' height='1'/%3E%3Crect x='4' y='4' width='1' height='1'/%3E%3Crect x='4' y='5' width='1' height='1'/%3E%3Crect x='4' y='6' width='1' height='1'/%3E%3Crect x='4' y='7' width='1' height='1'/%3E%3Crect x='4' y='8' width='1' height='1'/%3E%3Crect x='5' y='3' width='1' height='1'/%3E%3Crect x='5' y='4' width='1' height='1'/%3E%3Crect x='5' y='5' width='1' height='1'/%3E%3Crect x='6' y='2' width='1' height='1'/%3E%3Crect x='6' y='4' width='1' height='1'/%3E%3Crect x='6' y='6' width='1' height='1'/%3E%3Crect x='7' y='1' width='1' height='1'/%3E%3Crect x='7' y='4' width='1' height='1'/%3E%3Crect x='7' y='7' width='1' height='1'/%3E%3Crect x='8' y='0' width='1' height='1'/%3E%3Crect x='8' y='4' width='1' height='1'/%3E%3Crect x='8' y='8' width='1' height='1'/%3E%3C/svg%3E">
+<title>Forma · modellatore 3D semplice</title>
+<style><!--CSS--></style>
+</head>
+<body>
+<canvas id="view" tabindex="0"></canvas>
+<div id="labels"></div>
+
+<aside id="side" class="panel">
+  <header>
+    <svg class="logo" viewBox="0 0 9 9" shape-rendering="crispEdges" fill="#ff6a00" aria-hidden="true"><rect x="0" y="0" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="0" y="8" width="1" height="1"/><rect x="1" y="1" width="1" height="1"/><rect x="1" y="4" width="1" height="1"/><rect x="1" y="7" width="1" height="1"/><rect x="2" y="2" width="1" height="1"/><rect x="2" y="4" width="1" height="1"/><rect x="2" y="6" width="1" height="1"/><rect x="3" y="3" width="1" height="1"/><rect x="3" y="4" width="1" height="1"/><rect x="3" y="5" width="1" height="1"/><rect x="4" y="0" width="1" height="1"/><rect x="4" y="1" width="1" height="1"/><rect x="4" y="2" width="1" height="1"/><rect x="4" y="3" width="1" height="1"/><rect x="4" y="4" width="1" height="1"/><rect x="4" y="5" width="1" height="1"/><rect x="4" y="6" width="1" height="1"/><rect x="4" y="7" width="1" height="1"/><rect x="4" y="8" width="1" height="1"/><rect x="5" y="3" width="1" height="1"/><rect x="5" y="4" width="1" height="1"/><rect x="5" y="5" width="1" height="1"/><rect x="6" y="2" width="1" height="1"/><rect x="6" y="4" width="1" height="1"/><rect x="6" y="6" width="1" height="1"/><rect x="7" y="1" width="1" height="1"/><rect x="7" y="4" width="1" height="1"/><rect x="7" y="7" width="1" height="1"/><rect x="8" y="0" width="1" height="1"/><rect x="8" y="4" width="1" height="1"/><rect x="8" y="8" width="1" height="1"/></svg>
+    <div class="titles"><b>forma</b></div>
+    <button id="side-toggle" class="icon-btn" title="Riduci o espandi la barra (Tab)" aria-label="Riduci o espandi la barra laterale"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M9.5 4.5v15"/></svg></button>
+  </header>
+  <div id="tools"></div>
+  <button id="nav-toggle" aria-expanded="true"><span>Aiuto</span><em>▾</em></button>
+  <div id="nav-help" data-i18n-html></div>
+  <div id="foot">
+    <div class="ctl"><div id="lang" role="group" aria-label="Language"><button data-lang="it">IT</button><button data-lang="en">EN</button></div>
+    <div id="theme" role="group" aria-label="Tema">
+      <button data-theme="light" title="Chiaro" aria-label="Chiaro"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/></svg></button>
+      <button data-theme="auto" title="Automatico" aria-label="Automatico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 0 0 16z" fill="currentColor"/></svg></button>
+      <button data-theme="dark" title="Scuro" aria-label="Scuro"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button>
+    </div></div>
+    <button id="b-info" class="icon-btn" title="Info e aggiornamenti" aria-label="Info e aggiornamenti"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.1"/></svg></button>
+  </div>
+</aside>
+
+<aside id="props" class="panel hidden">
+<div id="p-obj">
+  <input id="p-name" spellcheck="false" autocomplete="off">
+  <div class="seg" id="p-type"><button data-v="solid">Solido</button><button data-v="hole">Foro</button></div>
+  <section id="p-color">
+    <h4>Colore</h4>
+    <div id="p-color-sw"></div>
+  </section>
+  <section id="p-single">
+    <div id="p-text" class="hidden">
+      <h4>Testo</h4>
+      <textarea id="t-text" rows="2" spellcheck="false" placeholder="Scrivi qui"></textarea>
+      <div id="t-font" class="fsel"><button type="button" id="t-font-b"><span></span><em>▾</em></button><div id="t-font-l" class="hidden"></div></div>
+      <input type="file" id="font-in" accept=".ttf,.otf,.woff,.TTF,.OTF,.WOFF" hidden>
+      <div class="grid3">
+        <label class="f" title="Dimensione (mm)">T<input id="t-size" type="number" step="1" min="1"></label>
+        <label class="f" title="Spessore (mm)">S<input id="t-depth" type="number" step="0.5" min="0.2"></label>
+        <label class="f" title="Spaziatura tra le lettere">↔<input id="t-space" type="number" step="1"></label>
+      </div>
+    </div>
+    <h4>Posizione (mm)</h4>
+    <div class="grid3">
+      <label class="f">X<input id="p-x" type="number" step="0.5"></label>
+      <label class="f">Y<input id="p-y" type="number" step="0.5"></label>
+      <label class="f">Z<input id="p-z" type="number" step="0.5"></label>
+    </div>
+    <button class="btn" id="p-ground" title="Porta l'oggetto a Z = 0">Appoggia sul piatto</button>
+    <h4 class="h-lock">Misure (mm) <button id="p-lock" class="lock" title="Blocca le proporzioni: le tre misure cambiano insieme" aria-label="Blocca le proporzioni"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9"/><path class="sh" d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></button></h4>
+    <div class="grid3">
+      <label class="f">L<input id="p-w" type="number" step="0.5" min="0.1"></label>
+      <label class="f">P<input id="p-d" type="number" step="0.5" min="0.1"></label>
+      <label class="f">A<input id="p-h" type="number" step="0.5" min="0.1"></label>
+    </div>
+    <div id="p-r-wrap">
+      <h4>Angoli arrotondati</h4>
+      <div class="grid1"><label class="f">Raggio<input id="p-r" type="number" step="0.5" min="0"></label></div>
+    </div>
+    <div id="p-q-wrap">
+      <h4>Forma</h4>
+      <div class="grid1"><label class="f" id="p-q-lab">Cima %<input id="p-q" type="number" step="5" min="0"></label></div>
+    </div>
+    <h4>Rotazione (°)</h4>
+    <div class="grid3">
+      <label class="f">X<input id="p-rx" type="number" step="15"></label>
+      <label class="f">Y<input id="p-ry" type="number" step="15"></label>
+      <label class="f">Z<input id="p-rz" type="number" step="15"></label>
+    </div>
+  </section>
+  <section id="p-multi" class="hidden">
+    <h4 class="h-lock">Misure (mm) <button id="g-lock" class="lock" title="Blocca le proporzioni: le tre misure cambiano insieme" aria-label="Blocca le proporzioni"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9"/><path class="sh" d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></button></h4>
+    <div class="grid3">
+      <label class="f">L<input id="g-w" type="number" step="0.5" min="0.1"></label>
+      <label class="f">P<input id="g-d" type="number" step="0.5" min="0.1"></label>
+      <label class="f">A<input id="g-h" type="number" step="0.5" min="0.1"></label>
+    </div>
+  </section>
+  <section id="p-alignsec">
+    <h4>Allinea</h4>
+    <div id="p-align"></div>
+    <p class="hint" id="p-key"></p>
+  </section>
+  <section id="p-rotq">
+    <h4>Ruota di 90°</h4>
+    <div class="grid3 rq"><button class="btn" data-rq="x" title="Ruota di 90° attorno a X (⇧ per il verso opposto)">X</button><button class="btn" data-rq="y" title="Ruota di 90° attorno a Y (⇧ per il verso opposto)">Y</button><button class="btn" data-rq="z" title="Ruota di 90° attorno a Z (⇧ per il verso opposto)">Z</button></div>
+    <p class="hint">Oppure usa lo strumento Ruota (R): gli anelli scattano ogni 15°.</p>
+  </section>
+</div>
+<div id="p-face" class="hidden">
+  <div class="p-title">Lato <span id="f-info"></span></div>
+  <p class="hint">⇧ + clic: aggiungi o togli lati</p>
+  <h4>Spingi / tira</h4>
+  <div class="row2"><label class="f">Di<input id="f-push" type="number" step="0.5" placeholder="0"><em>mm</em></label><button class="btn primary" id="f-push-go">Applica</button></div>
+  <p class="hint" id="f-push-hint"></p>
+</div>
+<div id="p-edge" class="hidden">
+  <div class="p-title">Spigolo <span id="e-info"></span></div>
+  <p class="hint" id="e-hint"></p>
+  <h4>Tipo</h4>
+  <div class="seg" id="e-type"><button data-v="fillet" class="on">Raccordo</button><button data-v="chamfer">Smusso</button></div>
+  <h4>Misura</h4>
+  <div class="row2"><label class="f">Di<input id="e-size" type="number" step="0.5" min="0.1" placeholder="2"><em>mm</em></label><button class="btn primary" id="e-go">Applica</button></div>
+  <p class="hint">Raccordo: spigolo arrotondato. Smusso: taglio a 45°.</p>
+</div>
+</aside>
+
+<div id="topbar" class="panel">
+  <button class="btn" id="b-import" title="Importa un file 3MF o STL (⌘O)">Importa <kbd class="o">⌘<span>O</span></kbd></button>
+  <input type="file" id="file-in" accept=".3mf,.stl,.svg,.3MF,.STL,.SVG" multiple hidden>
+  <button class="btn primary" id="b-export" title="Esporta il modello (⌘S)">Esporta ▾</button>
+</div>
+
+<div id="expmenu" class="panel hidden">
+  <button class="btn" data-exp="3mf"><span>3MF <i>consigliato</i></span><em>Millimetri, più pezzi in un file. Apre Bambu Studio senza sorprese.</em></button>
+  <button class="btn" data-exp="stl"><span>STL</span><em>Solo la forma, compatibile con qualsiasi programma.</em></button>
+</div>
+
+<aside id="layers" class="panel hidden">
+  <div class="lhead"><h4>Livelli</h4><button id="layers-close" class="icon-btn" aria-label="Chiudi">×</button></div>
+  <div id="layers-list"></div>
+</aside>
+
+<aside id="history" class="panel hidden">
+  <div class="lhead"><h4>Cronologia</h4><button id="history-close" class="icon-btn" aria-label="Chiudi">×</button></div>
+  <div id="history-list"></div>
+</aside>
+
+<div id="bar" class="panel">
+  <div class="grp" id="views">
+    <button class="btn" data-view="front">Davanti</button>
+    <button class="btn" data-view="top">Sopra</button>
+    <button class="btn" data-view="right">Destra</button>
+    <button class="btn" data-view="iso">3D</button>
+  </div>
+  <button class="btn" id="b-dims" title="Mostra le dimensioni reali">Misure <kbd>M</kbd></button>
+  <button class="btn" id="b-fit" title="Adatta alla vista">Adatta <kbd>⌘0</kbd></button>
+<div class="grp" id="snaps" title="Passo della griglia"><span class="lbl">Griglia</span>
+    <button class="btn" data-snap="0.5">0,5</button><button class="btn" data-snap="1">1</button><button class="btn" data-snap="5">5</button><button class="btn" data-snap="10">10</button></div>
+  <button class="btn" id="b-layers" title="Mostra o nascondi i livelli (F7)">Livelli <kbd>F7</kbd></button>
+  <button class="btn" id="b-history" title="Mostra o nascondi la cronologia (F8)">Cronologia <kbd>F8</kbd></button>
+  <button class="btn" id="b-bed" title="Dimensione del piatto di stampa">Piatto <em></em></button>
+</div>
+
+<div id="bedmenu" class="panel hidden"></div>
+<div id="empty-hint"><div class="eh-card">
+  <div class="eh-top"><i>[ 0 ]</i><b>Inizia</b><span>Cosa vuoi creare?</span></div>
+  <div class="eh-row"><div class="eh-t"><b>Forme</b><span>Blocchi, cilindri, coni, poligoni e anelli da combinare e forare.</span></div><div class="eh-a"><button data-eh="box">Scatola <kbd>B</kbd></button><button data-eh="cylinder">Cilindro <kbd>C</kbd></button><button data-eh="sphere">Sfera <kbd>S</kbd></button><button data-eh="cone">Cono <kbd>O</kbd></button><button data-eh="prism">Prisma <kbd>P</kbd></button><button data-eh="torus">Toro</button></div></div>
+  <div class="eh-row"><div class="eh-t"><b>Testo</b><span>Scrivi in 3D con 4 font a scelta o carica il tuo (TTF, OTF, WOFF).</span></div><div class="eh-a"><button data-eh="text">Testo <kbd>T</kbd></button></div></div>
+  <div class="eh-row"><div class="eh-t"><b>Importa</b><span>Apri un 3MF o STL da modificare, oppure un SVG: diventa un solido da 1 mm. Puoi anche trascinare il file qui.</span></div><div class="eh-a"><button data-eh="import">Importa <kbd>⌘O</kbd></button></div></div>
+  <div class="eh-row"><div class="eh-t"><b>Modelli</b><span>Scatolina con coperchio su misura, pronta da stampare.</span></div><div class="eh-a"><button data-eh="box-model">Scatolina</button></div></div>
+</div></div>
+<div id="hpop" class="panel hidden"><span id="hpop-chip" class="chip">X+</span><span class="lbl">allunga di</span><input id="hpop-val" type="number" step="1" placeholder="0" title="Valore negativo per accorciare. Invio per applicare"><span class="lbl">mm</span></div>
+<div id="dropin"><div class="di-box"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg><b>Rilascia per importare</b><span>File 3MF, STL o SVG</span></div></div>
+<div id="toast"></div>
+<div id="tip"></div>
+
+<dialog id="dlg-exp">
+  <form id="exp-form" method="dialog" class="exp-card">
+    <div class="exp-title">Esporta</div>
+    <label class="exp-lbl" for="exp-name">Nome del file</label>
+    <div class="exp-row"><input id="exp-name" type="text" autocomplete="off" spellcheck="false"><span id="exp-ext">.3mf</span></div>
+    <div class="seg" id="exp-fmt"><button type="button" data-v="3mf" class="on">3MF · consigliato</button><button type="button" data-v="stl">STL</button></div>
+    <div class="exp-actions"><button type="button" class="btn" id="exp-cancel">Annulla</button><button type="submit" class="btn primary">Esporta</button></div>
+  </form>
+</dialog>
+<dialog id="dlg-info">
+  <div class="info-card">
+    <button id="info-close" class="icon-btn" aria-label="Chiudi">×</button>
+    <div class="info-head">
+      <svg class="logo" viewBox="0 0 9 9" shape-rendering="crispEdges" fill="#ff6a00" aria-hidden="true"><rect x="0" y="0" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="0" y="8" width="1" height="1"/><rect x="1" y="1" width="1" height="1"/><rect x="1" y="4" width="1" height="1"/><rect x="1" y="7" width="1" height="1"/><rect x="2" y="2" width="1" height="1"/><rect x="2" y="4" width="1" height="1"/><rect x="2" y="6" width="1" height="1"/><rect x="3" y="3" width="1" height="1"/><rect x="3" y="4" width="1" height="1"/><rect x="3" y="5" width="1" height="1"/><rect x="4" y="0" width="1" height="1"/><rect x="4" y="1" width="1" height="1"/><rect x="4" y="2" width="1" height="1"/><rect x="4" y="3" width="1" height="1"/><rect x="4" y="4" width="1" height="1"/><rect x="4" y="5" width="1" height="1"/><rect x="4" y="6" width="1" height="1"/><rect x="4" y="7" width="1" height="1"/><rect x="4" y="8" width="1" height="1"/><rect x="5" y="3" width="1" height="1"/><rect x="5" y="4" width="1" height="1"/><rect x="5" y="5" width="1" height="1"/><rect x="6" y="2" width="1" height="1"/><rect x="6" y="4" width="1" height="1"/><rect x="6" y="6" width="1" height="1"/><rect x="7" y="1" width="1" height="1"/><rect x="7" y="4" width="1" height="1"/><rect x="7" y="7" width="1" height="1"/><rect x="8" y="0" width="1" height="1"/><rect x="8" y="4" width="1" height="1"/><rect x="8" y="8" width="1" height="1"/></svg>
+      <b class="word">forma</b>
+      <span class="ver">v<span id="ver-num">0.6.2</span></span>
+    </div>
+    <p>Forma è un modellatore 3D semplice per creare e modificare oggetti da stampare in 3D: forme di base, fori, testo, allineamenti e importazione di file 3MF, STL e SVG. Pensato per oggetti pratici come mollette, ganci e scatoline.</p>
+    <p>Questa app è stata generata con l’ausilio dell’intelligenza artificiale.</p>
+    <div class="info-row"><span class="lbl">GitHub</span><span>Sarà disponibile su GitHub quando verrà pubblicata.</span></div>
+    <div class="info-row"><span class="lbl">Aggiornamenti</span><span id="upd-msg">Il controllo automatico degli aggiornamenti su GitHub arriverà in futuro.</span></div>
+    <div class="info-row"><span class="lbl">Licenze</span><div><span>Forma usa software libero di terze parti, tutto open source e usabile liberamente, anche per scopi commerciali.</span><!--LICENSES--></div></div>
+    <div class="info-actions">
+      <a class="btn primary" id="kofi" href="https://ko-fi.com/affogo" target="_blank" rel="noopener noreferrer">Dona su Ko-fi</a>
+      <button class="btn" id="upd-btn" disabled>Controlla aggiornamenti</button>
+    </div>
+    <p class="small">Se Forma ti è utile, puoi sostenerne lo sviluppo con una donazione.</p>
+  </div>
+</dialog>
+
+<dialog id="dlg-box">
+  <form method="dialog" id="box-form">
+    <h2>Scatolina con coperchio</h2>
+    <p>Corpo e coperchio vengono affiancati, pronti da stampare sul piatto.</p>
+    <div class="rows">
+      <label class="f">Larghezza<input name="w" type="number" value="60" step="1" min="10"></label>
+      <label class="f">Profondità<input name="d" type="number" value="40" step="1" min="10"></label>
+      <label class="f">Altezza<input name="h" type="number" value="30" step="1" min="6"></label>
+      <label class="f">Pareti<input name="t" type="number" value="2" step="0.2" min="0.8"></label>
+      <label class="f">Gioco<input name="g" type="number" value="0.3" step="0.1" min="0"></label>
+      <label class="f">Angoli<input name="r" type="number" value="4" step="0.5" min="0"></label>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn" id="box-cancel">Annulla</button>
+      <button class="btn primary" value="ok">Crea</button>
+    </div>
+  </form>
+</dialog>
+
+<script><!--JS--></script>
+</body>
+</html>

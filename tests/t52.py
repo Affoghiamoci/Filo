@@ -1,0 +1,21 @@
+from playwright.sync_api import sync_playwright
+with sync_playwright() as p:
+    b=p.chromium.launch(args=["--use-gl=swiftshader"]);pg=b.new_page(viewport={'width':1400,'height':850})
+    errs=[];pg.on('pageerror',lambda e:errs.append(str(e)));pg.on('console',lambda m: m.type=='error' and errs.append(m.text))
+    pg.goto('file:///tmp/forma/dist/forma.html');pg.wait_for_timeout(1200)
+    pg.screenshot(path='w2.png')
+    for k in ['cone','prism','torus']:
+        pg.evaluate(f"forma.createObject('{k}')");pg.wait_for_timeout(200)
+        print(k,pg.evaluate("[document.querySelector('#p-q-wrap').className,document.querySelector('#p-q-lab').firstChild.data,document.querySelector('#p-q').value, forma.objects.at(-1).userData.name, forma.objects.at(-1).geometry.attributes.position.count]"))
+    pg.fill('#p-q','8');pg.keyboard.press('Enter');pg.wait_for_timeout(200)
+    print(pg.evaluate("forma.objects.at(-1).userData.p"))
+    pg.evaluate("forma.setSelection([forma.objects[1]])");pg.fill('#p-q','8');pg.wait_for_timeout(200)
+    print(pg.evaluate("[forma.objects[1].userData.p.q, forma.objects[1].geometry.attributes.position.count]"))
+    pg.evaluate("forma.setSelection([forma.objects[0]])");pg.fill('#p-q','50');pg.fill('#p-w','30');pg.wait_for_timeout(300)
+    print(pg.evaluate("[forma.objects[0].userData.p, JSON.stringify(forma.worldBox(forma.objects[0]).max)]"))
+    pg.evaluate("forma.setSelection([...forma.objects])");pg.keyboard.press('Control+a');pg.wait_for_timeout(300)
+    pg.screenshot(path='shapes.png')
+    pg.evaluate("forma.setSelection([forma.objects[0],forma.objects[1]])");pg.evaluate("forma.combine()");pg.wait_for_timeout(500)
+    print('after combine',pg.evaluate("forma.objects.map(o=>o.userData.kind)"))
+    pg.keyboard.press('m');pg.keyboard.press('Control+1');pg.wait_for_timeout(200)
+    print(errs);b.close()
