@@ -2081,7 +2081,7 @@ function basisMatrix(X, Y, Z, pos) {
   return new THREE.Matrix4().makeBasis(X, Y, z).setPosition(pos);
 }
 function buildPattern(fs, o, els) {
-  const { n, u, v, o: org } = fs, d = o.depth, raise = o.mode === 'raise';
+  const { n, u, v, o: org } = fs, d = o.depth, raise = o.mode === 'raise', under = o.under ?? 0.4;
   const at = (uc, vc) => org.clone().addScaledVector(u, uc).addScaledVector(v, vc);
   const geos = [];
   for (const e of els) {
@@ -2093,7 +2093,7 @@ function buildPattern(fs, o, els) {
         const th = (Math.PI - th0) + (th0 - (Math.PI - th0)) * i / 14;
         pts.push([R * Math.cos(th), sgn * (c + R * Math.sin(th))]);
       }
-      pts.push([w, -sgn * 0.35], [-w, -sgn * 0.35]);
+      pts.push([w, -sgn * (under - 0.05)], [-w, -sgn * (under - 0.05)]);
       const sh = new THREE.Shape();
       sh.moveTo(pts[0][0], pts[0][1]);
       pts.slice(1).forEach(q => sh.lineTo(q[0], q[1]));
@@ -2106,8 +2106,8 @@ function buildPattern(fs, o, els) {
       const sh = new THREE.Shape();
       if (e.t === 'hex') for (let k = 0; k < 6; k++) { const a = Math.PI / 2 + k * Math.PI / 3; k ? sh.lineTo(e.Rh * Math.cos(a), e.Rh * Math.sin(a)) : sh.moveTo(e.Rh * Math.cos(a), e.Rh * Math.sin(a)); }
       else sh.absarc(0, 0, e.half, 0, Math.PI * 2, false);
-      g = new THREE.ExtrudeGeometry(sh, { depth: d + 0.4, bevelEnabled: false, curveSegments: 16 });
-      g.translate(0, 0, raise ? -0.4 : -d);
+      g = new THREE.ExtrudeGeometry(sh, { depth: d + under, bevelEnabled: false, curveSegments: 16 });
+      g.translate(0, 0, raise ? -under : -d);
       M4 = basisMatrix(u, v, n, at(e.uc, e.vc));
     }
     g.applyMatrix4(M4);
@@ -2130,10 +2130,81 @@ function replaceWithMerged(old, baked, quiet = false) {
   touch(); commit();
   return nm;
 }
+// texture su un cilindro circolare: gli elementi si dispongono "srotolati" (arco x altezza) e ognuno viene appoggiato sulla superficie
+function textureCylinder(obj, o) {
+  const u = obj.userData, R = u.p.w / 2, H = u.p.h, mg = o.margin, p0 = 10 / o.k;
+  if (Math.abs(u.p.w - u.p.d) > 0.01) return { err: 'Le texture funzionano su cilindri circolari (larghezza uguale a profondità)' };
+  const hh = H - 2 * mg;
+  if (hh < 1) return { err: 'Il cilindro è troppo basso per questo margine' };
+  const raise = o.mode === 'raise', geos = [];
+  const frame = th => ({ n: new THREE.Vector3(Math.cos(th), Math.sin(th), 0), u: new THREE.Vector3(-Math.sin(th), Math.cos(th), 0), v: new THREE.Vector3(0, 0, 1), o: new THREE.Vector3(R * Math.cos(th), R * Math.sin(th), 0) });
+  const sag = hw => R - Math.sqrt(Math.max(R * R - hw * hw, 0));
+  let N = 0;
+  if (o.type === 'tubes' && o.orient === 'h') {                       // anelli attorno
+    const nA = Math.floor(hh / p0 + 1e-6);
+    if (nA < 1) return { err: 'Il cilindro è troppo basso per questo passo o margine' };
+    if (nA > 600) return { err: 'Troppi elementi: riduci gli elementi per cm' };
+    const Rt = 0.47 * p0, dd = Math.min(o.depth, Rt), w = Math.sqrt(Math.max(2 * Rt * dd - dd * dd, 1e-4));
+    const sg = raise ? 1 : -1, c = dd - Rt, th0 = Math.asin(clamp((Rt - dd) / Rt, -1, 1)), und = 0.4;
+    const z0 = mg + (hh - nA * p0) / 2 + p0 / 2;
+    for (let i = 0; i < nA; i++) {
+      const pts = [];
+      for (let j = 0; j <= 14; j++) { const th = (Math.PI - th0) + (th0 - (Math.PI - th0)) * j / 14; pts.push(new THREE.Vector2(R + sg * (c + Rt * Math.sin(th)), z0 + i * p0 + Rt * Math.cos(th))); }
+      pts.push(new THREE.Vector2(R - sg * und, z0 + i * p0 - w), new THREE.Vector2(R - sg * und, z0 + i * p0 + w));
+      // il profilo parte dal lato -z: l'ordine esatto non conta, il verso si corregge dal volume
+      pts.push(pts[0].clone());
+      let g = new THREE.LatheGeometry(pts, 96); g.rotateX(Math.PI / 2);
+      if (signedVolume(g) < 0) { const ng = g.index ? g.toNonIndexed() : g; const a = ng.attributes.position.array; for (let q = 0; q < a.length; q += 9) for (let k = 0; k < 3; k++) { const t = a[q + 3 + k]; a[q + 3 + k] = a[q + 6 + k]; a[q + 6 + k] = t; } g = ng; }
+      geos.push(g); N++;
+    }
+  } else if (o.type === 'tubes') {                                    // canne verticali
+    N = Math.floor(2 * Math.PI * R / p0 + 1e-6);
+    if (N < 3) return { err: 'Il cilindro è troppo piccolo per questi elementi' };
+    if (N > 600) return { err: 'Troppi elementi: riduci gli elementi per cm' };
+    const p = 2 * Math.PI * R / N, Rt = 0.47 * p;
+    const oo = { ...o, under: Math.max(0.4, sag(Rt) + 0.3) };
+    for (let i = 0; i < N; i++) {
+      const th = (i + 0.5) * 2 * Math.PI / N, fs = { ...frame(th) };
+      const g = buildPattern(fs, oo, [{ t: 'tube', alongV: true, ac: 0, a: mg, b: H - mg, R: Rt }]);
+      if (g) geos.push(g);
+    }
+  } else {                                                            // esagoni e punti, a nido d'ape
+    let cols = Math.floor(2 * Math.PI * R / p0 + 1e-6);
+    if (cols % 2) cols--;
+    if (cols < 4) return { err: 'Il cilindro è troppo piccolo per questi elementi' };
+    const p = 2 * Math.PI * R / cols, hex = o.type === 'hex', half = hex ? 0.45 * p : 0.3 * p, Rh = half / (Math.sqrt(3) / 2), vr = hex ? Rh : half, rowStep = p * Math.sqrt(3) / 2;
+    const rows = []; for (let vc = mg + vr; vc + vr <= H - mg + 1e-6; vc += rowStep) rows.push(vc);
+    if (!rows.length) return { err: 'Nessun elemento: riduci margine o elementi per cm' };
+    if (rows.length * cols > 3000) return { err: 'Troppi elementi: riduci gli elementi per cm' };
+    const dv = (hh - (rows[rows.length - 1] - rows[0] + 2 * vr)) / 2;
+    const oo = { ...o, under: Math.max(0.4, sag(Math.max(half, Rh)) + 0.3) };
+    rows.forEach((vc, j) => {
+      for (let i = 0; i < cols; i++) {
+        const th = ((i + (j % 2) / 2) * p) / R, fs = frame(th);
+        const g = buildPattern(fs, oo, [{ t: o.type, uc: 0, vc: vc + dv, half, Rh }]);
+        if (g) { geos.push(g); N++; }
+      }
+    });
+  }
+  if (!geos.length) return { err: 'Nessun elemento: riduci margine o elementi per cm' };
+  const geo = mergeGeometries(geos.map(g => { const q = g.index ? g.toNonIndexed() : g; for (const k of Object.keys(q.attributes)) if (k !== 'position') q.deleteAttribute(k); return q; }), false);
+  obj.updateMatrixWorld(true);
+  return { N, brush: cleanBrush(geo, obj.matrixWorld) };
+}
 function applyTexture() {
   if (!faceSel) return;
-  if (faceSet.some(f => f.curved)) return toast('Le texture funzionano sui lati piatti');
   const o = texOpts(), obj = faceSel.obj, faces = faceSet.slice();
+  if (faceSet.some(f => f.curved)) {
+    if (faceSet.length > 1 || obj.userData.kind !== 'cylinder') return toast('Le texture funzionano sui lati piatti e sui cilindri');
+    if (heavyGuard([obj])) return;
+    const r = textureCylinder(obj, o);
+    if (r.err) return toast(r.err);
+    const out = evaluator.evaluate(obj, r.brush, o.mode === 'raise' ? ADDITION : SUBTRACTION);
+    const bk = bakeResult(out, obj.userData.name);
+    if (!bk) return toast('Il risultato è vuoto');
+    replaceWithMerged(obj, bk);
+    return toast(`Texture applicata: ${r.N} elementi`);
+  }
   if (heavyGuard([obj])) return;
   let acc = obj, total = 0;
   obj.updateMatrixWorld(true);
