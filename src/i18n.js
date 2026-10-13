@@ -96,7 +96,7 @@ const EN = {
   'Viste Davanti, Sopra e Destra senza prospettiva, per allineare con precisione': 'Front, Top and Right views without perspective, for precise alignment',
   'Modello molto pesante': 'Very heavy model', 'Questa operazione può bloccare il browser per diversi minuti. Conviene semplificarlo prima (in Bambu Studio: tasto destro, Semplifica modello). Continuare lo stesso?': 'This operation can freeze the browser for several minutes. It is better to simplify it first (in Bambu Studio: right click, Simplify model). Continue anyway?',
   'Copiato': 'Copied', 'Tagliato': 'Cut', 'Incollato': 'Pasted', 'Niente da incollare': 'Nothing to paste',
-  'Copia, taglia e incolla (⌘C, ⌘X, ⌘V)': 'Copy, cut and paste (⌘C, ⌘X, ⌘V)', 'Modelli molto pesanti più fluidi, con avviso': 'Smoother very heavy models, with a warning',
+  'Copia, taglia e incolla (⌘C, ⌘X, ⌘V), anche sul posto (⌘⇧V)': 'Copy, cut and paste (⌘C, ⌘X, ⌘V), also in place (⌘⇧V)', 'Modelli molto pesanti più fluidi, con avviso': 'Smoother very heavy models, with a warning',
   'Angoli di rotazione più coerenti dopo i quarti di giro': 'More consistent rotation angles after quarter turns',
   'Meglio da computer': 'Better on a computer', 'Filo non è ottimizzato per il mobile: è pensato per mouse e tastiera, con scorciatoie e maniglie di precisione. Da telefono o tablet puoi guardarlo e provarlo, ma alcune cose saranno scomode.': 'Filo is not optimized for mobile: it is made for mouse and keyboard, with shortcuts and precision handles. On a phone or tablet you can look around and try it, but some things will be awkward.', 'Ho capito': 'Got it',
   'Avviso per chi apre Filo da mobile': 'Warning for people opening Filo on mobile',

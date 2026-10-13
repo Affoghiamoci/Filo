@@ -772,16 +772,16 @@ function copySelection(quiet) {
   return true;
 }
 function cutSelection() { if (copySelection(true)) { deleteSelection(); toast('Tagliato'); } }
-function pasteClip() {
+function pasteClip(inPlace = false) {
   if (!clip || !clip.length) return toast('Niente da incollare');
-  pasteN++;
+  const off = inPlace ? 0 : 12 * ++pasteN;
   const gmap = new Map();
   const made = clip.map(d => {
     let gid = null;
     if (d.gid != null) { if (!gmap.has(d.gid)) gmap.set(d.gid, nextGid++); gid = gmap.get(d.gid); }
     const name = d.name.replace(/ copia( \d+)?$/, '') + (d.name.endsWith(' copia') ? '' : '');
     return makeMesh({ ...d, id: undefined, gid, name, p: { ...d.p }, base: d.base ? { ...d.base } : null, text: d.text ? { ...d.text } : null,
-      pos: [d.pos[0] + 12 * pasteN, d.pos[1] + 12 * pasteN, d.pos[2]], q: d.q.slice(), scale: d.scale.slice() });
+      pos: [d.pos[0] + off, d.pos[1] + off, d.pos[2]], q: d.q.slice(), scale: d.scale.slice() });
   });
   setSelection(made); touch(); commit();
   toast(`Incollato${made.length > 1 ? `: ${made.length} oggetti` : ''}`);
@@ -2018,7 +2018,7 @@ window.addEventListener('keydown', e => {
     else if (k === 'd') { stop(); duplicateSelection(true); }
     else if (k === 'c') { stop(); copySelection(); }
     else if (k === 'x') { stop(); cutSelection(); }
-    else if (k === 'v') { stop(); pasteClip(); }
+    else if (k === 'v') { stop(); pasteClip(e.shiftKey); }
     else if (k === 'a') { stop(); setSelection([...objects]); }
     else if (k === 'e') { stop(); combine(); }
     else if (k === 'g') { stop(); e.shiftKey ? ungroupSelection() : groupSelection(); }
