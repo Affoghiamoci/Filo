@@ -2334,7 +2334,7 @@ function parse3MF(buf) {
     const doc = new DOMParser().parseFromString(text(path), 'application/xml');
     const objs = {};
     for (const o of doc.getElementsByTagName('object')) {
-      const rec = { comps: [...o.getElementsByTagName('component')].map(c => ({ id: c.getAttribute('objectid'), path: c.getAttribute('p:path'), tf: c.getAttribute('transform') })) };
+      const rec = { type: o.getAttribute('type') || 'model', comps: [...o.getElementsByTagName('component')].map(c => ({ id: c.getAttribute('objectid'), path: c.getAttribute('p:path'), tf: c.getAttribute('transform') })) };
       const mesh = o.getElementsByTagName('mesh')[0];
       if (mesh) {
         const vs = mesh.getElementsByTagName('vertex'), ts = mesh.getElementsByTagName('triangle');
@@ -2357,6 +2357,7 @@ function parse3MF(buf) {
   const emit = (path, id, M4, out, depth = 0) => {
     const o = load(path).objs[id];
     if (!o || depth > 8) return;
+    if (['other', 'support', 'surface'].includes(o.type)) return;   // volumi modificatori e supporti (Bambu/Orca): non sono geometria
     if (o.v) {
       const P = new THREE.Vector3();
       for (let i = 0; i < o.t.length; i++) { P.set(o.v[o.t[i] * 3], o.v[o.t[i] * 3 + 1], o.v[o.t[i] * 3 + 2]).applyMatrix4(M4).multiplyScalar(scale); out.push(P.x, P.y, P.z); }
