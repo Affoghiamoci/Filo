@@ -469,3 +469,16 @@ label.f input::-webkit-inner-spin-button,label.f input::-webkit-outer-spin-butto
 .grid1.rnd label.f input{width:70px;margin-left:auto}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
 .grid2.hidden{display:none}
+
+label.f.has-stp{position:relative}
+.stp{position:absolute;top:2px;bottom:2px;width:14px;display:none;flex-direction:column;gap:1px;background:var(--field)}
+label.f.has-stp:hover .stp,label.f.has-stp:focus-within .stp{display:flex}
+.stp-r .stp{right:2px}.stp-l .stp{left:2px;width:18px}
+.stp-r input{padding-right:15px}
+.stp button{all:unset;flex:1;display:block;cursor:default;position:relative;border-radius:2px}
+.stp button:hover{background:var(--hover)}
+.stp button::after{content:"";position:absolute;left:50%;top:50%;margin:-2px 0 0 -3px;border:3px solid transparent}
+.stp button[data-d="1"]::after{border-bottom:4px solid var(--muted);border-top:0}
+.stp button[data-d="-1"]::after{border-top:4px solid var(--muted);border-bottom:0}
+label.f.stp-l:hover,label.f.stp-l:focus-within{color:transparent}
+.stp-l .stp{left:0;width:20px;top:0;bottom:0;padding:2px}

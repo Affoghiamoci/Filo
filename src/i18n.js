@@ -92,6 +92,7 @@ const EN = {
   "Copia la selezione in righe e colonne, a nido d'ape o in cerchio. Usala con un foro per fare griglie di fori, poi Combina.": 'Copies the selection in rows and columns, honeycomb or a circle. Use it on a hole to make a grid of holes, then Combine.',
   'Seleziona prima un oggetto': 'Select an object first', "Con questi numeri non c'è nulla da copiare": 'Nothing to copy with these numbers', 'Troppe copie: il massimo è 600': 'Too many copies: the maximum is 600',
   "Ripeti: copie in griglia, nido d'ape o in cerchio": 'Repeat: copies in a grid, honeycomb or circle',
+  'Frecce su e giù nei campi numerici (⇧ per salti da 10 passi)': 'Up and down arrows in number fields (⇧ for 10-step jumps)',
   'Modello molto pesante': 'Very heavy model', 'Questa operazione può bloccare il browser per diversi minuti. Conviene semplificarlo prima (in Bambu Studio: tasto destro, Semplifica modello). Continuare lo stesso?': 'This operation can freeze the browser for several minutes. It is better to simplify it first (in Bambu Studio: right click, Simplify model). Continue anyway?',
   'Copiato': 'Copied', 'Tagliato': 'Cut', 'Incollato': 'Pasted', 'Niente da incollare': 'Nothing to paste',
   'Copia, taglia e incolla (⌘C, ⌘X, ⌘V)': 'Copy, cut and paste (⌘C, ⌘X, ⌘V)', 'Modelli molto pesanti più fluidi, con avviso': 'Smoother very heavy models, with a warning',

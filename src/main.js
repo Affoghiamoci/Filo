@@ -647,6 +647,38 @@ function combine() {
   touch(); commit();
   toast(`Combinati ${first} oggetti`);
 }
+/* ------------------------------------------------------------ frecce su/giù nei campi numerici */
+function addSteppers() {
+  document.querySelectorAll('label.f > input[type=number]').forEach(inp => {
+    const lab = inp.parentElement;
+    if (lab.querySelector('.stp')) return;
+    const short = (lab.firstChild?.textContent || '').trim().length <= 2;
+    lab.classList.add('has-stp', short ? 'stp-l' : 'stp-r');
+    const box = document.createElement('span'); box.className = 'stp';
+    box.innerHTML = '<button type="button" tabindex="-1" aria-label="Aumenta" data-d="1"></button><button type="button" tabindex="-1" aria-label="Diminuisci" data-d="-1"></button>';
+    lab.appendChild(box);
+    let timer = null, rep = null;
+    const bump = (d, big) => {
+      const st = parseFloat(inp.step) || 0.5, mn = inp.min !== '' ? parseFloat(inp.min) : -Infinity, mx = inp.max !== '' ? parseFloat(inp.max) : Infinity;
+      const cur = parseFloat(String(inp.value).replace(',', '.')) || 0, k = big ? 10 : 1;
+      let v = Math.round((cur + d * st * k) / st * 1000) / 1000 * st;
+      v = Math.min(mx, Math.max(mn, +v.toFixed(3)));
+      inp.value = String(v);
+      inp.dispatchEvent(new Event('input', { bubbles: true }));
+      inp.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    const stop = () => { clearTimeout(timer); clearInterval(rep); };
+    box.addEventListener('pointerdown', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      e.preventDefault(); e.stopPropagation();
+      const d = +b.dataset.d; bump(d, e.shiftKey);
+      timer = setTimeout(() => { rep = setInterval(() => bump(d, e.shiftKey), 70); }, 420);
+      window.addEventListener('pointerup', stop, { once: true });
+    });
+  });
+}
+addSteppers();
+
 /* ------------------------------------------------------------ ripeti: griglia, nido d'ape, cerchio */
 const RP = { mode: 'grid' };
 function repeatSelection(o) {
