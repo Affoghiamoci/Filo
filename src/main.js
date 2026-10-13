@@ -1610,7 +1610,7 @@ window.addEventListener('keydown', e => {
   else if (k === 's') createObject('sphere');
   else if (k === 'o') createObject('cone');
   else if (k === 'p') createObject('prism');
-  else if (k === 't') addText();
+  else if (k === 't') { e.preventDefault(); addText(); }
   else if (k === 'x') toggleHole();
   else if (k === 'm') setDims();
   else if (k === 'delete' || k === 'backspace') { e.preventDefault(); deleteSelection(); }
@@ -2651,7 +2651,7 @@ function textGeo(sp) {
   return { g, size };
 }
 function addText() {
-  const sp = { text: 'Forma', font: 'inter', size: 14, depth: 2, spacing: 0 };
+  const sp = { text: 'Filo', font: 'inter', size: 14, depth: 2, spacing: 0 };
   const r = textGeo(sp);
   if (!r) return;
   counters.merged++;
