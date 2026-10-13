@@ -449,3 +449,11 @@ label.f input::-webkit-inner-spin-button,label.f input::-webkit-outer-spin-butto
 .row3{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
 .row3 label.f{min-width:0}
 .row3 label.f:last-child{grid-column:1/-1}
+
+/* strumento distanza */
+#ruler-card{top:16px;left:calc(var(--sw,312px) + 124px);z-index:5;padding:10px 14px;border-radius:2px;max-width:260px;transition:left .22s ease}
+#side.mini ~ #ruler-card{left:204px}
+#ruler-card.hidden{display:none}
+.rc-main{font:600 15px var(--mono);color:var(--text)}
+.rc-sub{margin-top:4px;font:400 11px/1.4 var(--sans,system-ui);color:var(--muted)}
+.ruler-pt{position:absolute;left:0;top:0;width:9px;height:9px;border-radius:50%;background:#fff;border:2px solid var(--accent);display:none;pointer-events:none}

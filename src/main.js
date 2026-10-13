@@ -954,6 +954,9 @@ canvas.addEventListener('pointerdown', e => {
   else if (state.tool === 'edge') {
     drag.mode = 'orbit'; drag.edgeHit = pickHit(e); drag.emptyClick = !drag.edgeHit;
   }
+  else if (state.tool === 'ruler') {
+    drag.mode = 'orbit'; drag.rulerHit = pickHit(e);
+  }
   else if (state.tool === 'face') {
     if (faceHandle.visible) {
       setRay(e);
@@ -1076,6 +1079,7 @@ canvas.addEventListener('pointerup', e => {
     if (d.moved && Math.abs(dist) > 1e-4) applyPush(dist); else { selMeshes.forEach(m => m.position.set(0, 0, 0)); updateFaceHandle(); TF.push.focus(); }
     return;
   }
+  if (state.tool === 'ruler' && d.mode === 'orbit' && !d.moved) { rulerClick(d.rulerHit); return; }
   if (state.tool === 'edge' && d.mode === 'orbit' && !d.moved) {
     if (d.edgeHit) selectEdgeAt(d.edgeHit, d.shift); else if (!d.shift) clearEdges();
     return;
@@ -1136,7 +1140,7 @@ canvas.addEventListener('gesturestart', e => { e.preventDefault(); gDist = cam.d
 canvas.addEventListener('gesturechange', e => { e.preventDefault(); cam.dist = clamp(gDist / e.scale, 15, 3000); applyCamera(); });
 function updateCursor(grabbing) {
   const pan = state.space || state.tool === 'hand';
-  canvas.style.cursor = pan ? (grabbing ? 'grabbing' : 'grab') : state.tool === 'orbit' ? 'move' : state.tool === 'rotate' ? 'crosshair' : state.tool === 'face' || state.tool === 'edge' ? 'crosshair' : 'default';
+  canvas.style.cursor = pan ? (grabbing ? 'grabbing' : 'grab') : state.tool === 'orbit' ? 'move' : state.tool === 'rotate' ? 'crosshair' : state.tool === 'face' || state.tool === 'edge' || state.tool === 'ruler' ? 'crosshair' : 'default';
 }
 
 /* ------------------------------------------------------------- pannello */
@@ -1507,6 +1511,7 @@ const I = {
   group: '<path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"/><rect x="8" y="8" width="8" height="8" rx="1.5"/>',
   dup: '<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8"/>',
   trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12h10l1-12M9 7V4h6v3"/>',
+  dist: '<path d="M3.5 16.5l13-13 4 4-13 13z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/>',
   edge: '<path d="M4 20V9a5 5 0 0 1 5-5h11"/><path d="M4 20h16" opacity=".35"/><path d="M20 4v16" opacity=".35"/>',
   face: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5" opacity=".4"/><path d="M12 12l8-4.5v9L12 21z" fill="currentColor" stroke="none" opacity=".4"/>',
   ruler: '<rect x="3" y="8" width="18" height="8" rx="1.5"/><path d="M7 8v3M11 8v4M15 8v3M19 8v4"/>',
@@ -1517,6 +1522,7 @@ const TOOLS = [
     { id: 'move', icon: 'move', name: 'Sposta', key: 'V', desc: 'Seleziona e muovi gli oggetti', run: () => setTool('move') },
     { id: 'rotate', icon: 'rotate', name: 'Ruota', key: 'R', desc: 'Ruota con scatto a 15°', run: () => setTool('rotate') },
     { id: 'face', icon: 'face', name: 'Lato', key: 'L', desc: 'Spingi o tira un lato piatto', run: () => setTool('face') },
+    { id: 'ruler', icon: 'dist', name: 'Distanza', key: 'D', desc: 'Misura tra due punti o lati', run: () => setTool('ruler') },
     { id: 'edge', icon: 'edge', name: 'Spigolo', key: 'E', desc: 'Raccorda o smussa uno spigolo', run: () => setTool('edge') },
   ]],
   ['Forme', [
@@ -1555,6 +1561,7 @@ function setTool(t) {
   updateRotGizmo();
   if (t !== 'face') { clearFace(false); hideHover(); }
   if (t !== 'edge') clearEdges();
+  if (t === 'ruler' || state.tool !== 'ruler') clearRuler();
   syncPanel();
   Object.entries(toolEls).forEach(([id, el]) => el.classList.toggle('active', id === t));
   updateCursor(false);
@@ -1720,6 +1727,7 @@ window.addEventListener('keydown', e => {
   if (k === 'v') setTool('move');
   else if (k === 'l') setTool('face');
   else if (k === 'e') setTool('edge');
+  else if (k === 'd') setTool('ruler');
   else if (k === 'r') setTool('rotate');
   else if (k === 'b') createObject('box');
   else if (k === 'c') createObject('cylinder');
@@ -1731,7 +1739,7 @@ window.addEventListener('keydown', e => {
   else if (k === 'm') setDims();
   else if (k === 'w') setXray();
   else if (k === 'delete' || k === 'backspace') { e.preventDefault(); deleteSelection(); }
-  else if (k === 'escape') { if (faceSel) clearFace(); else setSelection([]); }
+  else if (k === 'escape') { if (state.tool === 'ruler' && ruler.a) clearRuler(); else if (faceSel) clearFace(); else setSelection([]); }
 });
 window.addEventListener('keyup', e => {
   if (e.code === 'Space') { state.space = false; updateCursor(false); updateHandles(); }
@@ -2765,12 +2773,79 @@ async function importFiles(files) {
 }
 
 /* ------------------------------------------------------------- avvio */
+
+/* ------------------------------------------------------------ distanza (righello) */
+const ruler = { a: null, b: null, foot: null };
+const rulerPts = [0, 1].map(() => { const d = document.createElement('div'); d.className = 'ruler-pt'; labelsEl.appendChild(d); return d; });
+const rulerLabel = document.createElement('div'); rulerLabel.className = 'dim-label'; labelsEl.appendChild(rulerLabel);
+const rulerGeo = new THREE.BufferGeometry(); rulerGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+const rulerLine = new THREE.Line(rulerGeo, new THREE.LineBasicMaterial({ color: 0xff6a00, depthTest: false }));
+rulerLine.renderOrder = 901; rulerLine.visible = false; rulerLine.frustumCulled = false; scene.add(rulerLine);
+const rulerCard = $('#ruler-card');
+function rulerCardText(lines) { rulerCard.innerHTML = lines.map((l, i) => `<div class="${i ? 'rc-sub' : 'rc-main'}"></div>`).join(''); [...rulerCard.children].forEach((el, i) => { el.textContent = lines[i]; }); rulerCard.classList.remove('hidden'); }
+function clearRuler() {
+  ruler.a = ruler.b = ruler.foot = null; rulerLine.visible = false;
+  rulerPts.forEach(e => (e.style.display = 'none')); rulerLabel.style.display = 'none'; dirty = true;
+  if (state.tool === 'ruler') rulerCardText([tr('Distanza'), tr('Clicca un punto o un lato, poi un secondo. Su due lati paralleli misura la distanza tra i piani.')]); else rulerCard.classList.add('hidden');
+}
+// punto cliccato sulla superficie; si aggancia a un vertice o a uno spigolo vicino
+function rulerPick(hit) {
+  const obj = hit.object, p = hit.point.clone();
+  const n = hit.face ? hit.face.normal.clone().transformDirection(obj.matrixWorld).normalize() : null;
+  const wpp = 2 * Math.tan(camera.fov * D2R / 2) * camera.position.distanceTo(p) / canvas.clientHeight, thr = 12 * wpp;
+  const eg = obj.userData.edges?.geometry, pos = eg?.attributes.position;
+  let snap = null, bv = thr, be = thr * 0.7, pv = null, pe = null;
+  if (pos) {
+    const A = new THREE.Vector3(), B = new THREE.Vector3(), AB = new THREE.Vector3(), tmp = new THREE.Vector3();
+    obj.updateMatrixWorld(true);
+    for (let i = 0; i + 1 < pos.count; i += 2) {
+      A.fromBufferAttribute(pos, i).applyMatrix4(obj.matrixWorld); B.fromBufferAttribute(pos, i + 1).applyMatrix4(obj.matrixWorld);
+      for (const V of [A, B]) { const d = V.distanceTo(p); if (d < bv) { bv = d; pv = V.clone(); } }
+      AB.subVectors(B, A); const l2 = AB.lengthSq(); if (l2 < 1e-12) continue;
+      const t = clamp(tmp.subVectors(p, A).dot(AB) / l2, 0, 1), q = A.clone().addScaledVector(AB, t), d = q.distanceTo(p);
+      if (d < be) { be = d; pe = q; }
+    }
+  }
+  if (pv) { p.copy(pv); snap = 'v'; } else if (pe) { p.copy(pe); snap = 'e'; }
+  return { p, n, snap };
+}
+function rulerClick(hit) {
+  if (!hit) { clearRuler(); return; }
+  const pt = rulerPick(hit);
+  if (!ruler.a || ruler.b) { clearRuler(); ruler.a = pt; rulerCardText([tr('Distanza'), tr('Ora clicca il secondo punto o lato.')]); dirty = true; return; }
+  ruler.b = pt;
+  const d = pt.p.clone().sub(ruler.a.p), a = ruler.a;
+  const parallel = a.n && pt.n && !a.snap && !pt.snap && Math.abs(a.n.dot(pt.n)) > 0.9995;
+  if (parallel) {
+    const off = d.dot(a.n);
+    ruler.foot = a.p.clone().addScaledVector(a.n, off);
+    rulerCardText([`${fmt(Math.abs(off))} mm`, tr('Distanza tra i due lati paralleli')]);
+  } else {
+    ruler.foot = pt.p.clone();
+    rulerCardText([`${fmt(d.length())} mm`, `ΔX ${fmt(Math.abs(d.x))} · ΔY ${fmt(Math.abs(d.y))} · ΔZ ${fmt(Math.abs(d.z))}`]);
+  }
+  const arr = rulerGeo.attributes.position.array; arr.set([a.p.x, a.p.y, a.p.z, ruler.foot.x, ruler.foot.y, ruler.foot.z]); rulerGeo.attributes.position.needsUpdate = true;
+  rulerGeo.computeBoundingSphere();
+  rulerLine.visible = true; dirty = true;
+}
+function updateRuler() {
+  const w = window.innerWidth, h = window.innerHeight;
+  const place = (el, P) => { const v = P.clone().project(camera); if (v.z > 1 || v.z < -1) { el.style.display = 'none'; return; } el.style.display = 'block'; el.style.transform = `translate(${(v.x * 0.5 + 0.5) * w}px, ${(-v.y * 0.5 + 0.5) * h}px) translate(-50%,-50%)`; };
+  if (!ruler.a) { rulerPts.forEach(e => (e.style.display = 'none')); rulerLabel.style.display = 'none'; return; }
+  place(rulerPts[0], ruler.a.p);
+  if (!ruler.b) { rulerPts[1].style.display = 'none'; rulerLabel.style.display = 'none'; return; }
+  place(rulerPts[1], ruler.foot);
+  const mid = ruler.a.p.clone().add(ruler.foot).multiplyScalar(0.5);
+  place(rulerLabel, mid);
+  rulerLabel.textContent = rulerCard.firstChild.textContent;
+}
 function render() {
   edgeMat.resolution.set(canvas.clientWidth, canvas.clientHeight); edgeHoverMat.resolution.copy(edgeMat.resolution);
   if (rotGizmo.visible) updateRotGizmo();
   updateHandleFacing();
   renderer.render(scene, camera);
   updateDims();
+  updateRuler();
   // le maniglie hanno dimensione costante sullo schermo: nulla da aggiornare
 }
 function frame() {
