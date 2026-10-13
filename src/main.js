@@ -2554,6 +2554,14 @@ $('#b-info').addEventListener('click', () => infoDlg.showModal());
 $('#info-close').addEventListener('click', () => infoDlg.close());
 infoDlg.addEventListener('click', e => { if (e.target === infoDlg) infoDlg.close(); });
 initI18n();
+// contatore visite anonimo: solo sul sito ufficiale, rispetta Do Not Track
+try {
+  if (location.hostname === 'filo.affogo.fyi' && navigator.doNotTrack !== '1') {
+    let vid = localStorage.getItem('forma.vid');
+    if (!vid) { vid = crypto.randomUUID(); localStorage.setItem('forma.vid', vid); }
+    fetch('https://dash.affogo.fyi/api/hit', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ id: vid }) }).catch(() => {});
+  }
+} catch (e) { /* ignora */ }
 // avviso mobile: una volta per sessione
 (function () {
   const mobile = (window.matchMedia && matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 900) || /Android|iPhone|iPod|Mobile/i.test(navigator.userAgent);
