@@ -100,13 +100,19 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme
 applyTheme();
 
 /* ---------------------------------------------------------------- camera */
-const cam = { az: 35, el: 28, dist: 320, target: new THREE.Vector3(0, 0, 10) };
+// Viste Davanti/Sopra/Destra: prospettiva quasi nulla (FOV minuscolo, camera lontana), quindi misure e allineamenti si leggono senza deformazioni.
+// cam.dist resta la distanza "equivalente" a FOV 35: l'inquadratura non cambia.
+const BASE_FOV = 35, ORTHO_FOV = 2, fovSprites = [];
+const cam = { az: 35, el: 28, dist: 320, fov: BASE_FOV, target: new THREE.Vector3(0, 0, 10) };
 function applyCamera() {
   const az = cam.az * D2R, el = cam.el * D2R;
+  const k = Math.tan(BASE_FOV * D2R / 2) / Math.tan(cam.fov * D2R / 2), D = cam.dist * k;
+  if (camera.fov !== cam.fov) { camera.fov = cam.fov; camera.near = Math.max(1, k); camera.far = 6000 * k; camera.updateProjectionMatrix(); }
+  { const r = Math.tan(cam.fov * D2R / 2) / Math.tan(BASE_FOV * D2R / 2); for (const [sp, s0] of fovSprites) sp.scale.setScalar(s0 * r); }
   camera.position.set(
-    cam.target.x + cam.dist * Math.sin(az) * Math.cos(el),
-    cam.target.y - cam.dist * Math.cos(az) * Math.cos(el),
-    cam.target.z + cam.dist * Math.sin(el));
+    cam.target.x + D * Math.sin(az) * Math.cos(el),
+    cam.target.y - D * Math.cos(az) * Math.cos(el),
+    cam.target.z + D * Math.sin(el));
   camera.lookAt(cam.target);
   camera.updateMatrixWorld();
   dirty = true;
@@ -146,10 +152,10 @@ function updateViewCube() {
 }
 let tween = null;
 function animateTo(to, ms = 320) {
-  const from = { az: cam.az, el: cam.el, dist: cam.dist, t: cam.target.clone() };
+  const from = { az: cam.az, el: cam.el, dist: cam.dist, fov: cam.fov, t: cam.target.clone() };
   let daz = (to.az ?? cam.az) - cam.az;
   daz = ((daz + 540) % 360) - 180;
-  tween = { t0: performance.now(), ms, from, to: { az: from.az + daz, el: to.el ?? from.el, dist: to.dist ?? from.dist, t: to.target ?? from.t } };
+  tween = { t0: performance.now(), ms, from, to: { az: from.az + daz, el: to.el ?? from.el, dist: to.dist ?? from.dist, fov: to.fov ?? from.fov, t: to.target ?? from.t } };
 }
 function stepTween() {
   const k = clamp((performance.now() - tween.t0) / tween.ms, 0, 1);
@@ -158,12 +164,13 @@ function stepTween() {
   cam.az = from.az + (to.az - from.az) * e;
   cam.el = from.el + (to.el - from.el) * e;
   cam.dist = from.dist + (to.dist - from.dist) * e;
+  cam.fov = from.fov + (to.fov - from.fov) * e;
   cam.target.lerpVectors(from.t, to.t, e);
   applyCamera();
   if (k >= 1) tween = null;
 }
 const zoom = f => { cam.dist = clamp(cam.dist * f, 15, 3000); applyCamera(); };
-const worldPerPixel = () => 2 * cam.dist * Math.tan(camera.fov * D2R / 2) / canvas.clientHeight;
+const worldPerPixel = () => 2 * cam.dist * Math.tan(BASE_FOV * D2R / 2) / canvas.clientHeight;
 function panPixels(dx, dy) {
   const s = worldPerPixel();
   const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
@@ -172,6 +179,7 @@ function panPixels(dx, dy) {
   applyCamera();
 }
 function orbitPixels(dx, dy) {
+  cam.fov = BASE_FOV; tween = null;
   cam.az -= dx * 0.3;
   cam.el = clamp(cam.el + dy * 0.3, -89.9, 89.9);
   applyCamera();
@@ -182,9 +190,9 @@ function fitView() {
   else box.set(new THREE.Vector3(-BEDX / 2, -BEDY / 2, 0), new THREE.Vector3(BEDX / 2, BEDY / 2, 0));
   const c = box.getCenter(new THREE.Vector3());
   const r = Math.max(box.getSize(new THREE.Vector3()).length() / 2, 25);
-  animateTo({ target: c, dist: clamp(r / Math.sin(camera.fov * D2R / 2) * 1.25, 60, 2500) });
+  animateTo({ target: c, dist: clamp(r / Math.sin(BASE_FOV * D2R / 2) * 1.25, 60, 2500) });
 }
-const VIEWS = { front: { az: 0, el: 0 }, top: { az: 0, el: 89.9 }, right: { az: 90, el: 0 }, iso: { az: 35, el: 28 } };
+const VIEWS = { front: { az: 0, el: 0, fov: ORTHO_FOV }, top: { az: 0, el: 89.9, fov: ORTHO_FOV }, right: { az: 90, el: 0, fov: ORTHO_FOV }, iso: { az: 35, el: 28, fov: BASE_FOV } };
 
 let pixelRatio = 0;
 function wantPixelRatio() { return objects.some(o => o.userData.heavy) ? 1 : Math.min(window.devicePixelRatio || 1, 2); }
@@ -877,7 +885,7 @@ const HANDLES = [];
 for (const axis of ['x', 'y', 'z']) for (const sign of [1, -1]) {
   const mat = new THREE.SpriteMaterial({ map: handleTex[axis], sizeAttenuation: false, depthTest: false, depthWrite: false, transparent: true });
   const sp = new THREE.Sprite(mat);
-  sp.scale.setScalar(0.022);
+  sp.scale.setScalar(0.022); fovSprites.push([sp, 0.022]);
   sp.renderOrder = 999;
   sp.visible = false;
   sp.userData = { axis, sign };
@@ -1376,7 +1384,7 @@ function snapVerts(info, s) {
 }
 const vtxMark = (() => {
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: handleTexture('#ff6a00'), sizeAttenuation: false, depthTest: false, depthWrite: false, transparent: true }));
-  sp.scale.setScalar(0.022); sp.renderOrder = 999; sp.visible = false; scene.add(sp); return sp;
+  sp.scale.setScalar(0.022); fovSprites.push([sp, 0.022]); sp.renderOrder = 999; sp.visible = false; scene.add(sp); return sp;
 })();
 function showVertex(sv, e) {
   vtxMark.visible = !!sv;
@@ -1903,7 +1911,7 @@ try { if (localStorage.getItem('forma.mini') === '1') setMini(true, false); } ca
 /* ----------------------------------------------------------- barra bassa */
 $('#viewcube').addEventListener('click', e => {
   const b = e.target.closest('[data-vc]'); if (!b) return;
-  const V = { front: { az: 0, el: 0 }, back: { az: 180, el: 0 }, right: { az: 90, el: 0 }, left: { az: -90, el: 0 }, top: { az: cam.az, el: 89.9 }, bottom: { az: cam.az, el: -89.9 } };
+  const O = ORTHO_FOV, V = { front: { az: 0, el: 0, fov: O }, back: { az: 180, el: 0, fov: O }, right: { az: 90, el: 0, fov: O }, left: { az: -90, el: 0, fov: O }, top: { az: cam.az, el: 89.9, fov: O }, bottom: { az: cam.az, el: -89.9, fov: O } };
   animateTo(V[b.dataset.vc]);
 });
 $('#views').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if (b) animateTo(VIEWS[b.dataset.view]); });
@@ -2686,7 +2694,7 @@ function pushOne(obj, faces, dist) {
 /* maniglia del lato: trascina lungo la normale, con calamita sui piani vicini */
 const faceHandle = (() => {
   const mat = new THREE.SpriteMaterial({ map: handleTexture('#ff6a00'), sizeAttenuation: false, depthTest: false, depthWrite: false, transparent: true });
-  const sp = new THREE.Sprite(mat); sp.scale.setScalar(0.024); sp.renderOrder = 999; sp.visible = false; scene.add(sp); return sp;
+  const sp = new THREE.Sprite(mat); sp.scale.setScalar(0.024); fovSprites.push([sp, 0.024]); sp.renderOrder = 999; sp.visible = false; scene.add(sp); return sp;
 })();
 const guideMat = new THREE.ShaderMaterial({
   uniforms: { uSize: { value: new THREE.Vector2(50, 50) }, uCell: { value: 2.5 }, uCol: { value: new THREE.Color(ACCENT_HEX) } },
@@ -3114,7 +3122,7 @@ function scaleEdge(obj, chain, f) {
 }
 const edgeHandle = (() => {
   const mat = new THREE.SpriteMaterial({ map: handleTexture('#ff6a00'), sizeAttenuation: false, depthTest: false, depthWrite: false, transparent: true });
-  const sp = new THREE.Sprite(mat); sp.scale.setScalar(0.024); sp.renderOrder = 1000; sp.visible = false; scene.add(sp); return sp;
+  const sp = new THREE.Sprite(mat); sp.scale.setScalar(0.024); fovSprites.push([sp, 0.024]); sp.renderOrder = 1000; sp.visible = false; scene.add(sp); return sp;
 })();
 const ringPrev = new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xff6a00, depthTest: false, transparent: true }));
 ringPrev.renderOrder = 998; ringPrev.visible = false; ringPrev.frustumCulled = false; ringPrev.raycast = () => {}; scene.add(ringPrev);
