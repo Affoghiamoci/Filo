@@ -457,3 +457,5 @@ label.f input::-webkit-inner-spin-button,label.f input::-webkit-outer-spin-butto
 .rc-main{font:600 15px var(--mono);color:var(--text)}
 .rc-sub{margin-top:4px;font:400 11px/1.4 var(--sans,system-ui);color:var(--muted)}
 .ruler-pt{position:absolute;left:0;top:0;width:9px;height:9px;border-radius:50%;background:#fff;border:2px solid var(--accent);display:none;pointer-events:none}
+
+.seg3{grid-template-columns:repeat(3,1fr)}

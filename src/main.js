@@ -1087,7 +1087,7 @@ canvas.addEventListener('pointerup', e => {
   }
   if (d.mode === 'facepush') {
     const dist = d.fd.dist;
-    if (d.fd.fs.full) { d.fd.fs.obj.scale.set(1, 1, 1); selMeshes.forEach(m => { m.visible = true; }); }
+    if (d.fd.fs.full && d.fd.fs.obj.userData.kind === 'cylinder') { d.fd.fs.obj.scale.set(1, 1, 1); selMeshes.forEach(m => { m.visible = true; }); }
     if (d.moved && Math.abs(dist) > 1e-4) applyPush(dist); else { selMeshes.forEach(m => m.position.set(0, 0, 0)); updateFaceHandle(); TF.push.focus(); }
     return;
   }
@@ -1879,10 +1879,25 @@ function computeFace(m, t0) {
   }
   const root = find(ids[t0 * 3]);
   let curvedList = curvedTris(geo, t0), full = false;
-  // cilindro circolare: il lato è un pezzo unico, tutto intorno (non solo la metà vicino al clic)
-  if (curvedList && m.userData.kind === 'cylinder' && Math.abs(m.userData.p.w - m.userData.p.d) < 0.01 && Math.abs(nz) < 0.02) {
-    const side = []; for (let t = 0; t < nTri; t++) if (ok[t] && Math.abs(nrm[t * 3 + 2]) < 0.02) side.push(t);
-    if (side.length) { curvedList = side; full = true; }
+  m.updateMatrixWorld(true);
+  // lato curvo verticale che gira tutto intorno (cilindro, anche già modificato): un pezzo unico
+  if (curvedList && Math.abs(nz) < 0.02) {
+    const P = geo.attributes.position, I = geo.index, V = new THREE.Vector3(), tv = t => [0, 1, 2].map(j => V.clone().fromBufferAttribute(P, I ? I.getX(t * 3 + j) : t * 3 + j).applyMatrix4(m.matrixWorld));
+    const xy = [], seenK = new Set(); let zA = Infinity, zB = -Infinity;
+    for (const t of curvedList) for (const v of tv(t)) { zA = Math.min(zA, v.z); zB = Math.max(zB, v.z); const k = Math.round(v.x * 500) + ',' + Math.round(v.y * 500); if (!seenK.has(k)) { seenK.add(k); xy.push([v.x, v.y]); } }
+    const c = fitRing(xy);
+    if (c) {
+      const side = [], all = [];
+      for (let t = 0; t < nTri; t++) {
+        if (!ok[t]) continue;
+        const vs = tv(t);
+        if (vs.some(v => Math.abs(Math.hypot(v.x - c.cx, v.y - c.cy) - c.R) > 0.02 + 0.002 * c.R || v.z < zA - 0.01 || v.z > zB + 0.01)) continue;
+        const nn = vs[1].clone().sub(vs[0]).cross(vs[2].clone().sub(vs[0])).normalize();
+        if (Math.abs(nn.z) > 0.02) continue;
+        side.push(t); vs.forEach(v => all.push([v.x, v.y]));
+      }
+      if (side.length && ringGaps(all, c).gap < 25 * D2R) { curvedList = side; full = true; }
+    }
   }
   const tris = curvedList || cand.filter(t => find(ids[t * 3]) === root);
   m.updateMatrixWorld(true);
@@ -2146,81 +2161,10 @@ function replaceWithMerged(old, baked, quiet = false) {
   touch(); commit();
   return nm;
 }
-// texture su un cilindro circolare: gli elementi si dispongono "srotolati" (arco x altezza) e ognuno viene appoggiato sulla superficie
-function textureCylinder(obj, o) {
-  const u = obj.userData, R = u.p.w / 2, H = u.p.h, mg = o.margin, p0 = 10 / o.k;
-  if (Math.abs(u.p.w - u.p.d) > 0.01) return { err: 'Le texture funzionano su cilindri circolari (larghezza uguale a profondità)' };
-  const hh = H - 2 * mg;
-  if (hh < 1) return { err: 'Il cilindro è troppo basso per questo margine' };
-  const raise = o.mode === 'raise', geos = [];
-  const frame = th => ({ n: new THREE.Vector3(Math.cos(th), Math.sin(th), 0), u: new THREE.Vector3(-Math.sin(th), Math.cos(th), 0), v: new THREE.Vector3(0, 0, 1), o: new THREE.Vector3(R * Math.cos(th), R * Math.sin(th), 0) });
-  const sag = hw => R - Math.sqrt(Math.max(R * R - hw * hw, 0));
-  let N = 0;
-  if (o.type === 'tubes' && o.orient === 'h') {                       // anelli attorno
-    const nA = Math.floor(hh / p0 + 1e-6);
-    if (nA < 1) return { err: 'Il cilindro è troppo basso per questo passo o margine' };
-    if (nA > 600) return { err: 'Troppi elementi: riduci gli elementi per cm' };
-    const Rt = 0.47 * p0, dd = Math.min(o.depth, Rt), w = Math.sqrt(Math.max(2 * Rt * dd - dd * dd, 1e-4));
-    const sg = raise ? 1 : -1, c = dd - Rt, th0 = Math.asin(clamp((Rt - dd) / Rt, -1, 1)), und = 0.4;
-    const z0 = mg + (hh - nA * p0) / 2 + p0 / 2;
-    for (let i = 0; i < nA; i++) {
-      const pts = [];
-      for (let j = 0; j <= 14; j++) { const th = (Math.PI - th0) + (th0 - (Math.PI - th0)) * j / 14; pts.push(new THREE.Vector2(R + sg * (c + Rt * Math.sin(th)), z0 + i * p0 + Rt * Math.cos(th))); }
-      pts.push(new THREE.Vector2(R - sg * und, z0 + i * p0 - w), new THREE.Vector2(R - sg * und, z0 + i * p0 + w));
-      // il profilo parte dal lato -z: l'ordine esatto non conta, il verso si corregge dal volume
-      pts.push(pts[0].clone());
-      let g = new THREE.LatheGeometry(pts, 96); g.rotateX(Math.PI / 2);
-      if (signedVolume(g) < 0) { const ng = g.index ? g.toNonIndexed() : g; const a = ng.attributes.position.array; for (let q = 0; q < a.length; q += 9) for (let k = 0; k < 3; k++) { const t = a[q + 3 + k]; a[q + 3 + k] = a[q + 6 + k]; a[q + 6 + k] = t; } g = ng; }
-      geos.push(g); N++;
-    }
-  } else if (o.type === 'tubes') {                                    // canne verticali
-    N = Math.floor(2 * Math.PI * R / p0 + 1e-6);
-    if (N < 3) return { err: 'Il cilindro è troppo piccolo per questi elementi' };
-    if (N > 600) return { err: 'Troppi elementi: riduci gli elementi per cm' };
-    const p = 2 * Math.PI * R / N, Rt = 0.47 * p;
-    const oo = { ...o, under: Math.max(0.4, sag(Rt) + 0.3) };
-    for (let i = 0; i < N; i++) {
-      const th = (i + 0.5) * 2 * Math.PI / N, fs = { ...frame(th) };
-      const g = buildPattern(fs, oo, [{ t: 'tube', alongV: true, ac: 0, a: mg, b: H - mg, R: Rt }]);
-      if (g) geos.push(g);
-    }
-  } else {                                                            // esagoni e punti, a nido d'ape
-    let cols = Math.floor(2 * Math.PI * R / p0 + 1e-6);
-    if (cols % 2) cols--;
-    if (cols < 4) return { err: 'Il cilindro è troppo piccolo per questi elementi' };
-    const p = 2 * Math.PI * R / cols, hex = o.type === 'hex', half = hex ? 0.45 * p : 0.3 * p, Rh = half / (Math.sqrt(3) / 2), vr = hex ? Rh : half, rowStep = p * Math.sqrt(3) / 2;
-    const rows = []; for (let vc = mg + vr; vc + vr <= H - mg + 1e-6; vc += rowStep) rows.push(vc);
-    if (!rows.length) return { err: 'Nessun elemento: riduci margine o elementi per cm' };
-    if (rows.length * cols > 3000) return { err: 'Troppi elementi: riduci gli elementi per cm' };
-    const dv = (hh - (rows[rows.length - 1] - rows[0] + 2 * vr)) / 2;
-    const oo = { ...o, under: Math.max(0.4, sag(Math.max(half, Rh)) + 0.3) };
-    rows.forEach((vc, j) => {
-      for (let i = 0; i < cols; i++) {
-        const th = ((i + (j % 2) / 2) * p) / R, fs = frame(th);
-        const g = buildPattern(fs, oo, [{ t: o.type, uc: 0, vc: vc + dv, half, Rh }]);
-        if (g) { geos.push(g); N++; }
-      }
-    });
-  }
-  if (!geos.length) return { err: 'Nessun elemento: riduci margine o elementi per cm' };
-  const geo = mergeGeometries(geos.map(g => { const q = g.index ? g.toNonIndexed() : g; for (const k of Object.keys(q.attributes)) if (k !== 'position') q.deleteAttribute(k); return q; }), false);
-  obj.updateMatrixWorld(true);
-  return { N, brush: cleanBrush(geo, obj.matrixWorld) };
-}
 function applyTexture() {
   if (!faceSel) return;
   const o = texOpts(), obj = faceSel.obj, faces = faceSet.slice();
-  if (faceSet.some(f => f.curved)) {
-    if (faceSet.length > 1 || obj.userData.kind !== 'cylinder') return toast('Le texture funzionano sui lati piatti e sui cilindri');
-    if (heavyGuard([obj])) return;
-    const r = textureCylinder(obj, o);
-    if (r.err) return toast(r.err);
-    const out = evaluator.evaluate(obj, r.brush, o.mode === 'raise' ? ADDITION : SUBTRACTION);
-    const bk = bakeResult(out, obj.userData.name);
-    if (!bk) return toast('Il risultato è vuoto');
-    replaceWithMerged(obj, bk);
-    return toast(`Texture applicata: ${r.N} elementi`);
-  }
+  if (faceSet.some(f => f.curved)) return toast('Le texture funzionano sui lati piatti');
   if (heavyGuard([obj])) return;
   let acc = obj, total = 0;
   obj.updateMatrixWorld(true);
@@ -2364,9 +2308,58 @@ function groovePlane(fs, o) {
   g.applyMatrix4(M4);
   return { N, brush: cleanBrush(g) };
 }
-function grooveCylinder(obj, o) {
-  const u = obj.userData, R = u.p.w / 2, H = u.p.h, mg = o.margin, p0 = o.pitch;
-  if (Math.abs(u.p.w - u.p.d) > 0.01) return { err: 'Le scanalature funzionano su cilindri circolari (larghezza uguale a profondità)' };
+// adatta un cerchio ai vertici di un lato curvo verticale: centro, raggio, quota, e se gira tutto intorno
+function fitRing(xy) {
+  let sx = 0, sy = 0, sxx = 0, sxy = 0, syy = 0, sz = 0, sxz = 0, syz = 0; const n = xy.length;
+  for (const [x, y] of xy) { const r2 = x * x + y * y; sx += x; sy += y; sxx += x * x; sxy += x * y; syy += y * y; sz += r2; sxz += x * r2; syz += y * r2; }
+  const m = new THREE.Matrix3().set(sxx, sxy, sx, sxy, syy, sy, sx, sy, n);
+  if (Math.abs(m.determinant()) < 1e-9) return null;
+  const inv = m.clone().invert(), v = new THREE.Vector3(sxz, syz, sz).applyMatrix3(inv);
+  const cx = v.x / 2, cy = v.y / 2, R = Math.sqrt(Math.max(v.z + cx * cx + cy * cy, 0));
+  if (!(R > 0.05)) return null;
+  let err = 0; for (const [x, y] of xy) err = Math.max(err, Math.abs(Math.hypot(x - cx, y - cy) - R));
+  return err < 0.01 + 0.004 * R ? { cx, cy, R, err } : null;
+}
+function ringGaps(xy, c) {
+  const ang = xy.map(([x, y]) => Math.atan2(y - c.cy, x - c.cx)).sort((a, b) => a - b);
+  let gap = 0, k = 0;
+  for (let i = 0; i < ang.length; i++) { const g = (i + 1 < ang.length ? ang[i + 1] : ang[0] + 2 * Math.PI) - ang[i]; if (g > gap) { gap = g; k = i; } }
+  return { gap, start: ang[(k + 1) % ang.length] };
+}
+function ringParams(fs) {
+  const w = fs.world, xy = [], seen = new Set(); let zA = Infinity, zB = -Infinity;
+  for (let i = 0; i < w.length; i += 3) {
+    zA = Math.min(zA, w[i + 2]); zB = Math.max(zB, w[i + 2]);
+    const k = Math.round(w[i] * 500) + ',' + Math.round(w[i + 1] * 500);
+    if (!seen.has(k)) { seen.add(k); xy.push([w[i], w[i + 1]]); }
+  }
+  const c = fitRing(xy);
+  if (!c) return null;
+  const { gap } = ringGaps(xy, c);
+  return { ...c, zA, zB, full: gap < 25 * D2R };
+}
+// spessore del materiale sotto il lato: dal punto sul lato verso l'interno fino alla prima uscita (per "Fora")
+function exitDepth(obj, fs) {
+  const w = fs.world, nT = w.length / 9, step = Math.max(1, Math.floor(nT / 14)), rc = new THREE.Raycaster();
+  const tmp = new THREE.Mesh(obj.geometry, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
+  tmp.matrixWorld.copy(obj.matrixWorld); tmp.matrixAutoUpdate = false;
+  const ring = fs.curved ? ringParams(fs) : null;
+  let best = 0;
+  for (let t = 0; t < nT; t += step) {
+    const p = new THREE.Vector3((w[t * 9] + w[t * 9 + 3] + w[t * 9 + 6]) / 3, (w[t * 9 + 1] + w[t * 9 + 4] + w[t * 9 + 7]) / 3, (w[t * 9 + 2] + w[t * 9 + 5] + w[t * 9 + 8]) / 3);
+    const n = ring ? new THREE.Vector3(p.x - ring.cx, p.y - ring.cy, 0).normalize() : fs.n;
+    rc.set(p.clone().addScaledVector(n, 0.01), n.clone().negate());
+    const hits = rc.intersectObject(tmp, false).filter(h => h.distance > 0.02);
+    if (hits.length) best = Math.max(best, hits[0].distance - 0.01);
+  }
+  tmp.material.dispose();
+  return best;
+}
+function grooveCylinder(obj, o, fs) {
+  const rp = ringParams(fs);
+  if (!rp) return { err: 'Le scanalature funzionano su cilindri circolari' };
+  if (!rp.full) return { err: 'Il lato curvo deve girare tutto intorno (cilindro circolare)' };
+  const R = rp.R, H = rp.zB - rp.zA, mg = o.margin, p0 = o.pitch;
   let g, N;
   if (o.dir === 'v') {                                    // righe lungo l'asse
     N = Math.max(3, Math.round(2 * Math.PI * R / p0));
@@ -2392,21 +2385,27 @@ function grooveCylinder(obj, o) {
     g = new THREE.LatheGeometry(pts, 96); g.rotateX(Math.PI / 2);
     if (signedVolume(g) < 0) { const ng = g.index ? g.toNonIndexed() : g; const a = ng.attributes.position.array; for (let i = 0; i < a.length; i += 9) for (let k = 0; k < 3; k++) { const t = a[i + 3 + k]; a[i + 3 + k] = a[i + 6 + k]; a[i + 6 + k] = t; } g = ng; }
   }
-  obj.updateMatrixWorld(true);
-  return { N, brush: cleanBrush(g, obj.matrixWorld) };
+  g.translate(rp.cx, rp.cy, rp.zA);
+  return { N, brush: cleanBrush(g) };
 }
 function applyGrooves() {
   if (!faceSel) return;
-  const o = { dir: gUI.dir, prof: gUI.prof, mode: gUI.mode, pitch: clamp(parseFloat($('#g-pitch').value) || 2, 0.4, 20), depth: clamp(parseFloat($('#g-depth').value) || 0.6, 0.1, 10), margin: Math.max(0, parseFloat($('#g-margin').value) || 0) };
+  const o0 = { dir: gUI.dir, prof: gUI.prof, mode: gUI.mode, pitch: clamp(parseFloat($('#g-pitch').value) || 2, 0.4, 20), depth: clamp(parseFloat($('#g-depth').value) || 0.6, 0.1, 10), margin: Math.max(0, parseFloat($('#g-margin').value) || 0) };
   const obj = faceSel.obj, faces = faceSet.slice();
   if (heavyGuard([obj])) return;
   obj.updateMatrixWorld(true);
   let acc = obj, total = 0;
   for (const fs of faces) {
+    const o = { ...o0 };
+    if (o0.mode === 'through') {                                      // fora a filo: scanalature quadre profonde quanto il materiale
+      const d = exitDepth(obj, fs);
+      if (!(d > 0.2)) return toast('Non trovo il retro del pezzo: usa Incidi');
+      if (fs.curved) { const rp = ringParams(fs); if (rp && d > rp.R * 1.9) return toast('Un cilindro pieno non si può forare: usa Incidi'); }
+      o.mode = 'cut'; o.prof = 'square'; o.depth = d + 0.3;
+    }
     let r;
     if (fs.curved) {
-      if (obj.userData.kind !== 'cylinder') return toast('Le scanalature funzionano sui lati piatti e sui cilindri');
-      r = grooveCylinder(obj, o);
+      r = grooveCylinder(obj, o, fs);
     } else {
       r = fs.rect && Math.abs(fs.u.dot(fs.v)) < 1e-6 && rectAligned(fs) ? groovePlane(fs, o) : groovesIrregular(fs, o);
     }
@@ -2735,13 +2734,14 @@ function moveFaceDrag(e, fd) {
   const tol = worldPerPixel() * 9;
   let best = null;
   for (const p of fd.planes) if (Math.abs(p) > 0.01 && Math.abs(p - dist) < tol && (best === null || Math.abs(p - dist) < Math.abs(best - dist))) best = p;
-  if (fs.full) { best = null; snapped = false; }
+  const par = fs.full && fs.obj.userData.kind === 'cylinder';
+  if (par) { best = null; snapped = false; }
   if (best !== null) { dist = best; snapped = true; } else dist = snapV(dist);
-  if (fs.full) dist = Math.max(dist, -(fs.obj.userData.p.w / 2 - 0.2));      // il raggio non scende sotto 0,2 mm
+  if (par) dist = Math.max(dist, -(fs.obj.userData.p.w / 2 - 0.2));      // il raggio non scende sotto 0,2 mm
   fd.dist = dist; fd.snapped = snapped;
   const c = groupCenter().addScaledVector(fs.n, dist);
   faceHandle.position.copy(c);
-  if (fs.full) {                                                          // lato intero di un cilindro: anteprima del cilindro che si allarga o si stringe
+  if (par) {                                                              // lato intero di un cilindro: anteprima del cilindro che si allarga o si stringe
     const R = fs.obj.userData.p.w / 2, k = (R + dist) / R;
     fs.obj.scale.set(k, k, 1); selMeshes.forEach(m => { m.visible = false; });
   } else faceSet.forEach((f, i) => selMeshes[i] && selMeshes[i].position.copy(f.n).multiplyScalar(dist));
@@ -2757,7 +2757,7 @@ function moveFaceDrag(e, fd) {
   dragRead.style.display = 'block';
   dragRead.style.left = ((v.x * 0.5 + 0.5) * window.innerWidth + 18) + 'px';
   dragRead.style.top = ((-v.y * 0.5 + 0.5) * window.innerHeight - 12) + 'px';
-  dragRead.textContent = fs.full ? `Ø ${fmt((fs.obj.userData.p.w / 2 + dist) * 2)} mm` : `${dist > 0 ? '+' : ''}${fmt(dist)} mm${snapped ? ' · allineato' : ''}`;
+  dragRead.textContent = par ? `Ø ${fmt((fs.obj.userData.p.w / 2 + dist) * 2)} mm` : `${dist > 0 ? '+' : ''}${fmt(dist)} mm${snapped ? ' · allineato' : ''}`;
   dirty = true;
 }
 function updateFacePanel() {
@@ -3028,7 +3028,7 @@ function updateEdgePanel() {
   EF.info.textContent = n ? `· ${n} ${n === 1 ? 'spigolo' : 'spigoli'}` : '';
   EF.hint.textContent = n ? 'Scegli il tipo e la misura, poi Applica.' : 'Clicca uno spigolo del pezzo. Maiusc + clic: aggiungi o togli spigoli.';
   EF.go.disabled = !n;
-  $('#e-scale-box').classList.toggle('hidden', !(n === 1 && edgeSel[0].chain.closed));
+  $('#e-scale-box').classList.toggle('hidden', !selectedLoop());
   document.querySelectorAll('#e-type button').forEach(b => b.classList.toggle('on', b.dataset.v === edgeMode.v));
 }
 document.querySelectorAll('#e-type button').forEach(b => b.addEventListener('click', () => { edgeMode.v = b.dataset.v; updateEdgePanel(); }));
@@ -3038,7 +3038,7 @@ function scaleEdge(obj, chain, f) {
   P.forEach(p => c.add(p)); c.divideScalar(P.length);
   const nrm = new THREE.Vector3();
   for (let i = 0; i < P.length; i++) { const a = P[i].clone().sub(c), b = P[(i + 1) % P.length].clone().sub(c); nrm.add(a.cross(b)); }
-  if (nrm.lengthSq() < 1e-9) return { err: 'Questo spigolo non è un anello piano' };
+  if (nrm.lengthSq() < 1e-9) return { err: 'Questi spigoli non formano un anello piano' };
   nrm.normalize();
   const u = obj.userData;
   // cilindro o cono dritto: resta un cono modificabile
@@ -3077,9 +3077,27 @@ const edgeHandle = (() => {
 const ringPrev = new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xff6a00, depthTest: false, transparent: true }));
 ringPrev.renderOrder = 998; ringPrev.visible = false; ringPrev.frustumCulled = false; ringPrev.raycast = () => {}; scene.add(ringPrev);
 // geometria dell'anello selezionato: centro, normale del piano, raggio medio
+// anello selezionato: una catena chiusa (cerchio) oppure più catene unite in un giro chiuso (i 4 spigoli di una faccia)
+function selectedLoop() {
+  if (!edgeSel.length || edgeSel.some(x => x.obj !== edgeSel[0].obj)) return null;
+  if (edgeSel.length === 1) return edgeSel[0].chain.closed ? edgeSel[0].chain.pts.slice() : null;
+  const key = p => Math.round(p.x * 500) + ',' + Math.round(p.y * 500) + ',' + Math.round(p.z * 500);
+  const ch = edgeSel.map(x => x.chain);
+  if (ch.some(c => c.closed || c.pts.length < 2)) return null;
+  const left = ch.slice(1); let out = ch[0].pts.slice();
+  while (left.length) {
+    const end = key(out[out.length - 1]);
+    const i = left.findIndex(c => key(c.pts[0]) === end || key(c.pts[c.pts.length - 1]) === end);
+    if (i < 0) return null;
+    const c = left.splice(i, 1)[0], pts = key(c.pts[0]) === end ? c.pts : c.pts.slice().reverse();
+    out = out.concat(pts.slice(1));
+  }
+  return key(out[out.length - 1]) === key(out[0]) ? out.slice(0, -1) : null;
+}
 function ringInfo() {
-  if (edgeSel.length !== 1 || !edgeSel[0].chain.closed) return null;
-  const P = edgeSel[0].chain.pts, c = new THREE.Vector3();
+  const P = selectedLoop();
+  if (!P || P.length < 3) return null;
+  const c = new THREE.Vector3();
   P.forEach(p => c.add(p)); c.divideScalar(P.length);
   const nrm = new THREE.Vector3();
   for (let i = 0; i < P.length; i++) nrm.add(P[i].clone().sub(c).cross(P[(i + 1) % P.length].clone().sub(c)));
@@ -3090,7 +3108,7 @@ function ringInfo() {
   // punto della maniglia: il vertice più a destra sullo schermo
   const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
   let best = P[0], bd = -Infinity; for (const p of P) { const d = p.clone().sub(c).dot(right); if (d > bd) { bd = d; best = p; } }
-  return { c, nrm, r0, P, handle: best.clone(), obj: edgeSel[0].obj, chain: edgeSel[0].chain };
+  return { c, nrm, r0, P, handle: best.clone(), obj: edgeSel[0].obj };
 }
 function updateEdgeHandle() {
   const ri = state.tool === 'edge' ? ringInfo() : null;
@@ -3122,11 +3140,12 @@ function moveEdgeScale(e, es) {
 }
 function applyEdgeScale(pctArg) {
   const pct = typeof pctArg === 'number' ? pctArg : parseFloat($('#e-scale').value);
-  if (edgeSel.length !== 1 || !edgeSel[0].chain.closed) return;
+  const loop = selectedLoop();
+  if (!loop) return;
   if (!(pct >= 1 && pct <= 1000)) return toast('Scrivi una scala in % (da 1 a 1000)');
-  const { obj, chain } = edgeSel[0];
+  const obj = edgeSel[0].obj;
   if (heavyGuard([obj])) return;
-  const r = scaleEdge(obj, chain, pct / 100);
+  const r = scaleEdge(obj, { pts: loop }, pct / 100);
   if (r.err) return toast(r.err);
   clearEdges(); setSelection([r.mesh]); touch(); commit();
   $('#e-scale').value = '';
