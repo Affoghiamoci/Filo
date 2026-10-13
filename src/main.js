@@ -983,8 +983,7 @@ canvas.addEventListener('pointermove', e => {
     const face = snapV((sign > 0 ? hi : lo) + (t - drag.t0));
     const delta = sign * (face - (sign > 0 ? hi : lo)), len0 = hi - lo;
     // ⇧ = proporzionale su tutti gli assi (con il lucchetto attivo fa l'inverso: libero), ⌥ = dal centro
-    const imp = withGroups(selection).some(m => m.userData.kind === 'merged');
-    scaleSelAxis(st, axis, Math.max(0.5, len0 * 0.03, len0 + (e.altKey ? 2 : 1) * delta), sign > 0 ? lo : hi, sizeLock ? !e.shiftKey : (e.shiftKey || imp), e.altKey);
+    scaleSelAxis(st, axis, Math.max(0.5, len0 * 0.03, len0 + (e.altKey ? 2 : 1) * delta), sign > 0 ? lo : hi, sizeLock ? !e.shiftKey : e.shiftKey, e.altKey);
   }
 });
 canvas.addEventListener('pointerup', e => {
