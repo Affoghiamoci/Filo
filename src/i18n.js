@@ -95,6 +95,7 @@ const EN = {
   'Frecce su e giù nei campi numerici (⇧ per salti da 10 passi)': 'Up and down arrows in number fields (⇧ for 10-step jumps)',
   'Viste Davanti, Sopra e Destra senza prospettiva, per allineare con precisione': 'Front, Top and Right views without perspective, for precise alignment',
   'Arrotondamento applicato: resta modificabile dal pannello': 'Rounding applied: you can still edit it from the panel', 'Smusso applicato: resta modificabile dal pannello': 'Chamfer applied: you can still edit it from the panel', 'Questo spigolo è troppo particolare per arrotondarlo': 'This edge is too unusual to round',
+  '0,5 mm': '0.5 mm', 'Esporta 3MF riparato: niente spigoli non-manifold o triangoli collassati': 'Repaired 3MF export: no non-manifold edges or collapsed triangles',
   'Modello molto pesante': 'Very heavy model', 'Questa operazione può bloccare il browser per diversi minuti. Conviene semplificarlo prima (in Bambu Studio: tasto destro, Semplifica modello). Continuare lo stesso?': 'This operation can freeze the browser for several minutes. It is better to simplify it first (in Bambu Studio: right click, Simplify model). Continue anyway?',
   'Copiato': 'Copied', 'Tagliato': 'Cut', 'Incollato': 'Pasted', 'Niente da incollare': 'Nothing to paste',
   'Copia, taglia e incolla (⌘C, ⌘X, ⌘V), anche sul posto (⌘⇧V)': 'Copy, cut and paste (⌘C, ⌘X, ⌘V), also in place (⌘⇧V)', 'Modelli molto pesanti più fluidi, con avviso': 'Smoother very heavy models, with a warning',

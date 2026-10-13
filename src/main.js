@@ -1734,6 +1734,35 @@ function exportSTL(nameArg) {
   return data;
 }
 // 3MF: archivio zip con un oggetto per pezzo, in millimetri (Z verso l'alto, come nello slicer)
+/* Rimuove triangoli collassati e, dove due pezzi si toccano lungo uno spigolo (spigolo usato da 4 triangoli), separa i vertici: ogni pezzo resta una superficie chiusa. */
+function repairForExport(P, I) {
+  const key = (a, b) => a < b ? a * 4294967296 + b : b * 4294967296 + a;
+  const tris = [];
+  for (let t = 0; t < I.length; t += 3) if (I[t] !== I[t + 1] && I[t + 1] !== I[t + 2] && I[t] !== I[t + 2]) tris.push(I[t], I[t + 1], I[t + 2]);
+  const nT = tris.length / 3, use = new Map();
+  for (let t = 0; t < nT; t++) for (let k = 0; k < 3; k++) { const e = key(tris[t * 3 + k], tris[t * 3 + (k + 1) % 3]); use.set(e, (use.get(e) || 0) + 1); }
+  let bad = 0; for (const n of use.values()) if (n > 2) bad++;
+  if (!bad) return { P, I: Uint32Array.from(tris), bad: 0 };
+  const parent = Int32Array.from({ length: nT }, (_, i) => i), find = x => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
+  const first = new Map();
+  for (let t = 0; t < nT; t++) for (let k = 0; k < 3; k++) {
+    const e = key(tris[t * 3 + k], tris[t * 3 + (k + 1) % 3]);
+    if (use.get(e) !== 2) continue;
+    const o = first.get(e);
+    if (o === undefined) first.set(e, t); else parent[find(t)] = find(o);
+  }
+  const vmap = new Map(), outP = [], outI = new Uint32Array(tris.length);
+  for (let t = 0; t < nT; t++) {
+    const c = find(t);
+    for (let k = 0; k < 3; k++) {
+      const v = tris[t * 3 + k], kk = c * 4294967296 + v;
+      let id = vmap.get(kk);
+      if (id === undefined) { id = outP.length / 3; vmap.set(kk, id); outP.push(P[v * 3], P[v * 3 + 1], P[v * 3 + 2]); }
+      outI[t * 3 + k] = id;
+    }
+  }
+  return { P: Float32Array.from(outP), I: outI, bad };
+}
 function build3MF(list) {
   const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const v = new THREE.Vector3();
@@ -1746,10 +1775,13 @@ function build3MF(list) {
     g.deleteAttribute('normal'); g.deleteAttribute('uv');
     g = mergeVertices(g, 1e-4);
     const pos = g.attributes.position, idx = g.index;
+    const W = new Float32Array(pos.count * 3);
+    for (let k = 0; k < pos.count; k++) { v.fromBufferAttribute(pos, k).applyMatrix4(m.matrixWorld); W.set([+v.x.toFixed(4), +v.y.toFixed(4), +v.z.toFixed(4)], k * 3); }
+    const I0 = idx ? Uint32Array.from(idx.array) : Uint32Array.from({ length: pos.count }, (_, k) => k);
+    const R = repairForExport(W, I0);
     let vs = '', ts = '';
-    for (let k = 0; k < pos.count; k++) { v.fromBufferAttribute(pos, k).applyMatrix4(m.matrixWorld); vs += `<vertex x="${+v.x.toFixed(4)}" y="${+v.y.toFixed(4)}" z="${+v.z.toFixed(4)}"/>`; }
-    const n = idx ? idx.count : pos.count;
-    for (let k = 0; k < n; k += 3) ts += idx ? `<triangle v1="${idx.getX(k)}" v2="${idx.getX(k + 1)}" v3="${idx.getX(k + 2)}"/>` : `<triangle v1="${k}" v2="${k + 1}" v3="${k + 2}"/>`;
+    for (let k = 0; k < R.P.length; k += 3) vs += `<vertex x="${R.P[k]}" y="${R.P[k + 1]}" z="${R.P[k + 2]}"/>`;
+    for (let k = 0; k < R.I.length; k += 3) ts += `<triangle v1="${R.I[k]}" v2="${R.I[k + 1]}" v3="${R.I[k + 2]}"/>`;
     g.dispose();
     const id = i + 1;
     const ci = m.userData.color ? cols.indexOf(m.userData.color) : -1;
@@ -1929,7 +1961,7 @@ $('#b-fit').addEventListener('click', fitView);
 function setSnap(v, announce = true) {
   state.snap = v;
   document.querySelectorAll('#snaps [data-snap]').forEach(b => b.classList.toggle('on', parseFloat(b.dataset.snap) === v));
-  gridStep = v < 5 ? v * 5 : v * 2; buildBedDots(gridStep);
+  gridStep = Math.max(v, 2); buildBedDots(gridStep);
   if (announce) toast(`Griglia: ${String(v).replace('.', ',')} mm`);
 }
 $('#snaps').addEventListener('click', e => {
