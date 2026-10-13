@@ -199,11 +199,12 @@ function resize() {
 window.addEventListener('resize', resize);
 
 /* ------------------------------------------------------------ geometrie */
-function roundedRectShape(w, d, r) {
+function roundedRectShape(w, d, r, chamfer) {
   const x = -w / 2, y = -d / 2;
   r = Math.min(r, w / 2 - 1e-3, d / 2 - 1e-3);
   const s = new THREE.Shape();
   if (r <= 0.001) { s.moveTo(x, y); s.lineTo(x + w, y); s.lineTo(x + w, y + d); s.lineTo(x, y + d); s.closePath(); return s; }
+  if (chamfer) { s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.lineTo(x + w, y + r); s.lineTo(x + w, y + d - r); s.lineTo(x + w - r, y + d); s.lineTo(x + r, y + d); s.lineTo(x, y + d - r); s.lineTo(x, y + r); s.closePath(); return s; }
   s.moveTo(x + r, y); s.lineTo(x + w - r, y);
   s.absarc(x + w - r, y + r, r, -Math.PI / 2, 0, false); s.lineTo(x + w, y + d - r);
   s.absarc(x + w - r, y + d - r, r, 0, Math.PI / 2, false); s.lineTo(x + r, y + d);
@@ -221,7 +222,7 @@ function buildGeometry(kind, p) {
   let g;
   if (kind === 'box') {
     if (p.r <= 0.001) { g = new THREE.BoxGeometry(p.w, p.d, p.h); g.translate(0, 0, p.h / 2); }
-    else g = mergeVertices(clean(new THREE.ExtrudeGeometry(roundedRectShape(p.w, p.d, p.r), { depth: p.h, bevelEnabled: false, curveSegments: 12 })));
+    else g = mergeVertices(clean(new THREE.ExtrudeGeometry(roundedRectShape(p.w, p.d, p.r, p.rm === 'chamfer'), { depth: p.h, bevelEnabled: false, curveSegments: 12 })));
     const tt = clamp(p.t ?? 100, 1, 100) / 100;
     if (tt < 0.9999) {                                                // cima più stretta: tronco di piramide
       g = g.index ? g.toNonIndexed() : g; g.deleteAttribute('normal');
@@ -3182,6 +3183,25 @@ function applyEdges() {
   if (!(size > 0)) return toast('Scrivi una misura in mm');
   const obj = edgeSel[0].obj;
   if (heavyGuard([obj])) return;
+  // i 4 spigoli verticali di una scatola: raccordo o smusso restano parametrici (stesso campo Raggio)
+  if (obj.userData.kind === 'box' && edgeSel.length === 4 && Math.abs(obj.rotation.x) < 1e-6 && Math.abs(obj.rotation.y) < 1e-6 && (obj.userData.p.t ?? 100) >= 99.9 && !(obj.userData.p.r > 0.001)) {
+    const u = obj.userData, corners = new Set(); obj.updateMatrixWorld(true);
+    const ok = edgeSel.every(x => {
+      const P = x.chain.pts; if (P.length !== 2) return false;
+      const L = P.map(p => obj.worldToLocal(p.clone()));
+      const cx = Math.sign(L[0].x), cy = Math.sign(L[0].y);
+      if (!(Math.abs(Math.abs(L[0].x) - u.p.w / 2) < 0.01 && Math.abs(Math.abs(L[0].y) - u.p.d / 2) < 0.01 && Math.abs(L[1].x - L[0].x) < 0.01 && Math.abs(L[1].y - L[0].y) < 0.01)) return false;
+      if (Math.abs(Math.abs(L[0].z - L[1].z) - u.p.h) > 0.01) return false;
+      corners.add(cx + ',' + cy); return true;
+    });
+    if (ok && corners.size === 4) {
+      if (size >= Math.min(u.p.w, u.p.d) / 2) return toast('La misura è troppo grande per questa scatola');
+      u.p.r = size; u.p.rm = edgeMode.v === 'chamfer' ? 'chamfer' : null;
+      obj.geometry.dispose(); obj.geometry = buildGeometry('box', u.p); refreshEdges(obj); obj.updateMatrixWorld(true);
+      clearEdges(); setSelection([obj]); touch(); commit(); EF.size.value = '';
+      return toast(edgeMode.v === 'fillet' ? 'Raccordo applicato: resta modificabile dal campo Raggio' : 'Smusso applicato: resta modificabile dal campo Raggio');
+    }
+  }
   const cutters = edgeSel.map(x => cutter(x.chain, edgeMode.v, size));
   if (cutters.some(g => !g)) return toast('Questo spigolo è troppo particolare per un raccordo');
   obj.updateMatrixWorld(true);
