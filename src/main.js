@@ -953,6 +953,10 @@ canvas.addEventListener('pointerdown', e => {
     drag.mode = 'orbit'; drag.emptyClick = !hit;
   }
   else if (state.tool === 'edge') {
+    if (edgeHandle.visible) {
+      setRay(e);
+      if (raycaster.intersectObject(edgeHandle, false)[0]) { const es = startEdgeScale(); if (es) { drag.mode = 'edgescale'; drag.es = es; hideHover(); return; } }
+    }
     drag.mode = 'orbit'; drag.edgeHit = pickHit(e); drag.emptyClick = !drag.edgeHit;
   }
   else if (state.tool === 'ruler') {
@@ -1006,7 +1010,7 @@ canvas.addEventListener('pointerdown', e => {
 });
 canvas.addEventListener('pointermove', e => {
   if (!drag) {
-    if (state.tool === 'edge' && !state.space) updateEdgeHover(e);
+    if (state.tool === 'edge' && !state.space) { updateEdgeHover(e); if (edgeHandle.visible) { setRay(e); if (raycaster.intersectObject(edgeHandle, false)[0]) canvas.style.cursor = 'pointer'; } }
     else if (state.tool === 'face' && !state.space) { updateHover(e); if (faceHandle.visible) { setRay(e); canvas.style.cursor = raycaster.intersectObject(faceHandle, false)[0] ? 'pointer' : 'crosshair'; } } else hideHover();
     if (HANDLES[0].visible && state.tool === 'move' && !state.space) canvas.style.cursor = pickHandle(e) ? 'pointer' : 'default';
     return;
@@ -1018,6 +1022,7 @@ canvas.addEventListener('pointermove', e => {
   if (drag.mode === 'pan') panPixels(dx, dy);
   else if (drag.mode === 'orbit') orbitPixels(dx, dy);
   else if (drag.mode === 'facepush') moveFaceDrag(e, drag.fd);
+  else if (drag.mode === 'edgescale') moveEdgeScale(e, drag.es);
   else if (drag.mode === 'rotate') {
     const r = drag.rot; setRay(e);
     const p = raycaster.ray.intersectPlane(r.pl, new THREE.Vector3());
@@ -1075,8 +1080,14 @@ canvas.addEventListener('pointerup', e => {
   const d = drag; drag = null;
   updateCursor(false);
   if (d.mode === 'rotate') { dragRead.style.display = 'none'; if (d.moved && d.rot.delta !== 0) commit(); return; }
+  if (d.mode === 'edgescale') {
+    dragRead.style.display = 'none'; ringPrev.visible = false;
+    if (d.moved && d.es.f !== 1) applyEdgeScale(d.es.f * 100); else updateEdgeHandle();
+    return;
+  }
   if (d.mode === 'facepush') {
     const dist = d.fd.dist;
+    if (d.fd.fs.full) { d.fd.fs.obj.scale.set(1, 1, 1); selMeshes.forEach(m => { m.visible = true; }); }
     if (d.moved && Math.abs(dist) > 1e-4) applyPush(dist); else { selMeshes.forEach(m => m.position.set(0, 0, 0)); updateFaceHandle(); TF.push.focus(); }
     return;
   }
@@ -2724,11 +2735,16 @@ function moveFaceDrag(e, fd) {
   const tol = worldPerPixel() * 9;
   let best = null;
   for (const p of fd.planes) if (Math.abs(p) > 0.01 && Math.abs(p - dist) < tol && (best === null || Math.abs(p - dist) < Math.abs(best - dist))) best = p;
+  if (fs.full) { best = null; snapped = false; }
   if (best !== null) { dist = best; snapped = true; } else dist = snapV(dist);
+  if (fs.full) dist = Math.max(dist, -(fs.obj.userData.p.w / 2 - 0.2));      // il raggio non scende sotto 0,2 mm
   fd.dist = dist; fd.snapped = snapped;
   const c = groupCenter().addScaledVector(fs.n, dist);
   faceHandle.position.copy(c);
-  faceSet.forEach((f, i) => selMeshes[i] && selMeshes[i].position.copy(f.n).multiplyScalar(dist));
+  if (fs.full) {                                                          // lato intero di un cilindro: anteprima del cilindro che si allarga o si stringe
+    const R = fs.obj.userData.p.w / 2, k = (R + dist) / R;
+    fs.obj.scale.set(k, k, 1); selMeshes.forEach(m => { m.visible = false; });
+  } else faceSet.forEach((f, i) => selMeshes[i] && selMeshes[i].position.copy(f.n).multiplyScalar(dist));
   guide.visible = snapped;
   if (snapped) {
     const B = fd.bounds, mg = 4, gw = B.u1 - B.u0 + mg * 2, gh = B.v1 - B.v0 + mg * 2;
@@ -2741,7 +2757,7 @@ function moveFaceDrag(e, fd) {
   dragRead.style.display = 'block';
   dragRead.style.left = ((v.x * 0.5 + 0.5) * window.innerWidth + 18) + 'px';
   dragRead.style.top = ((-v.y * 0.5 + 0.5) * window.innerHeight - 12) + 'px';
-  dragRead.textContent = `${dist > 0 ? '+' : ''}${fmt(dist)} mm${snapped ? ' · allineato' : ''}`;
+  dragRead.textContent = fs.full ? `Ø ${fmt((fs.obj.userData.p.w / 2 + dist) * 2)} mm` : `${dist > 0 ? '+' : ''}${fmt(dist)} mm${snapped ? ' · allineato' : ''}`;
   dirty = true;
 }
 function updateFacePanel() {
@@ -2996,14 +3012,14 @@ function selectEdgeAt(hit, add) {
   else if (add && edgeSel.every(x => x.obj === item.obj)) edgeSel.push(item);
   else edgeSel = [item];
   if (!selection.includes(item.obj)) setSelection([item.obj]);
-  refreshEdgeLines(); updateEdgePanel();
+  refreshEdgeLines(); updateEdgePanel(); updateEdgeHandle();
 }
 function refreshEdgeLines() {
   dropLines(edgeLines); edgeLines = edgeSel.length ? makeLines(edgeSel.map(x => x.chain), edgeMat) : null;
   dirty = true;
 }
 function clearEdges() {
-  edgeSel = []; refreshEdgeLines();
+  edgeSel = []; refreshEdgeLines(); updateEdgeHandle(); dragRead.style.display = 'none';
   dropLines(edgeHoverLine); edgeHoverLine = null; edgeHoverKey = null;
 }
 const EF = { size: $('#e-size'), go: $('#e-go'), info: $('#e-info'), hint: $('#e-hint') };
@@ -3054,8 +3070,58 @@ function scaleEdge(obj, chain, f) {
   nm.userData.color = obj.userData.color ?? null;
   return { mesh: nm };
 }
-function applyEdgeScale() {
-  const pct = parseFloat($('#e-scale').value);
+const edgeHandle = (() => {
+  const mat = new THREE.SpriteMaterial({ map: handleTexture('#ff6a00'), sizeAttenuation: false, depthTest: false, depthWrite: false, transparent: true });
+  const sp = new THREE.Sprite(mat); sp.scale.setScalar(0.024); sp.renderOrder = 1000; sp.visible = false; scene.add(sp); return sp;
+})();
+const ringPrev = new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xff6a00, depthTest: false, transparent: true }));
+ringPrev.renderOrder = 998; ringPrev.visible = false; ringPrev.frustumCulled = false; ringPrev.raycast = () => {}; scene.add(ringPrev);
+// geometria dell'anello selezionato: centro, normale del piano, raggio medio
+function ringInfo() {
+  if (edgeSel.length !== 1 || !edgeSel[0].chain.closed) return null;
+  const P = edgeSel[0].chain.pts, c = new THREE.Vector3();
+  P.forEach(p => c.add(p)); c.divideScalar(P.length);
+  const nrm = new THREE.Vector3();
+  for (let i = 0; i < P.length; i++) nrm.add(P[i].clone().sub(c).cross(P[(i + 1) % P.length].clone().sub(c)));
+  if (nrm.lengthSq() < 1e-9) return null;
+  nrm.normalize();
+  const r0 = P.reduce((m, p) => m + p.clone().sub(c).addScaledVector(nrm, -p.clone().sub(c).dot(nrm)).length(), 0) / P.length;
+  if (r0 < 0.05) return null;
+  // punto della maniglia: il vertice più a destra sullo schermo
+  const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+  let best = P[0], bd = -Infinity; for (const p of P) { const d = p.clone().sub(c).dot(right); if (d > bd) { bd = d; best = p; } }
+  return { c, nrm, r0, P, handle: best.clone(), obj: edgeSel[0].obj, chain: edgeSel[0].chain };
+}
+function updateEdgeHandle() {
+  const ri = state.tool === 'edge' ? ringInfo() : null;
+  edgeHandle.visible = !!ri; ringPrev.visible = false;
+  if (ri) edgeHandle.position.copy(ri.handle);
+  dirty = true;
+}
+function startEdgeScale() { const ri = ringInfo(); return ri ? { ri, f: 1 } : null; }
+function moveEdgeScale(e, es) {
+  const { ri } = es;
+  setRay(e);
+  const p = raycaster.ray.intersectPlane(new THREE.Plane().setFromNormalAndCoplanarPoint(ri.nrm, ri.c), new THREE.Vector3());
+  if (!p) return;
+  let f = p.distanceTo(ri.c) / ri.r0;
+  f = Math.round(clamp(f, 0.01, 10) * 100) / 100;
+  if (Math.abs(f - 1) < 0.03) f = 1;
+  es.f = f;
+  const arr = []; ri.P.forEach(q => { const v = ri.c.clone().add(q.clone().sub(ri.c).multiplyScalar(f)); arr.push(v.x, v.y, v.z); });
+  ringPrev.geometry.dispose(); ringPrev.geometry = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
+  ringPrev.visible = true;
+  const hp = ri.c.clone().add(ri.handle.clone().sub(ri.c).multiplyScalar(f));
+  edgeHandle.position.copy(hp);
+  const v = hp.clone().project(camera);
+  dragRead.style.display = 'block';
+  dragRead.style.left = ((v.x * 0.5 + 0.5) * window.innerWidth + 18) + 'px';
+  dragRead.style.top = ((-v.y * 0.5 + 0.5) * window.innerHeight - 12) + 'px';
+  dragRead.textContent = `${Math.round(f * 100)} %`;
+  dirty = true;
+}
+function applyEdgeScale(pctArg) {
+  const pct = typeof pctArg === 'number' ? pctArg : parseFloat($('#e-scale').value);
   if (edgeSel.length !== 1 || !edgeSel[0].chain.closed) return;
   if (!(pct >= 1 && pct <= 1000)) return toast('Scrivi una scala in % (da 1 a 1000)');
   const { obj, chain } = edgeSel[0];
@@ -3105,7 +3171,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '0.7.2';
+const APP_VERSION = '0.7.9';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
@@ -3131,7 +3197,7 @@ try {
   d.addEventListener('cancel', () => { try { sessionStorage.setItem('forma.mobile', '1'); } catch (e) {} });
   setTimeout(() => { try { d.showModal(); } catch (e) {} }, 400);
 })();
-window.forma = { applyEdgeScale, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyTexture, applyGrooves, gUI, applyPush, selectFaceFromHit, texUI, layout, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole };
+window.forma = { applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyTexture, applyGrooves, gUI, applyPush, selectFaceFromHit, texUI, layout, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole };
 
 
 /* ------------------------------------------------------------------ livelli */
