@@ -90,6 +90,7 @@ const EN = {
   'Angoli di rotazione più coerenti dopo i quarti di giro': 'More consistent rotation angles after quarter turns',
   'Meglio da computer': 'Better on a computer', 'Filo non è ottimizzato per il mobile: è pensato per mouse e tastiera, con scorciatoie e maniglie di precisione. Da telefono o tablet puoi guardarlo e provarlo, ma alcune cose saranno scomode.': 'Filo is not optimized for mobile: it is made for mouse and keyboard, with shortcuts and precision handles. On a phone or tablet you can look around and try it, but some things will be awkward.', 'Ho capito': 'Got it',
   'Avviso per chi apre Filo da mobile': 'Warning for people opening Filo on mobile',
+  'Numeri nei campi non più coperti dalle freccette': 'Numbers in fields no longer covered by the arrows',
   'Import 3MF: ignora i volumi modificatori dei file Bambu e Orca': '3MF import: ignores modifier volumes in Bambu and Orca files',
   'Contatore di visite anonimo sul sito ufficiale': 'Anonymous visit counter on the official site',
   'Sul sito ufficiale Filo conta solo le visite in forma anonima. Nessun dato personale, nessun cookie. I tuoi modelli restano sul tuo dispositivo.': 'On the official site Filo only counts visits anonymously. No personal data, no cookies. Your models stay on your device.',

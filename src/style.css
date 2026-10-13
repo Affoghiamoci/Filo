@@ -424,3 +424,5 @@ label.f input{text-overflow:clip}
 .mob-t{display:block;font:400 34px/.9 'VT323',var(--mono);margin-bottom:12px;color:var(--text)}
 .mob-card .info-actions{border-top:0;padding-top:4px}
 .mob-card .btn{flex:1}
+label.f input[type=number]{-webkit-appearance:textfield;-moz-appearance:textfield;appearance:textfield}
+label.f input::-webkit-inner-spin-button,label.f input::-webkit-outer-spin-button{-webkit-appearance:none;appearance:none;margin:0;display:none;width:0}
