@@ -467,3 +467,5 @@ label.f input::-webkit-inner-spin-button,label.f input::-webkit-outer-spin-butto
 
 #p-r-wrap .seg{margin:0 0 8px}
 .grid1.rnd label.f input{width:70px;margin-left:auto}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.grid2.hidden{display:none}

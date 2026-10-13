@@ -102,6 +102,24 @@
     <div class="grid3 rq"><button class="btn" data-rq="x" title="Ruota di 90° attorno a X (⇧ per il verso opposto)">X</button><button class="btn" data-rq="y" title="Ruota di 90° attorno a Y (⇧ per il verso opposto)">Y</button><button class="btn" data-rq="z" title="Ruota di 90° attorno a Z (⇧ per il verso opposto)">Z</button></div>
     <p class="hint">Oppure usa lo strumento Ruota (R): gli anelli scattano ogni 15°.</p>
   </section>
+  <section id="p-repeat">
+    <h4>Ripeti</h4>
+    <div class="seg seg3" id="rp-mode"><button data-v="grid" class="on">Griglia</button><button data-v="honey" title="Le righe dispari sono spostate di mezzo passo">Nido d'ape</button><button data-v="polar">Cerchio</button></div>
+    <div class="grid2" id="rp-grid">
+      <label class="f">Colonne<input id="rp-nx" type="number" step="1" min="1" max="60" value="3"></label>
+      <label class="f">Righe<input id="rp-ny" type="number" step="1" min="1" max="60" value="3"></label>
+      <label class="f">Passo X<input id="rp-px" type="number" step="0.5" value="10"></label>
+      <label class="f">Passo Y<input id="rp-py" type="number" step="0.5" value="10"></label>
+    </div>
+    <div class="grid2 hidden" id="rp-polar">
+      <label class="f">Copie<input id="rp-n" type="number" step="1" min="2" max="200" value="6"></label>
+      <label class="f">Angolo<input id="rp-arc" type="number" step="5" min="1" max="360" value="360"></label>
+      <label class="f">Centro X<input id="rp-cx" type="number" step="0.5" value="0"></label>
+      <label class="f">Centro Y<input id="rp-cy" type="number" step="0.5" value="0"></label>
+    </div>
+    <button class="btn primary" id="rp-go" style="width:100%;margin-top:8px">Ripeti</button>
+    <p class="hint" id="rp-hint">Copia la selezione in righe e colonne, a nido d'ape o in cerchio. Usala con un foro per fare griglie di fori, poi Combina.</p>
+  </section>
 </div>
 <div id="p-face" class="hidden">
   <div class="p-title">Lato <span id="f-info"></span></div>
@@ -109,13 +127,6 @@
   <h4>Spingi / tira</h4>
   <div class="row2"><label class="f">Di<input id="f-push" type="number" step="0.5" placeholder="0"><em>mm</em></label><button class="btn primary" id="f-push-go">Applica</button></div>
   <p class="hint" id="f-push-hint"></p>
-  <h4>Scanalature</h4>
-  <div class="seg" id="g-dir"><button data-v="v" class="on">Verticali</button><button data-v="h">Orizzontali</button></div>
-  <div class="seg seg4" id="g-prof"><button data-v="round" class="on">Tondo</button><button data-v="v">V</button><button data-v="wave">Onda</button><button data-v="square">Quadro</button></div>
-  <div class="seg seg3" id="g-mode"><button data-v="cut" class="on">Incidi</button><button data-v="raise">Rialza</button><button data-v="through" title="Fora a filo: le scanalature attraversano il pezzo">Fora</button></div>
-  <div class="row3"><label class="f">Passo<input id="g-pitch" type="number" step="0.5" min="0.4" value="2"></label><label class="f">Prof.<input id="g-depth" type="number" step="0.1" min="0.1" value="0.6"></label><label class="f">Margine dal bordo<input id="g-margin" type="number" step="0.5" min="0" value="1.5"></label></div>
-  <button class="btn primary" id="g-go" style="width:100%;margin-top:8px">Applica scanalature</button>
-  <p class="hint" id="g-hint">Righe parallele su un lato piatto o su un cilindro (verticali o anelli). Misure in mm. Con margine 0 arrivano al bordo. Fora: tagli quadri che attraversano il pezzo, a filo. Solo su lati piatti e cilindri circolari, non su coni, sfere e tori.</p>
 </div>
 <div id="p-edge" class="hidden">
   <div class="p-title">Spigolo <span id="e-info"></span></div>
@@ -248,7 +259,7 @@
     <p>Questa app è stata generata con l’ausilio dell’intelligenza artificiale.</p>
     <div class="info-row"><span class="lbl">Novità</span><div class="cl">
       <b>0.7.9</b>
-      <ul><li>Strumento Distanza (D) e vista Raggi X (Z)</li><li>Scanalature su lati piatti e cilindri, anche per forare a filo</li><li>Cilindro: il lato è un pezzo unico, si allarga o si stringe trascinando</li><li>Spigoli ad anello (cerchi o tutti i lati di una faccia): si ridimensionano trascinando o in %</li><li>Cima % su scatola, cilindro e prisma (tronchi e coni)</li><li>Scatola: raccordo e smusso su angoli, bordo alto e basso restano modificabili</li><li>Se un'operazione divide un oggetto in più parti, diventano un gruppo</li><li>Calamita tra lati: spostando un pezzo, i lati paralleli vicini si agganciano a contatto</li><li>Cubo di orientamento e lingua scelta dal menu iniziale</li><li>Copia, taglia e incolla (⌘C, ⌘X, ⌘V)</li><li>Esporta in un solo passaggio</li><li>Modelli pesanti più fluidi, con un avviso quando riduco risoluzione e ombre, e import 3MF di Bambu e Orca corretto</li><li>Contatore di visite anonimo sul sito ufficiale</li></ul>
+      <ul><li>Strumento Distanza (D) e vista Raggi X (Z)</li><li>Ripeti: copie in griglia, nido d'ape o in cerchio</li><li>Cilindro: il lato è un pezzo unico, si allarga o si stringe trascinando</li><li>Spigoli ad anello (cerchi o tutti i lati di una faccia): si ridimensionano trascinando o in %</li><li>Cima % su scatola, cilindro e prisma (tronchi e coni)</li><li>Scatola: raccordo e smusso su angoli, bordo alto e basso restano modificabili</li><li>Se un'operazione divide un oggetto in più parti, diventano un gruppo</li><li>Calamita tra lati: spostando un pezzo, i lati paralleli vicini si agganciano a contatto</li><li>Cubo di orientamento e lingua scelta dal menu iniziale</li><li>Copia, taglia e incolla (⌘C, ⌘X, ⌘V)</li><li>Esporta in un solo passaggio</li><li>Modelli pesanti più fluidi, con un avviso quando riduco risoluzione e ombre, e import 3MF di Bambu e Orca corretto</li><li>Contatore di visite anonimo sul sito ufficiale</li></ul>
       <details><summary>Versioni precedenti</summary>
         <b>0.7.2</b>
         <ul><li>Raccordi e smussi con superficie liscia</li><li>Lucchetto: Maiusc ridimensiona senza proporzioni</li><li>Angoli di rotazione più coerenti</li></ul>
