@@ -2792,6 +2792,23 @@ function pushOne(obj, faces, dist) {
     setSize(obj, 'w', nd); setSize(obj, 'd', nd);
     return { mesh: obj, ext: false };
   }
+  if (faces.length === 1 && faces[0].full && faces[0].curved && obj.userData.kind === 'merged') {   // cilindro già modificato: allarga o stringe tutto in modo radiale
+    const rp = ringParams(faces[0]);
+    if (rp && rp.full && rp.R + dist >= 0.2) {
+      obj.updateMatrixWorld(true);
+      const g = obj.geometry.index ? obj.geometry.toNonIndexed() : obj.geometry.clone();
+      g.applyMatrix4(obj.matrixWorld);
+      const arr = new Float32Array(g.attributes.position.array), k = (rp.R + dist) / rp.R;
+      let inside = true;
+      for (let i = 0; i < arr.length; i += 3) if (Math.hypot(arr[i] - rp.cx, arr[i + 1] - rp.cy) > rp.R + 0.05) { inside = false; break; }
+      g.dispose();
+      if (inside) {
+        for (let i = 0; i < arr.length; i += 3) { arr[i] = rp.cx + (arr[i] - rp.cx) * k; arr[i + 1] = rp.cy + (arr[i + 1] - rp.cy) * k; }
+        const baked = bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(arr) }, obj.userData.name);
+        if (baked && !isFlat(baked)) return { mesh: replaceWithMerged(obj, baked, true), ext: false };
+      }
+    }
+  }
   if (faces.length === 1 && faces[0].curved) {
     let pv = null; try { pv = pushVertical(obj, faces[0], dist); } catch (e) { pv = null; }
     if (pv && pv.err) return { err: pv.err };
