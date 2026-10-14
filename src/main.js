@@ -2146,7 +2146,9 @@ function askExport(fmt = '3mf') {
 }
 $('#exp-fmt').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setExpFmt(b.dataset.v); });
 $('#exp-keep').addEventListener('change', e => { keepPrint = e.target.checked; try { localStorage.setItem('forma.keepPrint', keepPrint ? '1' : '0'); } catch (err) {} });
-$('#exp-forget').addEventListener('click', () => { printCfg = null; savePrintCfg(); syncPrintRow(); toast('Impostazioni di stampa dimenticate'); });
+$('#exp-forget').addEventListener('click', () => { const d = $('#dlg-forget'); if (!d.open) d.showModal(); });
+$('#forget-cancel').addEventListener('click', () => $('#dlg-forget').close());
+$('#forget-form').addEventListener('submit', () => { printCfg = null; savePrintCfg(); syncPrintRow(); toast('Impostazioni di stampa dimenticate'); });
 $('#exp-cancel').addEventListener('click', () => dlgExp.close());
 $('#exp-form').addEventListener('submit', e => {
   e.preventDefault();
