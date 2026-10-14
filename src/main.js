@@ -2263,8 +2263,52 @@ function buildBoxModel({ w, d, h, t, g, r }) {
   if (w * 2 + gap > BEDX || d > BEDY) toast(`Attenzione: i pezzi superano il piatto da ${BEDX}×${BEDY} mm`);
 }
 const dlg = $('#dlg-box');
+/* Scatolina: solo valori possibili (pareti a passi di 0,4 mm, angoli entro la metà del lato) e anteprima dal vivo */
+const bxF = $('#box-form'), bxIn = n => bxF.elements[n];
+const BXLIP = 3, BXLID = 2;
+function bxLimits(v) {
+  const m = Math.min(v.w, v.d);
+  const tMax = Math.max(0.8, Math.floor(Math.min(4, (m / 2 - 3)) / 0.4 + 1e-9) * 0.4);
+  return { tMax, rMax: Math.floor(m / 2), hMin: Math.ceil(v.t + BXLIP + 3) };
+}
+function bxFix(final) {
+  const num = n => parseFloat(bxIn(n).value);
+  const v = { w: num('w'), d: num('d'), h: num('h'), t: num('t'), g: num('g'), r: num('r') };
+  const cl = (x, a, b, d) => Number.isFinite(x) ? Math.min(b, Math.max(a, x)) : d;
+  const set = (n, x) => { const s = String(+x.toFixed(2)); if (bxIn(n).value !== s) bxIn(n).value = s; };
+  if (final) {
+    v.w = Math.round(cl(v.w, 20, 300, 60)); v.d = Math.round(cl(v.d, 20, 300, 40));
+    v.t = Math.round(cl(v.t, 0.8, 4, 2) / 0.4) * 0.4; v.g = Math.round(cl(v.g, 0.1, 0.6, 0.3) / 0.05) * 0.05;
+    const L = bxLimits({ ...v, t: Math.min(v.t, bxLimits({ ...v, t: 0.8 }).tMax) });
+    v.t = Math.min(v.t, L.tMax);
+    const L2 = bxLimits(v);
+    v.r = Math.round(cl(v.r, 0, L2.rMax, 4)); v.h = Math.round(cl(v.h, L2.hMin, 200, 30));
+    for (const k of ['w', 'd', 'h', 't', 'g', 'r']) set(k, v[k]);
+  }
+  const L = bxLimits(v);
+  bxIn('t').max = L.tMax; bxIn('r').max = L.rMax; bxIn('h').min = L.hMin; bxIn('w').min = 20; bxIn('d').min = 20;
+  return v;
+}
+function bxPreview() {
+  const v = bxFix(false), ok = [v.w, v.d, v.h, v.t, v.g, v.r].every(Number.isFinite);
+  if (!ok) return;
+  const S = 150, rr = Math.min(v.r, Math.min(v.w, v.d) / 2), s1 = Math.min(S / v.w, 96 / v.d);
+  const W = v.w * s1, D = v.d * s1, T = v.t * s1, G = (v.t + v.g) * s1, R = rr * s1, ri = Math.max(rr - v.t, 0) * s1, rl = Math.max(rr - v.t - v.g, 0) * s1;
+  const x0 = (S - W) / 2 + 4, y0 = (104 - D) / 2;
+  const top = `<svg viewBox="0 0 ${S + 8} 104" aria-hidden="true"><rect x="${x0}" y="${y0}" width="${W}" height="${D}" rx="${R}" class="o"/><rect x="${x0 + T}" y="${y0 + T}" width="${Math.max(W - 2 * T, 0)}" height="${Math.max(D - 2 * T, 0)}" rx="${ri}" class="i"/><rect x="${x0 + G}" y="${y0 + G}" width="${Math.max(W - 2 * G, 0)}" height="${Math.max(D - 2 * G, 0)}" rx="${rl}" class="l"/></svg>`;
+  const lift = 7, H = v.h + lift + BXLID + BXLIP, s2 = Math.min(S / v.w, 96 / H), w = v.w * s2, t = v.t * s2, g = v.g * s2, ox = (S - w) / 2 + 4, bot = 100;
+  const hh = v.h * s2, bodyP = `M${ox} ${bot}h${w}v${-hh}h${-t}v${hh - t}h${-(w - 2 * t)}v${-(hh - t)}h${-t}z`;
+  const lt = BXLID * s2, ll = BXLIP * s2, ly = bot - hh - lift * s2, lx = ox + t + g, lw = w - 2 * (t + g);
+  const lidP = `M${ox} ${ly - lt}h${w}v${lt}h${-(t + g)}v${ll}h${-lw}v${-ll}h${-(t + g)}z`;
+  const side = `<svg viewBox="0 0 ${S + 8} 104" aria-hidden="true"><path d="${bodyP}" class="o"/><path d="${lidP}" class="l2"/></svg>`;
+  $('#bx-prev').innerHTML = `<figure>${top}<figcaption>Dall'alto</figcaption></figure><figure>${side}<figcaption>Sezione: corpo e coperchio</figcaption></figure>`;
+}
+bxF.addEventListener('input', bxPreview);
+bxF.addEventListener('change', () => { bxFix(true); bxPreview(); });
+{ const _show = dlg.showModal.bind(dlg); dlg.showModal = () => { _show(); bxFix(true); bxPreview(); }; }
 $('#box-cancel').addEventListener('click', () => dlg.close());
 $('#box-form').addEventListener('submit', () => {
+  bxFix(true);
   const f = Object.fromEntries(new FormData($('#box-form')).entries());
   const n = Object.fromEntries(Object.entries(f).map(([k, v]) => [k, parseFloat(v)]));
   if (![n.w, n.d, n.h, n.t, n.g, n.r].every(Number.isFinite) || n.t * 2 >= Math.min(n.w, n.d) || n.h <= n.t + 2) return toast('Misure non valide');

@@ -343,13 +343,14 @@
   <form method="dialog" id="box-form">
     <h2>Scatolina con coperchio</h2>
     <p>Corpo e coperchio vengono affiancati, pronti da stampare sul piatto.</p>
+    <div id="bx-prev"></div>
     <div class="rows">
       <label class="f">Larghezza<input name="w" type="number" value="60" step="1" min="10"></label>
       <label class="f">Profondità<input name="d" type="number" value="40" step="1" min="10"></label>
       <label class="f">Altezza<input name="h" type="number" value="30" step="1" min="6"></label>
-      <label class="f">Pareti<input name="t" type="number" value="2" step="0.2" min="0.8"></label>
-      <label class="f">Gioco<input name="g" type="number" value="0.3" step="0.1" min="0"></label>
-      <label class="f">Angoli<input name="r" type="number" value="4" step="0.5" min="0"></label>
+      <label class="f" title="Spessore delle pareti, a passi di 0,4 mm (una linea dell'ugello)">Pareti<input name="t" type="number" value="2" step="0.4" min="0.8"></label>
+      <label class="f" title="Spazio tra coperchio e corpo: 0,3 mm per un incastro che scorre">Gioco<input name="g" type="number" value="0.3" step="0.05" min="0.1" max="0.6"></label>
+      <label class="f" title="Raggio degli angoli verticali. 0 = spigoli vivi">Angoli<input name="r" type="number" value="4" step="1" min="0"></label>
     </div>
     <div class="actions">
       <button type="button" class="btn" id="box-cancel">Annulla</button>
