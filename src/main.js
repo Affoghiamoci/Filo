@@ -2182,7 +2182,7 @@ const TOOLS = [
 const toolEls = {};
 $('#tools').innerHTML = TOOLS.map(([title, items], si) =>
   `<h3>[${si + 1}] ${title}</h3>` + items.map((t, ii) =>
-    `<button class="tool" data-s="${si}" data-i="${ii}"><span class="ico"><svg viewBox="0 0 24 24">${I[t.icon]}</svg></span><span class="t"><b>${t.name}</b><small>${t.desc}</small></span>${t.key ? `<kbd>${t.key}</kbd>` : ''}</button>`).join('')).join('');
+    `<button class="tool" data-s="${si}" data-i="${ii}" title="${t.desc}"><span class="ico"><svg viewBox="0 0 24 24">${I[t.icon]}</svg></span><span class="t"><b>${t.name}</b><small>${t.desc}</small></span>${t.key ? `<kbd>${t.key}</kbd>` : ''}</button>`).join('')).join('');
 $('#tools').addEventListener('click', e => {
   const b = e.target.closest('.tool');
   if (!b) return;
@@ -3978,6 +3978,16 @@ function stretchNow() {
   toast(delta > 0 ? `Allungato di ${fmt(delta)} mm` : `Accorciato di ${fmt(-delta)} mm`);
 }
 $('#cut-go').addEventListener('click', () => { if (state.tool === 'stretch') stretchSel(); else planeCut(); canvas.focus(); });
+/* sfumatura ai bordi dei pannelli che scorrono */
+function scrollFade(el) {
+  const upd = () => { el.classList.toggle('fade-t', el.scrollTop > 4); el.classList.toggle('fade-b', el.scrollTop + el.clientHeight < el.scrollHeight - 4); };
+  el.addEventListener('scroll', upd, { passive: true });
+  new ResizeObserver(upd).observe(el);
+  new MutationObserver(upd).observe(el, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden'] });
+  window.addEventListener('resize', upd); upd();
+}
+scrollFade($('#tools')); scrollFade($('#props'));
+
 window.forma = { stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 

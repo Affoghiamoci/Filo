@@ -588,3 +588,10 @@ label.f.has-stp{position:relative;padding-right:3px}
 #busy .b-bar{position:relative;height:3px;background:var(--line);overflow:hidden}
 #busy .b-bar i{position:absolute;left:0;top:0;height:100%;width:40%;background:var(--accent);will-change:transform;animation:busy-slide 1.1s ease-in-out infinite}
 @keyframes busy-slide{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}
+
+/* indicatore di scorrimento: sfuma il bordo se c'è altro contenuto */
+.fade-b{-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 34px),transparent);mask-image:linear-gradient(to bottom,#000 calc(100% - 34px),transparent)}
+.fade-t{-webkit-mask-image:linear-gradient(to top,#000 calc(100% - 34px),transparent);mask-image:linear-gradient(to top,#000 calc(100% - 34px),transparent)}
+.fade-t.fade-b{-webkit-mask-image:linear-gradient(to bottom,transparent,#000 34px,#000 calc(100% - 34px),transparent);mask-image:linear-gradient(to bottom,transparent,#000 34px,#000 calc(100% - 34px),transparent)}
+/* finestre basse: elenco strumenti compatto, la descrizione resta nel tooltip */
+@media (max-height:960px){ #side:not(.mini) .tool .t small{display:none} #side:not(.mini) .tool{padding-top:6px;padding-bottom:6px} }
