@@ -3577,6 +3577,26 @@ function rulerPick(hit) {
   return { p, n, snap };
 }
 const rulerHov = document.createElement('div'); rulerHov.className = 'ruler-hov'; labelsEl.appendChild(rulerHov);
+function faceRect(fs) {                                    // rettangolo più piccolo che contiene il lato: larghezza e altezza vere anche se il lato è ruotato o inclinato
+  const T = fs.tri2d, seen = new Map();
+  for (let i = 0; i < T.length; i += 2) seen.set(Math.round(T[i] * 500) + ',' + Math.round(T[i + 1] * 500), [T[i], T[i + 1]]);
+  const P = [...seen.values()].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (P.length < 3) return { a: fs.W, b: fs.H, ang: 0 };
+  const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], up = [];
+  for (const p of P) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+  for (let i = P.length - 1; i >= 0; i--) { const p = P[i]; while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
+  const hull = lo.slice(0, -1).concat(up.slice(0, -1));
+  let best = null;
+  for (let i = 0; i < hull.length; i++) {
+    const a = hull[i], b = hull[(i + 1) % hull.length], ang = Math.atan2(b[1] - a[1], b[0] - a[0]), c = Math.cos(ang), sn = Math.sin(ang);
+    let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+    for (const p of hull) { const u = p[0] * c + p[1] * sn, v = -p[0] * sn + p[1] * c; u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v); }
+    const A = (u1 - u0) * (v1 - v0);
+    if (!best || A < best.A - 1e-9) best = { A, a: u1 - u0, b: v1 - v0, ang };
+  }
+  return best;
+}
 const faceDim = document.createElement('div'); faceDim.className = 'dim-label'; faceDim.style.pointerEvents = 'none'; labelsEl.appendChild(faceDim);
 let rulerLastEv = null;
 function hideFaceDim() { faceDim.style.display = 'none'; if (hoverMesh) hideHover(); }
@@ -3593,7 +3613,13 @@ function rulerHover(e) {                                  // anteprima del punto
       hoverFs = fs; hoverMesh = makeOverlay(fs, 0.22); scene.add(hoverMesh); dirty = true;
     }
     const fs = hoverFs, flat = Math.abs(fs.n.z) > 0.9;
-    faceDim.textContent = `${fs.curved ? '≈ ' : ''}${fmt(fs.W)} × ${fmt(fs.H)} mm · ${tr(flat ? 'larghezza × profondità' : 'larghezza × altezza')}`;
+    let w1 = fs.W, h1 = fs.H;
+    if (!fs.curved) {                                    // asse "alto" = quello più vicino alla direzione su (lato) o avanti (piano)
+      const r = faceRect(fs), d = Math.abs(Math.cos(r.ang));                       // r.a è lungo la direzione r.ang rispetto all'asse u del lato
+      const uAlong = d > Math.SQRT1_2;                                             // r.a quasi parallelo a u
+      const A = r.a, B = r.b; w1 = uAlong ? A : B; h1 = uAlong ? B : A;
+    }
+    faceDim.textContent = `${fs.curved ? '≈ ' : ''}${fmt(w1)} × ${fmt(h1)} mm · ${tr(flat ? 'larghezza × profondità' : 'larghezza × altezza')}`;
     faceDim.style.display = 'block';
     faceDim.style.transform = `translate(${e.clientX + 18}px, ${e.clientY + 18}px)`;
     return;
