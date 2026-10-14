@@ -4012,6 +4012,16 @@ function restoreEdgeMove(em) {
   g.computeBoundingSphere(); g.computeBoundingBox();
   refreshEdgeLines(); updateEdgeHandle();
 }
+function edgeMoveTargets(em) {                          // coordinate (lungo l'asse scelto) a cui lo spigolo si aggancia: dov'era, parallelo agli altri vertici del pezzo, altri oggetti
+  const { mi } = em, k = 'xyz'.indexOf(em.ax), out = [{ v: mi.c[em.ax], t: 'orig' }], seen = new Set([Math.round(mi.c[em.ax] * 1000)]);
+  const moved = new Set(mi.pts.map(p => ekey(p.x, p.y, p.z)));
+  const add = (v, t) => { const q = Math.round(v * 1000); if (!seen.has(q)) { seen.add(q); out.push({ v, t }); } };
+  const arr = worldPositions(mi.obj);
+  for (let i = 0; i < arr.length; i += 3) if (!moved.has(ekey(arr[i], arr[i + 1], arr[i + 2]))) add(arr[i + k], 'self');
+  for (const o of objects) { if (o === mi.obj || o.userData.hidden || out.length > 4000) continue; for (const c of worldCorners(o)) add(c[em.ax], 'other'); }
+  return out;
+}
+const MAG_TAG = { orig: 'come prima', self: 'parallelo', other: 'allineato' };
 function moveEdgeMove(e, em) {
   const dv = new THREE.Vector2(e.clientX - em.sx, e.clientY - em.sy);
   if (!em.ax) {                                         // l'asse si sceglie dalla direzione del primo tratto del trascinamento
@@ -4022,15 +4032,22 @@ function moveEdgeMove(e, em) {
     em.ax = best;
   }
   const d = em.dirs[em.ax];
-  let mm = dv.dot(d) / (d.lengthSq()) * 10;
-  mm = snapV(mm);
+  let mm = dv.dot(d) / (d.lengthSq()) * 10, tag = '';
+  if (state.magnet && !e.metaKey && !e.ctrlKey) {       // calamita: torna com'era, si allinea ai vertici paralleli del pezzo o agli altri oggetti
+    if (!em.targets) em.targets = edgeMoveTargets(em);
+    const thr = Math.min(6, 90 / d.length()), cur = em.mi.c[em.ax] + mm;
+    let best = null, bd = thr;
+    for (const t of em.targets) { const dd = Math.abs(t.v - cur); if (dd < bd) { bd = dd; best = t; } }
+    if (best) { mm = best.v - em.mi.c[em.ax]; tag = best.t; }
+  }
+  if (!tag) mm = snapV(mm);
   em.mm = mm;
   setEdgeMovePreview(em, mm);
   const v = em.mi.c.clone().addScaledVector(WAX[em.ax], mm).project(camera);
   dragRead.style.display = 'block';
   dragRead.style.left = ((v.x * 0.5 + 0.5) * window.innerWidth + 18) + 'px';
   dragRead.style.top = ((-v.y * 0.5 + 0.5) * window.innerHeight - 12) + 'px';
-  dragRead.textContent = `${em.ax.toUpperCase()} ${mm > 0 ? '+' : ''}${fmt(mm)} mm`;
+  dragRead.textContent = `${em.ax.toUpperCase()} ${mm > 0 ? '+' : ''}${fmt(mm)} mm${tag ? ' · ' + tr(MAG_TAG[tag]) : ''}`;
 }
 function endEdgeMove(em, moved) {
   dragRead.style.display = 'none';

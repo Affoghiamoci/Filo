@@ -14,6 +14,8 @@ const EN = {
   'Scrivi di quanti mm spostare lo spigolo': 'Type how many mm to move the edge',
   'Questa direzione è lungo lo spigolo: scegline un\'altra': 'That direction runs along the edge: pick another one',
   'Taglia e Allunga: il piano si trascina con il mouse': 'Cut and Stretch: the plane can be dragged with the mouse',
+  'come prima': 'as before', 'parallelo': 'parallel', 'allineato': 'aligned',
+  'Calamita anche sullo spostamento degli spigoli: torna com\'era, si allinea ai vertici paralleli e agli altri oggetti': 'Magnet also on edge moving: back to where it was, aligns to parallel vertices and other objects',
   'Elenco strumenti compatto sulle finestre basse e sfumatura che segnala i pannelli che scorrono': 'Compact tool list on short windows and a fade that shows scrollable panels',
   "Ripeti: Spazio tra le copie al posto del passo (ingombro reale più spazio); nido d'ape con Spazio Y modificabile": 'Repeat: Gap between copies instead of step (real size plus gap); honeycomb with editable Gap Y',
   'Scatto a tendina, con 0,1 mm e Libero (senza aggancio)': 'Step as a dropdown, with 0.1 mm and Free (no snapping)',
