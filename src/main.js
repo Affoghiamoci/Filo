@@ -1387,7 +1387,8 @@ function ensureSnap(d, key, map) {
   for (const m of objects) { if (!m.visible) continue; (map.has(m) ? mov : stat).push(...worldPlanes(m)); }
   const movC = [], statC = [];
   for (const m of objects) { if (!m.visible) continue; (map.has(m) ? movC : statC).push(...worldCorners(m)); }
-  return (d[key] = { mov: mov.slice(0, 120), stat: stat.slice(0, 400), movC: movC.slice(0, 400), statC: statC.slice(0, 20000) });
+  stat.sort((a, b) => b.area - a.area);            // i lati più grandi per primi: con tanti oggetti non si perdono quelli importanti
+  return (d[key] = { mov: mov.slice(0, 120), stat: stat.slice(0, 600), movC: movC.slice(0, 400), statC: statC.slice(0, 20000) });
 }
 // s = spostamento dall'inizio; mode 'xy' per i lati verticali, 'z' per quelli orizzontali. Restituisce la correzione.
 function snapFaces(info, s, mode) {
@@ -1503,7 +1504,7 @@ function moveVertical(e) {
   const dz = hit && d.vz0 !== null ? hit.z - d.vz0 : -(e.clientY - d.vy0) * worldPerPixel();
   const base = d.vstart.get(d.hit) ?? [...d.vstart.values()][0];
   let ddz = snapV(base.z + dz) - base.z;
-  const shz = new THREE.Vector3(0, 0, ddz), snz = state.magnet && !e.metaKey && !e.ctrlKey ? snapFaces(ensureSnap(d, 'snapz', d.vstart), shz, 'z') : null;
+  const shz = new THREE.Vector3(0, 0, ddz), snz = state.magnet ? snapFaces(ensureSnap(d, 'snapz', d.vstart), shz, 'z') : null;
   if (snz) ddz += snz.c.z;
   showSnap(snz, shz, e);
   d.vstart.forEach((p0, m) => { m.position.z = p0.z + ddz; m.updateMatrixWorld(true); });
