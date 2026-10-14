@@ -553,3 +553,4 @@ label.f.has-stp{position:relative;padding-right:3px}
 #history{bottom:calc(var(--barh) + 24px);max-height:calc(var(--avail) / 2)}
 #layers,#history{right:284px}
 #props{max-height:calc(100vh - 64px - var(--barh) - 24px)}
+#topbar{width:264px}

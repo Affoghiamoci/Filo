@@ -64,6 +64,7 @@ const dotTex = (() => {
   return new THREE.CanvasTexture(c);
 })();
 const gridMat = new THREE.PointsMaterial({ color: 0x9d9da6, size: 1.3, sizeAttenuation: true, map: dotTex, alphaTest: 0.5, transparent: true });
+let dotBase = 1.3, camK = 1;   // camK: nelle viste senza prospettiva la camera è lontanissima e i punti, che sono in mm, andrebbero sotto il pixel
 const grid = new THREE.Points(new THREE.BufferGeometry(), gridMat);
 scene.add(grid);
 function buildBedDots(spacing) {
@@ -71,7 +72,7 @@ function buildBedDots(spacing) {
   // i punti stanno sui multipli del passo a partire dall'origine (0,0), come lo scatto: con un piatto dispari non si sfalsano di mezzo mm
   const x0 = Math.ceil(-BEDX / 2 / spacing - 1e-6), x1 = Math.floor(BEDX / 2 / spacing + 1e-6), y0 = Math.ceil(-BEDY / 2 / spacing - 1e-6), y1 = Math.floor(BEDY / 2 / spacing + 1e-6);
   for (let i = x0; i <= x1; i++) for (let j = y0; j <= y1; j++) pts.push(i * spacing, j * spacing, 0.04);
-  gridMat.size = Math.min(1.3, spacing * 0.2);
+  dotBase = Math.min(1.3, spacing * 0.2); gridMat.size = dotBase * camK;
   grid.geometry.dispose();
   grid.geometry = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
   dirty = true;
@@ -111,6 +112,7 @@ const cam = { az: 35, el: 28, dist: 320, fov: BASE_FOV, target: new THREE.Vector
 function applyCamera() {
   const az = cam.az * D2R, el = cam.el * D2R;
   const k = Math.tan(BASE_FOV * D2R / 2) / Math.tan(cam.fov * D2R / 2), D = cam.dist * k;
+  camK = k; gridMat.size = dotBase * k;
   if (camera.fov !== cam.fov) { camera.fov = cam.fov; camera.near = Math.max(1, k); camera.far = 6000 * k; camera.updateProjectionMatrix(); }
   { const r = Math.tan(cam.fov * D2R / 2) / Math.tan(BASE_FOV * D2R / 2); for (const [sp, s0] of fovSprites) sp.scale.setScalar(s0 * r); }
   camera.position.set(
