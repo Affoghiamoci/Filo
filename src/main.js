@@ -2058,6 +2058,11 @@ dotMenu.addEventListener('click', e => {
 let _d = 10; try { const sv = +localStorage.getItem('forma.dots'); if (DOTS.includes(sv)) _d = sv; } catch (e) {}
 setDots(_d, false);
 
+/* altezza della barra bassa: Livelli e Cronologia ne tengono conto */
+(function () {
+  const bar = $('#bar'), set = () => document.documentElement.style.setProperty('--barh', Math.round(bar.getBoundingClientRect().height) + 'px');
+  set(); if (window.ResizeObserver) new ResizeObserver(set).observe(bar); addEventListener('resize', set);
+})();
 /* descrizioni al passaggio sulla barra bassa */
 (function () {
   const bar = $('#bar'); let tm = null, cur = null;
@@ -3520,7 +3525,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '0.8.2';
+const APP_VERSION = '0.8.3';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());

@@ -546,3 +546,10 @@ label.f.has-stp{position:relative;padding-right:3px}
 #exp-print .hint{margin:6px 0 0;word-break:break-word}
 .lnk{all:unset;cursor:default;text-decoration:underline;color:var(--text)}
 .lnk:hover{color:var(--accent)}
+
+/* Livelli e Cronologia dividono lo spazio sopra la barra bassa, senza sovrapporsi */
+:root{--barh:66px;--avail:calc(100vh - 12px - var(--barh) - 16px - 8px - 8px)}
+#layers{max-height:calc(var(--avail) / 2)}
+#history{bottom:calc(var(--barh) + 24px);max-height:calc(var(--avail) / 2)}
+#layers,#history{right:284px}
+#props{max-height:calc(100vh - 64px - var(--barh) - 24px)}
