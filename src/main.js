@@ -826,7 +826,7 @@ function toggleHole() {
 }
 function nudge(dx, dy, dz) {
   if (!selection.length) return;
-  const s = state.snap;
+  const s = state.snap || 0.1;
   selection.forEach(m => { m.position.x += dx * s; m.position.y += dy * s; m.position.z += dz * s; });
   selection.forEach(m => m.updateMatrixWorld(true));
   touch(); syncPanel(); updateHandles();
@@ -1012,7 +1012,7 @@ function openHandlePopup(hd, handle) {
   chip.textContent = hd.axis.toUpperCase() + (hd.sign > 0 ? '+' : '−');
   chip.style.background = AXIS_COLOR[hd.axis];
   hpopIn.value = '';
-  hpopIn.step = state.snap;
+  hpopIn.step = state.snap || 0.1;
   hpopEl.classList.remove('hidden');
   const v = handle.position.clone().project(camera);
   const x = (v.x * 0.5 + 0.5) * window.innerWidth, y = (-v.y * 0.5 + 0.5) * window.innerHeight;
@@ -1118,7 +1118,7 @@ function groundPoint(e) {
   setRay(e);
   return raycaster.ray.intersectPlane(ground, new THREE.Vector3());
 }
-const snapV = v => Math.round(v / state.snap) * state.snap;
+const snapV = v => state.snap ? Math.round(v / state.snap) * state.snap : v;   // snap 0 = Libero
 
 let drag = null;
 canvas.addEventListener('contextmenu', e => e.preventDefault());
@@ -2065,16 +2065,28 @@ function setXray(on) {   // contorni delle parti coperte, attivabile e disattiva
 $('#b-xray').addEventListener('click', () => setXray());
 try { if (localStorage.getItem('forma.xray') === '1') setXray(true); } catch (e) {}
 $('#b-fit').addEventListener('click', fitView);
+const SNAPS = [0, 0.1, 0.5, 1, 5, 10];
+const snapLabel = v => v ? String(v).replace('.', ',') + ' mm' : 'Libero';
+const snapMenu = $('#snapmenu');
+snapMenu.innerHTML = '<div class="mh">Scatto di spostamento</div>' + SNAPS.map(v => `<button class="btn" data-snap="${v}"><span>${snapLabel(v)}</span><em>${v === 0 ? 'senza aggancio' : v === 0.1 ? 'fine' : v === 1 ? 'standard' : ''}</em></button>`).join('');
 function setSnap(v, announce = true) {
   state.snap = v;
-  document.querySelectorAll('#snaps [data-snap]').forEach(b => b.classList.toggle('on', parseFloat(b.dataset.snap) === v));
-  if (announce) toast(`Scatto: ${String(v).replace('.', ',')} mm`);
+  $('#b-snap em').textContent = snapLabel(v);
+  snapMenu.querySelectorAll('[data-snap]').forEach(b => b.classList.toggle('on', parseFloat(b.dataset.snap) === v));
+  try { localStorage.setItem('forma.snap', String(v)); } catch (e) {}
+  if (announce) toast(v ? `Scatto: ${String(v).replace('.', ',')} mm` : 'Scatto: libero');
 }
-$('#snaps').addEventListener('click', e => {
-  const b = e.target.closest('[data-snap]');
-  if (b) { setSnap(parseFloat(b.dataset.snap)); canvas.focus(); }
+$('#b-snap').addEventListener('click', e => {
+  e.stopPropagation();
+  bedMenu.classList.add('hidden'); dotMenu.classList.add('hidden');
+  snapMenu.classList.toggle('hidden'); anchorMenu(snapMenu, e.currentTarget); menuState();
 });
-setSnap(1, false);
+document.addEventListener('pointerdown', e => { if (!e.target.closest('#snapmenu,#b-snap')) { snapMenu.classList.add('hidden'); menuState(); } });
+snapMenu.addEventListener('click', e => {
+  const b = e.target.closest('[data-snap]');
+  if (b) { setSnap(parseFloat(b.dataset.snap)); snapMenu.classList.add('hidden'); menuState(); canvas.focus(); }
+});
+{ let sv = 1; try { const t = parseFloat(localStorage.getItem('forma.snap')); if (SNAPS.includes(t)) sv = t; } catch (e) {} setSnap(sv, false); }
 /* distanza dei pallini */
 const DOTS = [2, 5, 10];
 const dotMenu = $('#dotmenu');
@@ -2088,7 +2100,7 @@ function setDots(v, announce = true) {
 }
 $('#b-dots').addEventListener('click', e => {
   e.stopPropagation();
-  bedMenu.classList.add('hidden');
+  bedMenu.classList.add('hidden'); snapMenu.classList.add('hidden');
   dotMenu.classList.toggle('hidden'); anchorMenu(dotMenu, e.currentTarget); menuState();
 });
 document.addEventListener('pointerdown', e => { if (!e.target.closest('#dotmenu,#b-dots')) { dotMenu.classList.add('hidden'); menuState(); } });
@@ -2148,8 +2160,8 @@ function anchorMenu(menu, btn) {
   menu.style.left = Math.round(clamp(r.left + r.width / 2, w / 2 + 8, innerWidth - w / 2 - 8)) + 'px';
   menu.style.bottom = Math.round(innerHeight - $('#bar').getBoundingClientRect().top + 8) + 'px';
 }
-function menuState() { $('#b-bed').classList.toggle('open', !bedMenu.classList.contains('hidden')); $('#b-dots').classList.toggle('open', !dotMenu.classList.contains('hidden')); }
-$('#b-bed').addEventListener('click', e => { e.stopPropagation(); dotMenu.classList.add('hidden'); bedMenu.classList.toggle('hidden'); anchorMenu(bedMenu, e.currentTarget); menuState(); });
+function menuState() { $('#b-snap').classList.toggle('open', !snapMenu.classList.contains('hidden')); $('#b-bed').classList.toggle('open', !bedMenu.classList.contains('hidden')); $('#b-dots').classList.toggle('open', !dotMenu.classList.contains('hidden')); }
+$('#b-bed').addEventListener('click', e => { e.stopPropagation(); dotMenu.classList.add('hidden'); snapMenu.classList.add('hidden'); bedMenu.classList.toggle('hidden'); anchorMenu(bedMenu, e.currentTarget); menuState(); });
 document.addEventListener('pointerdown', e => { if (!e.target.closest('#bedmenu,#b-bed')) bedMenu.classList.add('hidden'); menuState(); });
 bedMenu.addEventListener('click', e => {
   const b = e.target.closest('[data-bed]');

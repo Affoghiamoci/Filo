@@ -2,6 +2,7 @@
 const EN = {
   'Posizione anche per gruppi e selezioni multiple': 'Position for groups and multiple selections too',
   "Nido d'ape: Passo Y modificabile": 'Honeycomb: editable Step Y',
+  'Scatto a tendina, con 0,1 mm e Libero (senza aggancio)': 'Step as a dropdown, with 0.1 mm and Free (no snapping)',
   'Pillola Beta con la versione e zoom più ravvicinato': 'Beta pill with the version and closer zoom',
   'Dopo Combina, le parti staccate diventano livelli separati; nuovo comando Separa': 'After Combine, detached parts become separate layers; new Separate command',
   'Dimenticare le impostazioni di stampa?': 'Forget the print settings?', 'Cosa fa.': 'What it does.', 'Cosa non cambia.': 'What stays the same.', 'Dopo.': 'Afterwards.',
@@ -14,7 +15,7 @@ const EN = {
   'Barra in basso in sezioni (Vista, Mostra, Scatto, Piano di lavoro, Pannelli), con icone e scorciatoie al passaggio del mouse': 'Bottom bar in sections (View, Show, Step, Workspace, Panels), with icons and shortcuts on hover', 'Scatto di spostamento e distanza della griglia separati': 'Move step and grid spacing now separate', 'Vista attiva evidenziata nella barra': 'Active view highlighted in the bar', 'Livelli: ⌘ + clic seleziona un intervallo': 'Layers: ⌘ + click selects a range',
   'Distanza griglia': 'Grid spacing',
   'Distanza tra i punti della griglia': 'Spacing of the grid points',
-  '⇧ aggiunge · ⌘ seleziona un intervallo': '⇧ adds · ⌘ selects a range', 'Piatto di stampa': 'Print bed', 'fitta': 'dense', 'media': 'medium', 'larga': 'wide', 'Scatto': 'Step', 'Scatto mm': 'Step mm',
+  '⇧ aggiunge · ⌘ seleziona un intervallo': '⇧ adds · ⌘ selects a range', 'Piatto di stampa': 'Print bed', 'Libero': 'Free', 'senza aggancio': 'no snapping', 'fine': 'fine', 'standard': 'standard', 'Di quanto si sposta un oggetto': 'How far an object moves', 'Scatto di spostamento': 'Move step', 'Scatto: libero': 'Step: free', 'fitta': 'dense', 'media': 'medium', 'larga': 'wide', 'Scatto': 'Step', 'Scatto mm': 'Step mm',
   'Di quanto si sposta un oggetto, in mm': 'How far an object moves, in mm',
   'Filo · modellatore 3D semplice': 'Filo · simple 3D modeler',
   // barra laterale

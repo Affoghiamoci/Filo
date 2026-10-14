@@ -522,13 +522,15 @@ label.f.has-stp{position:relative;padding-right:3px}
 
 #bar .btn svg.chev{width:11px;height:11px;stroke-width:2;opacity:.6;margin-left:1px;transition:transform .15s}
 #bar .btn.open svg.chev{transform:rotate(180deg);opacity:1}
-#bedmenu,#dotmenu{position:fixed;bottom:76px;transform:translateX(-50%);z-index:45;display:flex;flex-direction:column;gap:4px;padding:8px;min-width:200px;border-radius:2px}
-#bedmenu.hidden,#dotmenu.hidden{display:none}
-#bedmenu .mh,#dotmenu .mh{font:500 9px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:2px 4px 4px}
-#dotmenu .btn{display:flex;justify-content:space-between;gap:16px;text-align:left}
+#bedmenu,#dotmenu,#snapmenu{position:fixed;bottom:76px;transform:translateX(-50%);z-index:45;display:flex;flex-direction:column;gap:4px;padding:8px;min-width:200px;border-radius:2px}
+#bedmenu.hidden,#dotmenu.hidden,#snapmenu.hidden{display:none}
+#bedmenu .mh,#dotmenu .mh,#snapmenu .mh{font:500 9px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:2px 4px 4px}
+#dotmenu .btn,#snapmenu .btn{display:flex;justify-content:space-between;gap:16px;text-align:left}
+#snapmenu .btn em{font:500 10.5px var(--mono);font-style:normal;opacity:.7}
+#b-snap em{font:500 10.5px var(--mono);font-style:normal;margin-left:0;min-width:40px;text-align:left}
 .lfoot{margin:0;padding:8px 12px;border-top:1px solid var(--line);font:500 9.5px var(--mono);letter-spacing:.04em;color:var(--muted)}
 #bedmenu .btn span{white-space:nowrap}
-#bedmenu,#dotmenu{min-width:240px}
+#bedmenu,#dotmenu,#snapmenu{min-width:240px}
 #bar .btn{letter-spacing:.025em}
 #bar .sec{padding:0 7px}
 #bar{padding-top:11px;padding-bottom:7px}
