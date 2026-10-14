@@ -1990,7 +1990,8 @@ function showTip(b) {
   const t = TOOLS[b.dataset.s][1][b.dataset.i];
   tipEl.innerHTML = `<b>${t.name}</b>${t.key ? `<kbd>${t.key}</kbd>` : ''}<small>${t.desc}</small>`;
   const r = b.getBoundingClientRect();
-  tipEl.style.left = r.right + 10 + 'px';
+  tipEl.classList.remove('up');
+  tipEl.style.left = r.right + 16 + 'px';
   tipEl.style.top = r.top + r.height / 2 + 'px';
   tipEl.classList.add('show');
   tipOn = true;
@@ -2063,27 +2064,31 @@ setDots(_d, false);
   const bar = $('#bar'), set = () => document.documentElement.style.setProperty('--barh', Math.round(bar.getBoundingClientRect().height) + 'px');
   set(); if (window.ResizeObserver) new ResizeObserver(set).observe(bar); addEventListener('resize', set);
 })();
-/* descrizioni al passaggio sulla barra bassa */
+/* descrizioni al passaggio sulla barra bassa: come nella barra laterale, compaiono dopo una breve attesa e poi passano subito da un pulsante all'altro */
 (function () {
-  const bar = $('#bar'); let tm = null, cur = null;
-  const hide = () => { clearTimeout(tm); tipEl.classList.remove('show', 'up'); if (cur && cur.dataset.t) { cur.title = cur.dataset.t; delete cur.dataset.t; } cur = null; };
-  bar.addEventListener('pointerover', e => {
-    const b = e.target.closest('.btn'); if (!b || b === cur) return;
-    hide(); cur = b;
-    if (b.title) { b.dataset.t = b.title; b.removeAttribute('title'); }
+  const bar = $('#bar'); let tm = null, cur = null, on = false;
+  const restore = () => { if (cur && cur.dataset.t) { cur.title = cur.dataset.t; delete cur.dataset.t; } };
+  const hide = () => { clearTimeout(tm); on = false; tipEl.classList.remove('show', 'up'); restore(); cur = null; };
+  const render = b => {
     const name = (b.querySelector('em') ? [...b.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('') : b.textContent).trim();
     const desc = (b.dataset.t || '').replace(/\s*\([^)]*\)\s*$/, '');
-    if (!desc && !b.dataset.k) { return; }
-    tm = setTimeout(() => {
-      tipEl.innerHTML = `<b>${tr(name)}</b>${b.dataset.k ? `<kbd>${tr(b.dataset.k)}</kbd>` : ''}${desc ? `<small>${tr(desc)}</small>` : ''}`;
-      const r = b.getBoundingClientRect();
-      tipEl.classList.add('up');
-      tipEl.style.left = r.left + r.width / 2 + 'px'; tipEl.style.top = r.top - 10 + 'px';
-      tipEl.classList.add('show');
-    }, 350);
+    if (!desc && !b.dataset.k) { tipEl.classList.remove('show'); on = false; return; }
+    tipEl.innerHTML = `<b>${tr(name)}</b>${b.dataset.k ? `<kbd>${tr(b.dataset.k)}</kbd>` : ''}${desc ? `<small>${tr(desc)}</small>` : ''}`;
+    const r = b.getBoundingClientRect(), one = new Set([...bar.querySelectorAll('.sec')].map(s => Math.round(s.getBoundingClientRect().top))).size === 1;
+    // barra su una riga: il suggerimento sta sopra tutta la barra; se va a capo, sopra la sezione del pulsante
+    const bt = bar.getBoundingClientRect().top, st = b.closest('.sec').getBoundingClientRect().top, top = one || st < bt + 20 ? bt : st;
+    tipEl.classList.add('up');
+    const w = tipEl.offsetWidth || 220;
+    tipEl.style.left = Math.round(clamp(r.left + r.width / 2, w / 2 + 8, innerWidth - w / 2 - 8)) + 'px'; tipEl.style.top = top - 16 + 'px';
+    tipEl.classList.add('show'); on = true;
+  };
+  bar.addEventListener('pointerover', e => {
+    const b = e.target.closest('.btn'); if (!b || b === cur) return;
+    clearTimeout(tm); restore(); cur = b;
+    if (b.title) { b.dataset.t = b.title; b.removeAttribute('title'); }
+    if (on) render(b); else tm = setTimeout(() => render(b), 550);
   });
   bar.addEventListener('pointerleave', hide); bar.addEventListener('pointerdown', hide);
-  bar.addEventListener('pointerout', e => { if (cur && !cur.contains(e.relatedTarget)) hide(); });
 })();
 /* piatto di stampa */
 const BEDS = [
