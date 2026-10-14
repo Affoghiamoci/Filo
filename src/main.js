@@ -1841,6 +1841,7 @@ function build3MF(list, opt = {}) {
     for (let k = 0; k < pos.count; k++) { v.fromBufferAttribute(pos, k).applyMatrix4(m.matrixWorld); W.set([+(v.x + off[0]).toFixed(4), +(v.y + off[1]).toFixed(4), +v.z.toFixed(4)], k * 3); }
     const I0 = idx ? Uint32Array.from(idx.array) : Uint32Array.from({ length: pos.count }, (_, k) => k);
     const R = repairForExport(W, I0);
+    { let vol = 0; for (let k = 0; k < R.I.length; k += 3) { const a = R.I[k] * 3, b = R.I[k + 1] * 3, c = R.I[k + 2] * 3, P = R.P; vol += (P[a] * (P[b + 1] * P[c + 2] - P[b + 2] * P[c + 1]) - P[a + 1] * (P[b] * P[c + 2] - P[b + 2] * P[c]) + P[a + 2] * (P[b] * P[c + 1] - P[b + 1] * P[c])) / 6; } if (Math.abs(vol) < 0.01 && list.length > 1) { if (opt.stat) opt.stat.dropped++; g.dispose(); return; } }
     let vs = '', ts = '';
     for (let k = 0; k < R.P.length; k += 3) vs += `<vertex x="${R.P[k]}" y="${R.P[k + 1]}" z="${R.P[k + 2]}"/>`;
     for (let k = 0; k < R.I.length; k += 3) ts += `<triangle v1="${R.I[k]}" v2="${R.I[k + 1]}" v3="${R.I[k + 2]}"/>`;
@@ -1860,10 +1861,10 @@ function build3MF(list, opt = {}) {
 function export3MF(nameArg) {
   const list = exportList();
   if (!list.length) return toast('Niente da esportare: aggiungi almeno un solido');
-  const usePrint = printCfg && keepPrint;
-  const data = build3MF(list, { print: usePrint ? printCfg : null }), name = nameArg || exportName(list);
+  const usePrint = printCfg && keepPrint, stat = { dropped: 0 };
+  const data = build3MF(list, { print: usePrint ? printCfg : null, stat }), name = nameArg || exportName(list);
   download(data, 'model/3mf', `${name}.3mf`);
-  toast(`Esportato ${name}.3mf (${list.length} ${list.length === 1 ? 'pezzo' : 'pezzi'})${usePrint ? ' con le impostazioni di stampa' : ''}`);
+  toast(`Esportato ${name}.3mf (${list.length} ${list.length === 1 ? 'pezzo' : 'pezzi'})${usePrint ? ' con le impostazioni di stampa' : ''}${stat.dropped ? `, senza ${stat.dropped} frammenti vuoti` : ''}`);
   return data;
 }
 
@@ -2518,6 +2519,7 @@ function basisMatrix(X, Y, Z, pos) {
   return new THREE.Matrix4().makeBasis(X, Y, z).setPosition(pos);
 }
 // parti staccate di una geometria (coordinate locali): [{ts}] ordinate per dimensione; i frammenti minuscoli seguono la parte più grande
+const triVolume = (A, ts) => { let v = 0; for (const t of ts) { const o = t * 9; v += (A[o] * (A[o + 4] * A[o + 8] - A[o + 5] * A[o + 7]) - A[o + 1] * (A[o + 3] * A[o + 8] - A[o + 5] * A[o + 6]) + A[o + 2] * (A[o + 3] * A[o + 7] - A[o + 4] * A[o + 6])) / 6; } return Math.abs(v); };
 function pieceGroups(geo) {
   const g = geo.index ? geo.toNonIndexed() : geo, A = g.attributes.position.array, nT = A.length / 9, q = v => Math.round(v * 2000);
   const ids = new Map(), parent = [];
@@ -2551,11 +2553,15 @@ function pieceGroups(geo) {
   }
   const comps = new Map();
   for (let t = 0; t < nT; t++) { const r = find(tv[t]); if (!comps.has(r)) comps.set(r, []); comps.get(r).push(t); }
-  const list = [...comps.values()].sort((x, y) => y.length - x.length);
+  let list = [...comps.values()].sort((x, y) => y.length - x.length);
+  // frammenti senza volume (resti di lame sottilissime, es. dopo aver portato a filo un testo inciso): lo slicer li rifiuta
+  const solid = list.filter(c => triVolume(A, c) >= 0.01), dropped = list.length - solid.length;
+  if (dropped && solid.length) list = solid; else if (dropped) return null;
   const big = list.filter(c => c.length >= 12);
-  if (big.length < 2 || big.length > 400) return null;
+  if (!big.length || big.length > 400) return null;
+  if (big.length < 2 && !dropped) return null;
   list.filter(c => c.length < 12).forEach(c => big[0].push(...c));
-  return { A, parts: big };
+  return { A, parts: big, dropped };
 }
 function replaceWithMerged(old, baked, quiet = false) {
   const hole = old.userData.hole;
@@ -2567,8 +2573,8 @@ function replaceWithMerged(old, baked, quiet = false) {
     pieces = pg.parts.map((ts, i) => {
       const a = new Float32Array(ts.length * 9);
       ts.forEach((t, k) => { for (let j = 0; j < 9; j++) a[k * 9 + j] = pg.A[t * 9 + j] + off[j % 3]; });
-      const bk = bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(a) }, `${baked.name} ${i + 1}`);
-      const m = addMerged(bk); m.userData.gid = gid; return m;
+      const bk = bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(a) }, pg.parts.length > 1 ? `${baked.name} ${i + 1}` : baked.name);
+      const m = addMerged(bk); if (pg.parts.length > 1) m.userData.gid = gid; else m.userData.gid = old.userData.gid ?? null; return m;
     });
   } else { pieces = [addMerged(baked)]; pieces[0].userData.gid = old.userData.gid ?? null; }
   pieces.forEach(nm => { nm.userData.hole = hole; nm.userData.color = old.userData.color ?? null; nm.userData.text = null; nm.castShadow = !hole; });
@@ -2578,6 +2584,7 @@ function replaceWithMerged(old, baked, quiet = false) {
   setSelection(pieces);
   touch(); commit();
   if (pieces.length > 1) toast(`Ora sono ${pieces.length} pezzi, raggruppati: per eliminarne uno aprilo dai Livelli (F7)`);
+  else if (pg && pg.dropped) toast(`Tolti ${pg.dropped} frammenti senza volume`);
   return nm;
 }
 
@@ -3513,7 +3520,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '0.8.1';
+const APP_VERSION = '0.8.2';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());

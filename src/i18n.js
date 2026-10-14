@@ -1,5 +1,6 @@
 // Traduzione IT ⇄ EN: i testi originali sono in italiano, l'inglese si applica al volo su tutto il DOM.
 const EN = {
+  'Frammenti senza volume (resti di un testo inciso portato a filo) tolti in automatico: lo slicer non dà più errore': 'Zero-volume fragments (leftovers of engraved text pushed flush) are removed automatically: the slicer no longer errors',
   'Mantieni le impostazioni di stampa': 'Keep print settings', 'Stampante, qualità e filamento restano quelli del file importato. Ricontrolla supporti e colori dei pezzi.': 'Printer, quality and filament stay as in the imported file. Check supports and part colors.', 'Dimentica': 'Forget', 'Esporta 3MF mantenendo le impostazioni di stampa del file importato (Bambu Studio)': 'Export 3MF keeping the print settings of the imported file (Bambu Studio)',
   'Barra in basso in sezioni (Vista, Mostra, Scatto, Piano di lavoro, Pannelli), con icone e scorciatoie al passaggio del mouse': 'Bottom bar in sections (View, Show, Step, Workspace, Panels), with icons and shortcuts on hover', 'Scatto di spostamento e distanza della griglia separati': 'Move step and grid spacing now separate', 'Vista attiva evidenziata nella barra': 'Active view highlighted in the bar', 'Livelli: ⌘ + clic seleziona un intervallo': 'Layers: ⌘ + click selects a range',
   'Distanza griglia': 'Grid spacing',
@@ -211,6 +212,8 @@ const RULES = [
   [/^Griglia: (.*) mm$/, (m) => `Grid: ${m[1].replace(',', '.')} mm`],
   [/^Impostazioni di stampa dimenticate$/, () => 'Print settings forgotten'],
   [/^Esportato (.*) con le impostazioni di stampa$/, (m) => `Exported ${m[1]} with print settings`],
+  [/^Tolti (\d+) frammenti senza volume$/, (m) => `Removed ${m[1]} zero-volume fragments`],
+  [/^(Esportato .*), senza (\d+) frammenti vuoti$/, (m) => `${m[1]}, without ${m[2]} empty fragments`],
   [/^Scatto: (.*) mm$/, (m) => `Step: ${m[1].replace(',', '.')} mm`],
   [/^Griglia ogni (.*) mm$/, (m) => `Grid every ${m[1]} mm`],
   [/^Piatto: (.*)$/, (m) => `Plate: ${m[1]}`],
