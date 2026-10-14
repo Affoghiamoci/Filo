@@ -1,7 +1,7 @@
 // Traduzione IT ⇄ EN: i testi originali sono in italiano, l'inglese si applica al volo su tutto il DOM.
 const EN = {
   'Posizione anche per gruppi e selezioni multiple': 'Position for groups and multiple selections too',
-  "Nido d'ape: Passo Y modificabile": 'Honeycomb: editable Step Y',
+  "Ripeti: Spazio tra le copie al posto del passo (ingombro reale più spazio); nido d'ape con Spazio Y modificabile": 'Repeat: Gap between copies instead of step (real size plus gap); honeycomb with editable Gap Y',
   'Scatto a tendina, con 0,1 mm e Libero (senza aggancio)': 'Step as a dropdown, with 0.1 mm and Free (no snapping)',
   'Calamita: aggancio agli angoli e ai lati degli altri oggetti, a contatto o a filo, anche su modelli con molti fori; si spegne dalla barra o con ⌘ premuto': 'Magnet: snaps to the corners and sides of other objects, touching or flush, even on models with many holes; switch it off from the bar or hold ⌘',
   'Distanza: anteprima del punto preso, aggancio a angoli, metà lato e lati': 'Distance: preview of the picked point, snapping to corners, edge midpoints and edges',
@@ -115,7 +115,7 @@ const EN = {
   'Modello complesso: per tenerlo fluido ho ridotto risoluzione, ombre e bordi. Per modificarlo conviene semplificarlo prima (Bambu Studio: tasto destro, Semplifica modello).': 'Complex model: to keep it smooth I lowered resolution, shadows and edges. Simplify it first to edit it (Bambu Studio: right click, Simplify model).',
   'a contatto': 'touching', 'angolo su angolo': 'corner to corner', 'Calamita tra lati: spostando un pezzo, lati e angoli vicini si agganciano a contatto': 'Snap: when moving a piece, nearby sides and corners snap together',
   'Angoli verticali': 'Vertical corners', 'Bordo alto': 'Top edge', 'Bordo basso': 'Bottom edge',
-  'Ripeti': 'Repeat', "Nido d'ape": 'Honeycomb', 'Cerchio': 'Circle', 'Colonne': 'Columns', 'Righe': 'Rows', 'Passo X': 'Step X', 'Passo Y': 'Step Y', 'Copie': 'Copies', 'Angolo': 'Angle', 'Centro X': 'Center X', 'Centro Y': 'Center Y',
+  'Ripeti': 'Repeat', "Nido d'ape": 'Honeycomb', 'Cerchio': 'Circle', 'Colonne': 'Columns', 'Righe': 'Rows', 'Spazio X': 'Gap X', 'Spazio Y': 'Gap Y', 'Copie': 'Copies', 'Angolo': 'Angle', 'Centro X': 'Center X', 'Centro Y': 'Center Y',
   'Versione in sviluppo': 'Version under development',
   'Le righe dispari sono spostate di mezzo passo': 'Odd rows are shifted by half a step',
   "Copia la selezione in righe e colonne, a nido d'ape o in cerchio. Usala con un foro per fare griglie di fori, poi Combina.": 'Copies the selection in rows and columns, honeycomb or a circle. Use it on a hole to make a grid of holes, then Combine.',

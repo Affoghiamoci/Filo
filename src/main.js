@@ -808,7 +808,8 @@ function addSteppers() {
 addSteppers();
 
 /* ------------------------------------------------------------ ripeti: griglia, nido d'ape, cerchio */
-const RP = { mode: 'grid' };
+const RP = { mode: 'grid', ex: 10, ey: 10 };
+function honeyGapY() { const gx = parseFloat($('#rp-px').value) || 0; $('#rp-py').value = fmt(+(0.866 * (RP.ex + gx) - RP.ey).toFixed(2)); }
 async function repeatSelection(o) {
   const n = o.mode === 'polar' ? o.n : (o.nx || 1) * (o.ny || 1);
   if (n * selection.length > 40 || trisOf(selection) * n > 40000) return busyRun('Creo le copie…', () => repeatNow(o));
@@ -823,10 +824,12 @@ function repeatNow(o) {
     for (let k = 1; k < n; k++) spots.push({ th: k * step * D2R });
   } else {
     const nx = clamp(Math.round(o.nx), 1, 60), ny = clamp(Math.round(o.ny), 1, 60), honey = o.mode === 'honey';
-    const py = o.py;                                    // in nido d'ape il passo Y parte da 0,866 × passo X ma si può cambiare
+    const py = o.py;                                    // spazio tra le copie; in nido d'ape lo spazio Y parte dal valore che dà righe a 0,866 × passo
+    const bb = new THREE.Box3(); src.forEach(m => bb.union(worldBox(m)));
+    const ex = bb.max.x - bb.min.x, ey = bb.max.y - bb.min.y;   // passo = ingombro reale + spazio
     for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
       if (!i && !j) continue;
-      spots.push({ dx: i * o.px + (honey && j % 2 ? o.px / 2 : 0), dy: j * py });
+      spots.push({ dx: i * (ex + o.px) + (honey && j % 2 ? (ex + o.px) / 2 : 0), dy: j * (ey + py) });
     }
   }
   if (!spots.length) return toast('Con questi numeri non c\'è nulla da copiare');
@@ -854,21 +857,23 @@ function repeatDefaults() {                           // passo iniziale = ingomb
   if (!selection.length) return;
   const box = new THREE.Box3(); selection.forEach(m => box.union(worldBox(m)));
   const sz = box.getSize(new THREE.Vector3());
-  $('#rp-px').value = fmt(sz.x + 2); $('#rp-py').value = fmt(sz.y + 2);
+  RP.ex = sz.x; RP.ey = sz.y;
+  $('#rp-px').value = fmt(2); $('#rp-py').value = fmt(2);
+  if (RP.mode === 'honey') honeyGapY();
   const c = box.getCenter(new THREE.Vector3());
   if (RP.mode !== 'polar') { $('#rp-cx').value = fmt(c.x); $('#rp-cy').value = fmt(c.y); }
 }
 document.querySelectorAll('#rp-mode button').forEach(b => b.addEventListener('click', () => {
   RP.mode = b.dataset.v;
   b.parentElement.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
-  if (RP.mode === 'honey') $('#rp-py').value = fmt(+(parseFloat($('#rp-px').value) * 0.866).toFixed(2));
+  if (RP.mode === 'honey') honeyGapY();
   $('#rp-grid').classList.toggle('hidden', RP.mode === 'polar'); $('#rp-polar').classList.toggle('hidden', RP.mode !== 'polar');
 }));
 $('#rp-go').addEventListener('click', () => {
   const v = id => parseFloat($('#' + id).value);
-  repeatSelection({ mode: RP.mode, nx: v('rp-nx') || 1, ny: v('rp-ny') || 1, px: v('rp-px') || 10, py: v('rp-py') || 10, n: v('rp-n') || 6, arc: v('rp-arc') || 360, cx: v('rp-cx') || 0, cy: v('rp-cy') || 0 });
+  repeatSelection({ mode: RP.mode, nx: v('rp-nx') || 1, ny: v('rp-ny') || 1, px: isNaN(v('rp-px')) ? 2 : v('rp-px'), py: isNaN(v('rp-py')) ? 2 : v('rp-py'), n: v('rp-n') || 6, arc: v('rp-arc') || 360, cx: v('rp-cx') || 0, cy: v('rp-cy') || 0 });
 });
-$('#rp-px').addEventListener('input', () => { if (RP.mode === 'honey') { const v = parseFloat($('#rp-px').value); if (v > 0) $('#rp-py').value = fmt(+(v * 0.866).toFixed(2)); } });
+$('#rp-px').addEventListener('input', () => { if (RP.mode === 'honey') honeyGapY(); });
 $('#p-repeat').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') $('#rp-go').click(); });
 
 function duplicateSelection(offset = true) {
