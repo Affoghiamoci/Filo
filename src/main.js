@@ -68,7 +68,10 @@ const grid = new THREE.Points(new THREE.BufferGeometry(), gridMat);
 scene.add(grid);
 function buildBedDots(spacing) {
   const pts = [];
-  for (let x = -BEDX / 2; x <= BEDX / 2 + 0.01; x += spacing) for (let y = -BEDY / 2; y <= BEDY / 2 + 0.01; y += spacing) pts.push(x, y, 0.04);
+  // i punti stanno sui multipli del passo a partire dall'origine (0,0), come lo scatto: con un piatto dispari non si sfalsano di mezzo mm
+  const x0 = Math.ceil(-BEDX / 2 / spacing - 1e-6), x1 = Math.floor(BEDX / 2 / spacing + 1e-6), y0 = Math.ceil(-BEDY / 2 / spacing - 1e-6), y1 = Math.floor(BEDY / 2 / spacing + 1e-6);
+  for (let i = x0; i <= x1; i++) for (let j = y0; j <= y1; j++) pts.push(i * spacing, j * spacing, 0.04);
+  gridMat.size = Math.min(1.3, spacing * 0.2);
   grid.geometry.dispose();
   grid.geometry = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
   dirty = true;
