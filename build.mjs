@@ -1,6 +1,6 @@
 import { build } from 'esbuild';
 import fs from 'fs';
-const r = await build({ entryPoints: ['src/main.js'], bundle: true, minify: true, format: 'iife', write: false, target: 'es2020', loader: { '.woff': 'binary' }, logLevel: 'warning' });
+const r = await build({ entryPoints: ['src/main.js'], bundle: true, minify: true, format: 'iife', write: false, target: 'es2020', loader: { '.woff': 'binary' }, define: { 'import.meta.url': '"https://filo.local/"' }, plugins: [{ name: 'nonode', setup(b) { b.onResolve({ filter: /^node:/ }, a => ({ path: a.path, namespace: 'nonode' })); b.onLoad({ filter: /.*/, namespace: 'nonode' }, () => ({ contents: 'export default {}; export const createRequire = () => () => ({});' })); } }], logLevel: 'warning' });
 const js = r.outputFiles[0].text.replace(/<\/script/g, '<\\/script');
 const css = fs.readFileSync('src/style.css', 'utf8');
 let html = fs.readFileSync('src/index.template.html', 'utf8');
@@ -11,6 +11,7 @@ const LIC = [
   ['three.js', 'MIT', rd('node_modules/three/LICENSE')],
   ['three-bvh-csg', 'MIT', rd('node_modules/three-bvh-csg/LICENSE')],
   ['three-mesh-bvh', 'MIT', rd('node_modules/three-mesh-bvh/LICENSE')],
+  ['Manifold (manifold-3d)', 'Apache-2.0', rd('node_modules/manifold-3d/LICENSE')],
   ['opentype.js', 'MIT', rd('node_modules/opentype.js/LICENSE')],
   ['fflate', 'MIT', MIT('2023', 'Arjun Barrel')],
   ['Clipper (clipper-lib)', 'BSL-1.0', BSL],
