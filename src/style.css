@@ -568,3 +568,9 @@ label.f.has-stp{position:relative;padding-right:3px}
 .ruler-hov.m{transform-origin:center;border-radius:0;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);background:var(--accent)}
 .ruler-hov.e{border-radius:50%}
 .ruler-hov.f{width:6px;height:6px;border-radius:50%;opacity:.6}
+
+/* selezione a riquadro / lazo */
+#mq{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:30;pointer-events:none}
+#mq.hidden{display:none}
+#mq rect,#mq polygon{fill:rgba(255,106,0,.10);stroke:var(--accent);stroke-width:1.5;stroke-dasharray:5 4}
+#mq.touch rect{stroke-dasharray:2 3}

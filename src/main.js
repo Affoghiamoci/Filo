@@ -1128,6 +1128,7 @@ canvas.addEventListener('pointerdown', e => {
   drag = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: false, mode: 'orbit', shift: e.shiftKey };
   if (e.button === 1 || state.space || state.tool === 'hand') drag.mode = 'pan';
   else if (e.button === 2 || state.tool === 'orbit') drag.mode = 'orbit';
+  else if (state.tool === 'marquee') { drag.mode = 'marquee'; drag.pts = [[e.clientX, e.clientY]]; mqShow(drag, e); }
   else if (state.tool === 'rotate') {
     const ax = pickRing(e);
     if (ax) {
@@ -1210,6 +1211,7 @@ canvas.addEventListener('pointermove', e => {
   drag.x = e.clientX; drag.y = e.clientY;
   if (drag.mode === 'pan') panPixels(dx, dy);
   else if (drag.mode === 'orbit') orbitPixels(dx, dy);
+  else if (drag.mode === 'marquee') mqUpdate(drag, e);
   else if (drag.mode === 'facepush') moveFaceDrag(e, drag.fd);
   else if (drag.mode === 'edgescale') moveEdgeScale(e, drag.es);
   else if (drag.mode === 'rotate') {
@@ -1286,6 +1288,7 @@ canvas.addEventListener('pointerup', e => {
     if (d.moved && Math.abs(dist) > 1e-4) applyPush(dist); else { selMeshes.forEach(m => m.position.set(0, 0, 0)); updateFaceHandle(); TF.push.focus(); }
     return;
   }
+  if (d.mode === 'marquee') { mqFinish(d, e); return; }
   if (state.tool === 'ruler' && d.mode === 'orbit' && !d.moved) { rulerClick(d.rulerHit); return; }
   if (state.tool === 'edge' && d.mode === 'orbit' && !d.moved) {
     if (d.edgeHit) selectEdgeAt(d.edgeHit, d.shift); else if (!d.shift) clearEdges();
@@ -1308,6 +1311,55 @@ canvas.addEventListener('pointerup', e => {
   } else if (d.mode === 'handle') { if (d.moved) commit(); else openHandlePopup(d.h, d.handle); }
   else if (d.emptyClick && !d.moved && !d.shift) setSelection([]);
 });
+/* selezione a riquadro e lazo */
+let mqMode = 'rect';
+const mqEl = $('#mq'), mqR = $('#mq-r'), mqP = $('#mq-p');
+function mqShow(d, e) {
+  mqEl.classList.remove('hidden', 'touch'); mqR.style.display = mqMode === 'rect' ? '' : 'none'; mqP.style.display = mqMode === 'lasso' ? '' : 'none';
+  mqUpdate(d, e);
+}
+function mqUpdate(d, e) {
+  if (mqMode === 'rect') {
+    const [x0, y0] = d.pts[0], x = Math.min(x0, e.clientX), y = Math.min(y0, e.clientY);
+    mqR.setAttribute('x', x); mqR.setAttribute('y', y); mqR.setAttribute('width', Math.abs(e.clientX - x0)); mqR.setAttribute('height', Math.abs(e.clientY - y0));
+    mqEl.classList.toggle('touch', e.clientX < x0);                 // da destra a sinistra: basta toccare
+  } else {
+    const l = d.pts[d.pts.length - 1];
+    if (Math.hypot(e.clientX - l[0], e.clientY - l[1]) > 3) d.pts.push([e.clientX, e.clientY]);
+    mqP.setAttribute('points', d.pts.map(p => p.join(',')).join(' '));
+  }
+}
+function screenBox(m) {                                            // ingombro dell'oggetto sullo schermo
+  const b = worldBox(m), w = window.innerWidth, h = window.innerHeight, v = new THREE.Vector3();
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z]) {
+    v.set(x, y, z).project(camera);
+    const px = (v.x * 0.5 + 0.5) * w, py = (-v.y * 0.5 + 0.5) * h;
+    x0 = Math.min(x0, px); y0 = Math.min(y0, py); x1 = Math.max(x1, px); y1 = Math.max(y1, py);
+  }
+  return { x0, y0, x1, y1, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
+}
+function inPoly(x, y, pts) {
+  let c = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [xi, yi] = pts[i], [xj, yj] = pts[j];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c;
+  }
+  return c;
+}
+function mqFinish(d, e) {
+  mqEl.classList.add('hidden');
+  if (!d.moved) { if (!d.shift) setSelection([]); return; }
+  let found = [];
+  const cand = objects.filter(o => o.visible && !o.userData.locked);
+  if (mqMode === 'rect') {
+    const [sx, sy] = d.pts[0], x0 = Math.min(sx, e.clientX), x1 = Math.max(sx, e.clientX), y0 = Math.min(sy, e.clientY), y1 = Math.max(sy, e.clientY), touch = e.clientX < sx;
+    found = cand.filter(m => { const b = screenBox(m); return touch ? !(b.x1 < x0 || b.x0 > x1 || b.y1 < y0 || b.y0 > y1) : b.x0 >= x0 && b.x1 <= x1 && b.y0 >= y0 && b.y1 <= y1; });
+  } else if (d.pts.length > 2) found = cand.filter(m => { const b = screenBox(m); return inPoly(b.cx, b.cy, d.pts); });
+  const sel = withGroups(found);
+  setSelection(d.shift ? [...new Set([...selection, ...sel])] : sel);
+  if (sel.length) toast(sel.length === 1 ? 'Selezionato 1 oggetto' : `Selezionati ${sel.length} oggetti`);
+}
 /* calamita tra lati: facce parallele e opposte vicine si agganciano a contatto (0 mm) */
 function worldPlanes(m) {
   const info = meshInfo(m.geometry);
@@ -1474,7 +1526,7 @@ canvas.addEventListener('gesturestart', e => { e.preventDefault(); gDist = cam.d
 canvas.addEventListener('gesturechange', e => { e.preventDefault(); cam.dist = clamp(gDist / e.scale, 4, 3000); applyCamera(); });
 function updateCursor(grabbing) {
   const pan = state.space || state.tool === 'hand';
-  canvas.style.cursor = pan ? (grabbing ? 'grabbing' : 'grab') : state.tool === 'orbit' ? 'move' : state.tool === 'rotate' ? 'crosshair' : state.tool === 'face' || state.tool === 'edge' || state.tool === 'ruler' ? 'crosshair' : 'default';
+  canvas.style.cursor = pan ? (grabbing ? 'grabbing' : 'grab') : state.tool === 'orbit' ? 'move' : state.tool === 'rotate' ? 'crosshair' : state.tool === 'face' || state.tool === 'edge' || state.tool === 'ruler' || state.tool === 'marquee' ? 'crosshair' : 'default';
 }
 
 /* ------------------------------------------------------------- pannello */
@@ -1970,12 +2022,14 @@ const I = {
   dist: '<path d="M3.5 16.5l13-13 4 4-13 13z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/>',
   edge: '<path d="M4 20V9a5 5 0 0 1 5-5h11"/><path d="M4 20h16" opacity=".35"/><path d="M20 4v16" opacity=".35"/>',
   face: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5" opacity=".4"/><path d="M12 12l8-4.5v9L12 21z" fill="currentColor" stroke="none" opacity=".4"/>',
+  marquee: '<rect x="4" y="5" width="16" height="14" stroke-dasharray="3 2.5"/><path d="M10 10l5 2.5-2 .8 1.4 2.6-1.2.6-1.4-2.6-1.8 1.4z" fill="currentColor" stroke="none"/>',
   ruler: '<rect x="3" y="8" width="18" height="8" rx="1.5"/><path d="M7 8v3M11 8v4M15 8v3M19 8v4"/>',
   model: '<rect x="4" y="11" width="16" height="9" rx="2"/><path d="M3 7h18v4H3zM12 7v13"/>',
 };
 const TOOLS = [
   ['Strumenti', [
     { id: 'move', icon: 'move', name: 'Sposta', key: 'V', desc: 'Seleziona e muovi gli oggetti', run: () => setTool('move') },
+    { id: 'marquee', icon: 'marquee', name: 'Riquadro', key: 'Q', desc: 'Trascina per selezionare · Q: lazo', run: () => setTool('marquee') },
     { id: 'rotate', icon: 'rotate', name: 'Ruota', key: 'R', desc: 'Ruota con scatto a 15°', run: () => setTool('rotate') },
     { id: 'face', icon: 'face', name: 'Lato', key: 'L', desc: 'Spingi o tira un lato piatto', run: () => setTool('face') },
     { id: 'edge', icon: 'edge', name: 'Spigolo', key: 'E', desc: 'Arrotonda o smussa uno spigolo', run: () => setTool('edge') },
@@ -2280,6 +2334,7 @@ window.addEventListener('keydown', e => {
   else if (k === 'l') setTool('face');
   else if (k === 'e') setTool('edge');
   else if (k === 'd') setTool('ruler');
+  else if (k === 'q') { if (state.tool === 'marquee') { mqMode = mqMode === 'rect' ? 'lasso' : 'rect'; toast(mqMode === 'rect' ? 'Riquadro: da sinistra prende ciò che è tutto dentro, da destra anche ciò che tocchi' : 'Lazo: prende gli oggetti con il centro dentro la linea'); } else setTool('marquee'); }
   else if (k === 'r') setTool('rotate');
   else if (k === 'b') createObject('box');
   else if (k === 'c') createObject('cylinder');
