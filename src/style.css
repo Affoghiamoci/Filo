@@ -574,3 +574,9 @@ label.f.has-stp{position:relative;padding-right:3px}
 #mq.hidden{display:none}
 #mq rect,#mq polygon{fill:rgba(255,106,0,.10);stroke:var(--accent);stroke-width:1.5;stroke-dasharray:5 4}
 #mq.touch rect{stroke-dasharray:2 3}
+
+/* strumento Taglia */
+#cut-card{top:16px;left:calc(var(--sw,312px) + 124px);z-index:5;padding:12px 14px;border-radius:2px;width:236px;display:flex;flex-direction:column;gap:8px;transition:left .22s ease}
+#side.mini ~ #cut-card{left:204px}
+#cut-card.hidden{display:none}
+#cut-card .hint{margin:0;font-size:11px;line-height:1.4}
