@@ -4610,6 +4610,7 @@ function syncTextPanel() {
 
 
 /* -------------------------------------------------------------- benvenuto */
+I.help = '<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.6a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.5M12 16.6v.1"/>';
 I.import = '<path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M4 19h16"/>';
 document.querySelectorAll('#empty-hint [data-ic]').forEach(el => el.insertAdjacentHTML('afterbegin', `<svg viewBox="0 0 24 24">${I[el.dataset.ic] || ''}</svg>`));
 $('#empty-hint').addEventListener('click', e => {
@@ -4618,6 +4619,7 @@ $('#empty-hint').addEventListener('click', e => {
   const a = b.dataset.eh;
   if (a === 'text') addText();
   else if (a === 'import') $('#file-in').click();
+  else if (a === 'help') window.openHelp();
   else if (a === 'box-model') dlg.showModal();
   else createObject(a);
 });
