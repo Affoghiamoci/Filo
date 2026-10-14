@@ -177,7 +177,7 @@ function stepTween() {
   applyCamera();
   if (k >= 1) tween = null;
 }
-const zoom = f => { cam.dist = clamp(cam.dist * f, 15, 3000); applyCamera(); };
+const zoom = f => { cam.dist = clamp(cam.dist * f, 4, 3000); applyCamera(); };
 const worldPerPixel = () => 2 * cam.dist * Math.tan(BASE_FOV * D2R / 2) / canvas.clientHeight;
 function panPixels(dx, dy) {
   const s = worldPerPixel();
@@ -648,6 +648,21 @@ function addMerged(baked) {
     base: { w: baked.size.x, d: baked.size.y, h: baked.size.z },
   });
 }
+function separateSelection(auto) {                       // divide in livelli distinti le parti non collegate di un oggetto
+  const done = [], keep = [];
+  for (const m of selection.slice()) {
+    const baked = bakeResult(m, m.userData.name);
+    const pg = baked && pieceGroups(baked.geo);
+    if (!pg || pg.parts.length < 2) { keep.push(m); continue; }
+    replaceWithMerged(m, baked, true);              // quiet: ci pensiamo noi alla selezione
+    done.push(...lastPieces);
+  }
+  if (!done.length) return auto ? false : toast('È già un pezzo unico: non ci sono parti da separare');
+  setSelection([...done, ...keep]);
+  if (auto) return done.length;
+  touch(); commit();
+  toast('Parti separate: le trovi nei Livelli (F7)');
+}
 function combine() {
   const solids = selection.filter(m => !m.userData.hole);
   const holes = selection.filter(m => m.userData.hole);
@@ -660,8 +675,9 @@ function combine() {
   [...selection].forEach(removeMesh);
   const merged = addMerged(baked);
   setSelection([merged]);
+  const parts = separateSelection(true);              // se il risultato è fatto di parti staccate, ognuna diventa un livello
   touch(); commit();
-  toast(`Combinati ${first} oggetti`);
+  toast(parts > 1 ? `Combinati ${first} oggetti: il risultato è in ${parts} pezzi separati` : `Combinati ${first} oggetti`);
 }
 /* ------------------------------------------------------------ frecce su/giù nei campi numerici */
 function addSteppers() {
@@ -1444,7 +1460,7 @@ canvas.addEventListener('wheel', e => {
 }, { passive: false });
 let gDist = 0;
 canvas.addEventListener('gesturestart', e => { e.preventDefault(); gDist = cam.dist; });
-canvas.addEventListener('gesturechange', e => { e.preventDefault(); cam.dist = clamp(gDist / e.scale, 15, 3000); applyCamera(); });
+canvas.addEventListener('gesturechange', e => { e.preventDefault(); cam.dist = clamp(gDist / e.scale, 4, 3000); applyCamera(); });
 function updateCursor(grabbing) {
   const pan = state.space || state.tool === 'hand';
   canvas.style.cursor = pan ? (grabbing ? 'grabbing' : 'grab') : state.tool === 'orbit' ? 'move' : state.tool === 'rotate' ? 'crosshair' : state.tool === 'face' || state.tool === 'edge' || state.tool === 'ruler' ? 'crosshair' : 'default';
@@ -1966,6 +1982,7 @@ const TOOLS = [
   ['Modifica', [
     { icon: 'hole', name: 'Foro / Solido', key: 'X', desc: 'Trasforma in foro per scavare', run: toggleHole },
     { icon: 'combine', name: 'Combina', key: '⌘E', desc: 'Unisce i solidi, sottrae i fori', run: combine },
+    { icon: 'combine', name: 'Separa', key: '', desc: 'Divide le parti staccate in livelli distinti', run: () => separateSelection() },
     { icon: 'group', name: 'Raggruppa', key: '⌘G', desc: 'Muove più oggetti come uno', run: groupSelection },
     { icon: 'dup', name: 'Duplica', key: '⌘D', desc: 'Copia l’oggetto selezionato', run: () => duplicateSelection(true) },
     { icon: 'trash', name: 'Elimina', key: '⌫', desc: 'Rimuove la selezione', run: deleteSelection },
@@ -2598,27 +2615,28 @@ function pieceGroups(geo) {
   list.filter(c => c.length < 12).forEach(c => big[0].push(...c));
   return { A, parts: big, dropped };
 }
+let lastPieces = [];
 function replaceWithMerged(old, baked, quiet = false) {
   const hole = old.userData.hole;
   const pg = pieceGroups(baked.geo);
   removeMesh(old);
   let pieces;
   if (pg) {                                   // l'oggetto è ora fatto di più parti: diventano un gruppo
-    const off = baked.pos, gid = old.userData.gid ?? nextGid++;
+    const off = baked.pos;
     pieces = pg.parts.map((ts, i) => {
       const a = new Float32Array(ts.length * 9);
       ts.forEach((t, k) => { for (let j = 0; j < 9; j++) a[k * 9 + j] = pg.A[t * 9 + j] + off[j % 3]; });
       const bk = bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(a) }, pg.parts.length > 1 ? `${baked.name} ${i + 1}` : baked.name);
-      const m = addMerged(bk); if (pg.parts.length > 1) m.userData.gid = gid; else m.userData.gid = old.userData.gid ?? null; return m;
+      const m = addMerged(bk); m.userData.gid = old.userData.gid ?? null; return m;   // pezzi separati: ognuno ha il suo livello
     });
   } else { pieces = [addMerged(baked)]; pieces[0].userData.gid = old.userData.gid ?? null; }
   pieces.forEach(nm => { nm.userData.hole = hole; nm.userData.color = old.userData.color ?? null; nm.userData.text = null; nm.castShadow = !hole; });
-  const nm = pieces[0];
+  const nm = pieces[0]; lastPieces = pieces;
   if (quiet) return nm;
   clearFace(false);
   setSelection(pieces);
   touch(); commit();
-  if (pieces.length > 1) toast(`Ora sono ${pieces.length} pezzi, raggruppati: per eliminarne uno aprilo dai Livelli (F7)`);
+  if (pieces.length > 1) toast(`Ora sono ${pieces.length} pezzi separati: li trovi nei Livelli (F7)`);
   else if (pg && pg.dropped) toast(`Tolti ${pg.dropped} frammenti senza volume`);
   return nm;
 }
@@ -3557,7 +3575,7 @@ frame();
 /* info e aggiornamenti */
 const APP_VERSION = '0.8.3';
 const infoDlg = $('#dlg-info');
-$('#ver-num').textContent = APP_VERSION;
+$('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
 $('#info-close').addEventListener('click', () => infoDlg.close());
 infoDlg.addEventListener('click', e => { if (e.target === infoDlg) infoDlg.close(); });
@@ -3581,7 +3599,7 @@ try {
   d.addEventListener('cancel', () => { try { sessionStorage.setItem('forma.mobile', '1'); } catch (e) {} });
   setTimeout(() => { try { d.showModal(); } catch (e) {} }, 400);
 })();
-window.forma = { getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */
