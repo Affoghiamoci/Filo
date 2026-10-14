@@ -1,7 +1,10 @@
 // Traduzione IT ⇄ EN: i testi originali sono in italiano, l'inglese si applica al volo su tutto il DOM.
 const EN = {
   'Posizione anche per gruppi e selezioni multiple': 'Position for groups and multiple selections too',
+  'Spigoli singoli sulla scatola, non distruttivi: ogni spigolo ha il suo raggio o smusso e resta modificabile': 'Single edges on the box, non-destructive: each edge has its own radius or chamfer and stays editable',
+  'Distanza con ⌥: larghezza e altezza del lato sotto il mouse in tempo reale': 'Distance with ⌥: width and height of the face under the mouse in real time',
   'Distribuisci: spazi uguali tra tre o più oggetti; i pulsanti Allinea che non servono sono attenuati': 'Distribute: equal gaps between three or more objects; unneeded Align buttons are dimmed',
+  'larghezza × profondità': 'width × depth', 'larghezza × altezza': 'width × height', 'Tieni premuto ⌥ per vedere larghezza e altezza del lato sotto il mouse.': 'Hold ⌥ to see the width and height of the face under the mouse.',
   'Distribuisci': 'Distribute', 'Per distribuire servono almeno 3 oggetti': 'You need at least 3 objects to distribute',
   'Servono almeno 3 oggetti': 'At least 3 objects needed', 'Con un solo oggetto in altezza si può solo appoggiare al piatto': 'With one object, height can only rest on the bed',
   'Elenco strumenti compatto sulle finestre basse e sfumatura che segnala i pannelli che scorrono': 'Compact tool list on short windows and a fade that shows scrollable panels',

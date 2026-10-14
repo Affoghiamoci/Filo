@@ -303,7 +303,63 @@ function roundedSolid(kind, p) {
   }
   return g;
 }
+/* ------------------------------------------- spigoli singoli della scatola (non distruttivi)
+   p.ed = { 'asse:s1:s2': { r, t:'f'|'c' } }  asse = direzione dello spigolo; s1,s2 = lato (±1) sugli altri due assi (x,y,z in ordine).
+   Il pezzo si ricalcola sempre dalla scatola intera togliendo un "tagliente" per spigolo. */
+const BOX_AX = { x: ['y', 'z'], y: ['x', 'z'], z: ['x', 'y'] };
+function boxEdgeKeys() { const L = []; for (const a of 'xyz') for (const s1 of [-1, 1]) for (const s2 of [-1, 1]) L.push(`${a}:${s1}:${s2}`); return L; }
+function boxEdgeMap(p) {                               // valori effettivi: parametri globali + spigoli singoli che li sostituiscono
+  const m = {}, ch = p.rm === 'chamfer' ? 'c' : 'f';
+  for (const sx of [-1, 1]) for (const sy of [-1, 1]) if (p.r > 0) m[`z:${sx}:${sy}`] = { r: p.r, t: ch };
+  for (const [sz, v] of [[1, p.ft], [-1, p.fb]]) if (v > 0) for (const s of [-1, 1]) { m[`x:${s}:${sz}`] = { r: v, t: ch }; m[`y:${s}:${sz}`] = { r: v, t: ch }; }
+  for (const [k, v] of Object.entries(p.ed || {})) { if (v && v.r > 0) m[k] = v; else delete m[k]; }
+  return m;
+}
+function boxEdgeSegment(p, key) {                      // estremi dello spigolo nelle coordinate locali
+  const [a, s1, s2] = key.split(':'), [b, c] = BOX_AX[a], s = { [b]: +s1, [c]: +s2 };
+  const H = { x: p.w / 2, y: p.d / 2, z: p.h / 2 }, C = { x: 0, y: 0, z: p.h / 2 };
+  const at = v => { const o = {}; o[b] = C[b] + s[b] * H[b]; o[c] = C[c] + s[c] * H[c]; o[a] = v; return new THREE.Vector3(o.x, o.y, o.z); };
+  return [at(C[a] - H[a]), at(C[a] + H[a])];
+}
+function boxEdgeCutter(p, key, r, t) {
+  const [a, s1, s2] = key.split(':'), [b, c] = BOX_AX[a], sb = +s1, sc = +s2, e = 0.6;
+  const pts = [[-e, -e], [r, -e], [r, 0]];
+  if (t === 'c') pts.push([0, r]); else for (let i = 1; i <= 12; i++) { const th = (-90 - 90 * i / 12) * D2R; pts.push([r + r * Math.cos(th), r + r * Math.sin(th)]); }
+  pts.push([-e, r]);
+  const [A, B] = boxEdgeSegment(p, key), len = A.distanceTo(B) + 2 * e;
+  let g = new THREE.ExtrudeGeometry(new THREE.Shape(pts.map(q => new THREE.Vector2(q[0], q[1]))), { depth: len, bevelEnabled: false, curveSegments: 1 });
+  g = g.index ? g.toNonIndexed() : g; g.deleteAttribute('uv'); g.deleteAttribute('normal');
+  const H = { x: p.w / 2, y: p.d / 2, z: p.h / 2 }, C = { x: 0, y: 0, z: p.h / 2 };
+  const ea = new THREE.Vector3(), eb = new THREE.Vector3(), ec = new THREE.Vector3(); ea[a] = 1; eb[b] = -sb; ec[c] = -sc;
+  const det = eb.dot(new THREE.Vector3().crossVectors(ec, ea));
+  const pos = g.attributes.position, o = {};
+  for (let i = 0; i < pos.count; i++) {
+    const S = pos.getX(i), T = pos.getY(i), U = pos.getZ(i);
+    o[a] = C[a] - H[a] - e + U; o[b] = C[b] + sb * H[b] - sb * S; o[c] = C[c] + sc * H[c] - sc * T;
+    pos.setXYZ(i, o.x, o.y, o.z);
+  }
+  if (det < 0) for (let i = 0; i < pos.count; i += 3) { const x = pos.getX(i + 1), y = pos.getY(i + 1), z = pos.getZ(i + 1); pos.setXYZ(i + 1, pos.getX(i + 2), pos.getY(i + 2), pos.getZ(i + 2)); pos.setXYZ(i + 2, x, y, z); }
+  g.computeVertexNormals();
+  return g;
+}
+function boxEdgesGeometry(p) {
+  const lim = Math.min(p.w, p.d, p.h) / 2 - 0.05;
+  let base = new THREE.BoxGeometry(p.w, p.d, p.h); base.translate(0, 0, p.h / 2);
+  base = base.toNonIndexed(); base.computeVertexNormals();
+  let acc = new Brush(base, M.solid); acc.updateMatrixWorld(true);
+  for (const [k, v] of Object.entries(boxEdgeMap(p))) {
+    const r = clamp(v.r, 0, lim); if (!(r > 0.01)) continue;
+    const br = new Brush(boxEdgeCutter(p, k, r, v.t), M.solid); br.updateMatrixWorld(true);
+    acc = evaluator.evaluate(acc, br, SUBTRACTION);
+  }
+  let g = acc.geometry.clone(); clean(g); g = healMesh(g);
+  g = g.index ? g.toNonIndexed() : g; g.deleteAttribute('normal'); g = toCreasedNormals(g, 30 * D2R);
+  return clean(g);
+}
+const hasEdgeList = (kind, p) => kind === 'box' && p.ed && Object.keys(p.ed).length && (p.t ?? 100) >= 99.99;
+
 function buildGeometry(kind, p) {
+  if (hasEdgeList(kind, p)) return boxEdgesGeometry(p);
   if ((kind === 'cylinder' || kind === 'cone') && (p.ft > 0 || p.fb > 0)) return clean(roundedSolid(kind, p));
   if (kind === 'prism' && (p.ft > 0 || p.fb > 0 || p.r > 0)) return clean(roundedSolid(kind, p));
   let g;
@@ -1340,7 +1396,7 @@ canvas.addEventListener('pointermove', e => {
     if (state.tool === 'edge' && !state.space) { updateEdgeHover(e); if (edgeHandle.visible) { setRay(e); if (raycaster.intersectObject(edgeHandle, false)[0]) canvas.style.cursor = 'pointer'; } }
     else if (state.tool === 'face' && !state.space) { updateHover(e); if (faceHandle.visible) { setRay(e); canvas.style.cursor = raycaster.intersectObject(faceHandle, false)[0] ? 'pointer' : 'crosshair'; } } else hideHover();
     if (HANDLES[0].visible && state.tool === 'move' && !state.space) canvas.style.cursor = pickHandle(e) ? 'pointer' : 'default';
-    if (state.tool === 'ruler') rulerHover(e); else if (rulerHov.style.display !== 'none') rulerHov.style.display = 'none';
+    if (state.tool === 'ruler') rulerHover(e); else { if (rulerHov.style.display !== 'none') rulerHov.style.display = 'none'; if (faceDim.style.display !== 'none') faceDim.style.display = 'none'; }
     return;
   }
   const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
@@ -1428,7 +1484,7 @@ canvas.addEventListener('pointerup', e => {
   }
   if (d.mode === 'marquee') { mqFinish(d, e); return; }
   if (planeTool() && d.mode === 'orbit' && !d.moved) { cutClick(d.cutHit); return; }
-  if (state.tool === 'ruler' && d.mode === 'orbit' && !d.moved) { rulerClick(d.rulerHit); return; }
+  if (state.tool === 'ruler' && d.mode === 'orbit' && !d.moved) { if (!e.altKey) rulerClick(d.rulerHit); return; }
   if (state.tool === 'edge' && d.mode === 'orbit' && !d.moved) {
     if (d.edgeHit) selectEdgeAt(d.edgeHit, d.shift); else if (!d.shift) clearEdges();
     return;
@@ -3496,7 +3552,7 @@ function rulerCardText(lines) { rulerCard.innerHTML = lines.map((l, i) => `<div 
 function clearRuler() {
   ruler.a = ruler.b = ruler.foot = null; rulerLine.visible = false;
   rulerPts.forEach(e => (e.style.display = 'none')); rulerLabel.style.display = 'none'; dirty = true;
-  if (state.tool === 'ruler') rulerCardText([tr('Distanza'), tr('Clicca un punto o un lato, poi un secondo. Su due lati paralleli misura la distanza tra i piani.')]); else rulerCard.classList.add('hidden');
+  if (state.tool === 'ruler') rulerCardText([tr('Distanza'), tr('Clicca un punto o un lato, poi un secondo. Su due lati paralleli misura la distanza tra i piani.'), tr('Tieni premuto ⌥ per vedere larghezza e altezza del lato sotto il mouse.')]); else rulerCard.classList.add('hidden');
 }
 // punto cliccato sulla superficie; si aggancia a un vertice o a uno spigolo vicino
 function rulerPick(hit) {
@@ -3521,14 +3577,36 @@ function rulerPick(hit) {
   return { p, n, snap };
 }
 const rulerHov = document.createElement('div'); rulerHov.className = 'ruler-hov'; labelsEl.appendChild(rulerHov);
-function rulerHover(e) {                                  // anteprima del punto che verrebbe preso con un clic
+const faceDim = document.createElement('div'); faceDim.className = 'dim-label'; faceDim.style.pointerEvents = 'none'; labelsEl.appendChild(faceDim);
+let rulerLastEv = null;
+function hideFaceDim() { faceDim.style.display = 'none'; if (hoverMesh) hideHover(); }
+function rulerHover(e) {                                  // anteprima del punto che verrebbe preso con un clic; con ⌥ misura il lato sotto il mouse
+  rulerLastEv = e;
   const hit = pickHit(e);
+  if (e.altKey) {
+    rulerHov.style.display = 'none';
+    if (!hit || hit.object.userData.heavy) return hideFaceDim();
+    if (!(hoverFs && hoverFs.obj === hit.object && hoverFs.triSet.has(hit.faceIndex))) {
+      hideHover();
+      const fs = computeFace(hit.object, hit.faceIndex);
+      if (!fs) return hideFaceDim();
+      hoverFs = fs; hoverMesh = makeOverlay(fs, 0.22); scene.add(hoverMesh); dirty = true;
+    }
+    const fs = hoverFs, flat = Math.abs(fs.n.z) > 0.9;
+    faceDim.textContent = `${fs.curved ? '≈ ' : ''}${fmt(fs.W)} × ${fmt(fs.H)} mm · ${tr(flat ? 'larghezza × profondità' : 'larghezza × altezza')}`;
+    faceDim.style.display = 'block';
+    faceDim.style.transform = `translate(${e.clientX + 18}px, ${e.clientY + 18}px)`;
+    return;
+  }
+  if (hoverMesh || faceDim.style.display !== 'none') hideFaceDim();
   if (!hit) { rulerHov.style.display = 'none'; return; }
   const pt = rulerPick(hit), v = pt.p.clone().project(camera), w = window.innerWidth, h = window.innerHeight;
   rulerHov.className = 'ruler-hov ' + (pt.snap || 'f');
   rulerHov.style.display = 'block';
   rulerHov.style.transform = `translate(${(v.x * 0.5 + 0.5) * w}px, ${(-v.y * 0.5 + 0.5) * h}px) translate(-50%, -50%)`;
 }
+window.addEventListener('keydown', e => { if (e.key === 'Alt' && state.tool === 'ruler' && rulerLastEv && !e.repeat) rulerHover({ clientX: rulerLastEv.clientX, clientY: rulerLastEv.clientY, altKey: true }); });
+window.addEventListener('keyup', e => { if (e.key === 'Alt' && state.tool === 'ruler') { hideFaceDim(); if (rulerLastEv) rulerHover({ clientX: rulerLastEv.clientX, clientY: rulerLastEv.clientY, altKey: false }); } });
 function rulerClick(hit) {
   if (!hit) { clearRuler(); return; }
   const pt = rulerPick(hit);
@@ -3606,34 +3684,53 @@ function makeLines(chains, mat) {
   scene.add(l); return l;
 }
 function dropLines(l) { if (l) { scene.remove(l); l.geometry.dispose(); } }
+const isEdgeBox = o => o.userData.kind === 'box' && (o.userData.p.t ?? 100) >= 99.99;
 function edgeAtPointer(e, hit) {
   if (!hit) return null;
-  const obj = hit.object, an = edgeAnalysis(obj);
+  const obj = hit.object;
   const wpp = 2 * camera.position.distanceTo(hit.point) * Math.tan(camera.fov * D2R / 2) / canvas.clientHeight;
+  if (isEdgeBox(obj)) {                                // scatola: i 12 spigoli "virtuali" della forma intera
+    obj.updateMatrixWorld(true);
+    const lim = Math.max(0.8, 14 * wpp), ln = new THREE.Line3(), q = new THREE.Vector3();
+    let best = null, bd = lim;
+    for (const k of boxEdgeKeys()) {
+      const [A, B] = boxEdgeSegment(obj.userData.p, k).map(v => v.applyMatrix4(obj.matrixWorld));
+      ln.set(A, B); ln.closestPointToPoint(hit.point, true, q);
+      const d = q.distanceTo(hit.point);
+      if (d < bd) { bd = d; best = { key: k, pts: [A, B] }; }
+    }
+    return best ? { obj, virt: { key: best.key, chain: { pts: best.pts, closed: false, verts: [best.key], vkey: best.key } } } : null;
+  }
+  const an = edgeAnalysis(obj);
   const ed = nearestEdge(an, hit.point, Math.max(0.8, 14 * wpp));
   if (!ed) return null;
   return { obj, an, ed };
 }
 function updateEdgeHover(e) {
   const r = edgeAtPointer(e, pickHit(e));
-  const key = r ? r.obj.userData.id + ':' + r.ed.key : null;
+  const key = r ? r.obj.userData.id + ':' + (r.virt ? r.virt.key : r.ed.key) : null;
   canvas.style.cursor = r ? 'pointer' : 'crosshair';
   if (key === edgeHoverKey) return;
   edgeHoverKey = key; dropLines(edgeHoverLine); edgeHoverLine = null;
-  if (r) edgeHoverLine = makeLines([chainOf(r.an, r.ed)], edgeHoverMat);
+  if (r) edgeHoverLine = makeLines([r.virt ? r.virt.chain : chainOf(r.an, r.ed)], edgeHoverMat);
   dirty = true;
 }
 function sameChain(a, b) { return a.obj === b.obj && a.chain.verts.length === b.chain.verts.length && new Set(a.chain.verts).size === new Set(b.chain.verts).size && b.chain.verts.every(v => a.chain.verts.includes(v)); }
 function selectEdgeAt(hit, add) {
   const r = edgeAtPointer(null, hit);
   if (!r) { if (!add) clearEdges(); return; }
-  const item = { obj: r.obj, chain: chainOf(r.an, r.ed) };
+  const item = { obj: r.obj, chain: r.virt ? r.virt.chain : chainOf(r.an, r.ed) };
   const i = edgeSel.findIndex(x => sameChain(x, item));
   if (i >= 0) edgeSel.splice(i, 1);
   else if (add && edgeSel.every(x => x.obj === item.obj)) edgeSel.push(item);
   else edgeSel = [item];
   if (!selection.includes(item.obj)) setSelection([item.obj]);
-  refreshEdgeLines(); updateEdgePanel(); updateEdgeHandle();
+  prefillEdgeSize(); refreshEdgeLines(); updateEdgePanel(); updateEdgeHandle();
+}
+function prefillEdgeSize() {                          // scatola: mostra misura e tipo già impostati sugli spigoli scelti
+  const ks = edgeSel.map(x => x.chain.vkey); if (!ks.length || ks.some(k => !k)) return;
+  const mp = boxEdgeMap(edgeSel[0].obj.userData.p), vs = ks.map(k => mp[k]);
+  if (vs.every(v => v && v.r === vs[0].r && v.t === vs[0].t)) { EF.size.value = fmt(vs[0].r); edgeMode.v = vs[0].t === 'c' ? 'chamfer' : 'fillet'; } else EF.size.value = '';
 }
 function refreshEdgeLines() {
   dropLines(edgeLines); edgeLines = edgeSel.length ? makeLines(edgeSel.map(x => x.chain), edgeMat) : null;
@@ -3647,7 +3744,7 @@ const EF = { size: $('#e-size'), go: $('#e-go'), info: $('#e-info'), hint: $('#e
 function updateEdgePanel() {
   const n = edgeSel.length;
   EF.info.textContent = n ? `· ${n} ${n === 1 ? 'spigolo' : 'spigoli'}` : tr('· nessuno selezionato');
-  EF.hint.textContent = n ? 'Scegli il tipo e la misura, poi Applica.' : 'Clicca uno spigolo del pezzo. Maiusc + clic: aggiungi o togli spigoli.';
+  EF.hint.textContent = n ? (edgeSel.every(x => x.chain.vkey) ? 'Scegli il tipo e la misura, poi Applica. Resta modificabile: riseleziona lo spigolo per cambiarlo, con 0 lo togli.' : 'Scegli il tipo e la misura, poi Applica.') : 'Clicca uno spigolo del pezzo. Maiusc + clic: aggiungi o togli spigoli.';
   EF.go.disabled = !n;
   const lp = !!selectedLoop();
   $('#e-fillet-box').classList.toggle('dim', !n); $('#e-scale-box').classList.toggle('dim', !lp);
@@ -3777,10 +3874,22 @@ function applyEdgeScale(pctArg) {
 $('#e-scale-go').addEventListener('click', applyEdgeScale);
 $('#e-scale').addEventListener('keydown', e => { if (e.key === 'Enter') applyEdgeScale(); });
 function applyEdges() {
-  const size = parseFloat(EF.size.value);
+  const size = parseFloat(String(EF.size.value).replace(',', '.'));
   if (!edgeSel.length) return;
-  if (!(size > 0)) return toast('Scrivi una misura in mm');
   const obj = edgeSel[0].obj;
+  if (edgeSel.every(x => x.chain.vkey)) {              // scatola: spigoli singoli, restano modificabili
+    const u = obj.userData, p = u.p, lim = Math.min(p.w, p.d, p.h) / 2 - 0.05;
+    if (!(size >= 0)) return toast('Scrivi una misura in mm (0 per togliere)');
+    if (size > lim) return toast('La misura è troppo grande per questa scatola: massimo ' + fmt(lim) + ' mm');
+    const ed = {}; for (const [k, v] of Object.entries(boxEdgeMap(p))) ed[k] = v;     // i parametri globali diventano spigoli singoli
+    for (const x of edgeSel) { if (size > 0) ed[x.chain.vkey] = { r: size, t: edgeMode.v === 'chamfer' ? 'c' : 'f' }; else ed[x.chain.vkey] = { r: 0, t: 'f' }; }
+    u.p = { ...p, ft: 0, fb: 0, r: 0, rm: null, ed };
+    obj.geometry.dispose(); obj.geometry = buildGeometry('box', u.p); refreshEdges(obj); obj.updateMatrixWorld(true);
+    syncPanel(); touch(); commit(); dirty = true;
+    const n = edgeSel.length;
+    return toast(size === 0 ? `Tolto da ${n} ${n === 1 ? 'spigolo' : 'spigoli'}` : `${edgeMode.v === 'fillet' ? 'Arrotondamento' : 'Smusso'} di ${fmt(size)} mm su ${n} ${n === 1 ? 'spigolo' : 'spigoli'}: resta modificabile`);
+  }
+  if (!(size > 0)) return toast('Scrivi una misura in mm');
   if (heavyGuard([obj])) return;
   // i 4 spigoli verticali di una scatola: raccordo o smusso restano parametrici (stesso campo Raggio)
   if (obj.userData.kind === 'box' && edgeSel.length === 4 && !(obj.userData.p.r > 0.001)) {
