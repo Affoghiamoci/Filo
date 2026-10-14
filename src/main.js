@@ -235,8 +235,8 @@ function clean(g) {
 }
 // Tutte le forme hanno l'origine al centro della base: Z = 0 vuol dire "appoggiato sul piatto".
 // scatola con bordi alti e/o bassi raccordati o smussati: anelli sovrapposti, ognuno con il contorno ristretto di un certo ttratto
-function boxLevels(p) {
-  const h = p.h, lim = Math.min(p.w, p.d) / 2 - 0.05, cham = p.rm === 'chamfer';
+function boxLevels(p, lim = Math.min(p.w, p.d) / 2 - 0.05) {
+  const h = p.h, cham = p.rm === 'chamfer';
   let ft = clamp(p.ft || 0, 0, lim), fb = clamp(p.fb || 0, 0, lim);
   if (ft + fb > h - 0.05) { const k = (h - 0.05) / (ft + fb); ft *= k; fb *= k; }
   const N = cham ? 1 : 8, L = [];
@@ -251,8 +251,8 @@ function boxRing(p, d) {
   });
   return pts;
 }
-function boxFilleted(p) {
-  const L = boxLevels(p), rings = L.map(([z, d]) => ({ z, pts: boxRing(p, d) })), n = rings[0].pts.length, tri = [];
+function boxFilleted(p, ringFn = boxRing, lim) {
+  const L = boxLevels(p, lim), rings = L.map(([z, d]) => ({ z, pts: ringFn(p, d) })), n = rings[0].pts.length, tri = [];
   const V = (r, j) => [r.pts[j % n][0], r.pts[j % n][1], r.z], same = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 1e-6;
   const push = (a, b, c) => { if (!same(a, b) && !same(b, c) && !same(a, c)) tri.push(...a, ...b, ...c); };
   for (let i = 0; i + 1 < rings.length; i++) for (let j = 0; j < n; j++) {
@@ -269,7 +269,43 @@ function boxFilleted(p) {
   g = toCreasedNormals(g, 35 * D2R);
   return clean(g);
 }
+/* cilindro, cono e prisma con bordi alto e basso (e angoli verticali per il prisma): stessi anelli sovrapposti della scatola */
+const ROUND_KINDS = ['box', 'cylinder', 'cone', 'prism'];
+function prismSides(p) { return Math.round(clamp(p.q || 6, 3, 64)); }
+function edgeLimit(kind, p) {                          // il bordo non può superare il raggio interno della forma
+  const base = Math.min(p.w, p.d) / 2;
+  return (kind === 'prism' ? base * Math.cos(Math.PI / prismSides(p)) : base) - 0.05;
+}
+function roundRing(kind, p, d) {
+  if (kind === 'prism') {
+    const n = prismSides(p), al = Math.PI / n, ca = Math.cos(al), cham = p.rm === 'chamfer', M = cham ? 1 : 4, k = p.d / p.w;
+    const ad = Math.max(p.w / 2 * ca - d, 0.05), rd = clamp((p.r || 0) - d, 0, ad - 1e-3), Rc = (ad - rd) / ca, pts = [];
+    for (let i = 0; i < n; i++) {
+      const th = 2 * Math.PI * i / n;
+      for (let j = 0; j <= M; j++) {
+        if (rd > 0.001) { const ph = th - al + 2 * al * j / M; pts.push([Rc * Math.cos(th) + rd * Math.cos(ph), (Rc * Math.sin(th) + rd * Math.sin(ph)) * k]); }
+        else pts.push([ad / ca * Math.cos(th), ad / ca * Math.sin(th) * k]);
+      }
+    }
+    return pts;
+  }
+  const rx = Math.max(p.w / 2 - d, 0.05), ry = Math.max(p.d / 2 - d, 0.05), pts = [];
+  for (let j = 0; j < 72; j++) { const th = 2 * Math.PI * j / 72; pts.push([rx * Math.cos(th), ry * Math.sin(th)]); }
+  return pts;
+}
+function roundedSolid(kind, p) {
+  let g = boxFilleted(p, (pp, d) => roundRing(kind, pp, d), edgeLimit(kind, p));
+  const tt = kind === 'cone' ? Math.max(p.q || 0, 1) / 100 : clamp(p.t ?? 100, 1, 100) / 100;
+  if (tt < 0.9999) {
+    g = g.index ? g.toNonIndexed() : g; g.deleteAttribute('normal');
+    const a = g.attributes.position; for (let i = 0; i < a.count; i++) { const k = 1 + (tt - 1) * a.getZ(i) / p.h; a.setX(i, a.getX(i) * k); a.setY(i, a.getY(i) * k); }
+    g = toCreasedNormals(g, 30 * D2R); clean(g);
+  }
+  return g;
+}
 function buildGeometry(kind, p) {
+  if ((kind === 'cylinder' || kind === 'cone') && (p.ft > 0 || p.fb > 0)) return clean(roundedSolid(kind, p));
+  if (kind === 'prism' && (p.ft > 0 || p.fb > 0 || p.r > 0)) return clean(roundedSolid(kind, p));
   let g;
   if (kind === 'box') {
     if (p.ft > 0 || p.fb > 0) g = boxFilleted(p);
@@ -438,7 +474,8 @@ function setSize(m, key, v) {
     u.p[key] = v;
   } else {
     u.p[key] = v;
-    if (u.kind === 'box') { u.p.r = Math.min(u.p.r, Math.min(u.p.w, u.p.d) / 2); const lm = Math.min(u.p.w, u.p.d) / 2 - 0.05; if (u.p.ft > lm) u.p.ft = lm; if (u.p.fb > lm) u.p.fb = lm; }
+    if (u.kind === 'box') u.p.r = Math.min(u.p.r, Math.min(u.p.w, u.p.d) / 2);
+    if (ROUND_KINDS.includes(u.kind)) { const lm = edgeLimit(u.kind, u.p); if (u.p.ft > lm) u.p.ft = lm; if (u.p.fb > lm) u.p.fb = lm; if (u.kind === 'prism' && u.p.r > lm) u.p.r = lm; }
     m.geometry.dispose();
     m.geometry = buildGeometry(u.kind, u.p);
     refreshEdges(m);
@@ -447,15 +484,16 @@ function setSize(m, key, v) {
 }
 function setBoxEdge(m, key, v) {
   const u = m.userData;
-  if (u.kind !== 'box') return;
-  u.p[key] = clamp(v, 0, Math.min(u.p.w, u.p.d) / 2 - 0.05);
-  m.geometry.dispose(); m.geometry = buildGeometry('box', u.p); refreshEdges(m);
+  if (!ROUND_KINDS.includes(u.kind)) return;
+  u.p[key] = clamp(v, 0, edgeLimit(u.kind, u.p));
+  m.geometry.dispose(); m.geometry = buildGeometry(u.kind, u.p); refreshEdges(m);
 }
 function setRadius(m, r) {
   const u = m.userData;
-  u.p.r = clamp(r, 0, Math.min(u.p.w, u.p.d) / 2);
+  if (u.kind !== 'box' && u.kind !== 'prism') return;
+  u.p.r = clamp(r, 0, u.kind === 'prism' ? edgeLimit('prism', u.p) : Math.min(u.p.w, u.p.d) / 2);
   m.geometry.dispose();
-  m.geometry = buildGeometry('box', u.p);
+  m.geometry = buildGeometry(u.kind, u.p);
   refreshEdges(m);
 }
 function setTop(m, v) {
@@ -619,12 +657,53 @@ function touch() { dirty = dimsDirty = true; if (wantPixelRatio() !== pixelRatio
 const evaluator = new Evaluator();
 evaluator.attributes = ['position', 'normal'];
 
+// ripara le "crepe" lasciate dalla CSG: vertici che cadono in mezzo a un lato vicino (giunzioni a T) vengono collegati ai triangoli accanto
+function weldPoints(src, tol) {                                              // unisce i punti più vicini di tol (controlla anche le celle accanto, senza spigoli di griglia)
+  const n = src.length / 3, ids = new Int32Array(n), P = [], grid = new Map(), c = v => Math.floor(v / tol);
+  for (let i = 0; i < n; i++) {
+    const x = src[i * 3], y = src[i * 3 + 1], z = src[i * 3 + 2], cx = c(x), cy = c(y), cz = c(z);
+    let found = -1;
+    for (let dx = -1; dx <= 1 && found < 0; dx++) for (let dy = -1; dy <= 1 && found < 0; dy++) for (let dz = -1; dz <= 1 && found < 0; dz++) {
+      const l = grid.get((cx + dx) + ',' + (cy + dy) + ',' + (cz + dz));
+      if (l) for (const v of l) if (Math.abs(P[v * 3] - x) < tol && Math.abs(P[v * 3 + 1] - y) < tol && Math.abs(P[v * 3 + 2] - z) < tol) { found = v; break; }
+    }
+    if (found < 0) { found = P.length / 3; P.push(x, y, z); const k = cx + ',' + cy + ',' + cz; (grid.get(k) || grid.set(k, []).get(k)).push(found); }
+    ids[i] = found;
+  }
+  return { P: Float32Array.from(P), ids };
+}
+function triList(g, ids) {
+  const idx = g.index, n = idx ? idx.count : g.attributes.position.count, tris = [];
+  for (let t = 0; t < n; t += 3) {
+    const a = ids[idx ? idx.getX(t) : t], b = ids[idx ? idx.getX(t + 1) : t + 1], c = ids[idx ? idx.getX(t + 2) : t + 2];
+    if (a !== b && b !== c && a !== c) tris.push(a, b, c);
+  }
+  return tris;
+}
+function healMesh(g) {
+  const nT = (g.index ? g.index.count : g.attributes.position.count) / 3;
+  if (nT > 300000) return g;
+  const { P, ids } = weldPoints(g.attributes.position.array, 1e-3), tris = triList(g, ids);
+  const fixed = fixTJunctions(P, tris);
+  if (fixed.length === tris.length && tris.length === nT * 3) return g;      // niente da riparare
+  const out = new Float32Array(fixed.length * 3);
+  for (let i = 0; i < fixed.length; i++) { out[i * 3] = P[fixed[i] * 3]; out[i * 3 + 1] = P[fixed[i] * 3 + 1]; out[i * 3 + 2] = P[fixed[i] * 3 + 2]; }
+  return geometryFromPositions(out);
+}
+function openEdgeCount(g) {                                                    // lati usati da un solo triangolo: se sono 0 la superficie è chiusa
+  const { ids } = weldPoints(g.attributes.position.array, 1e-3), tris = triList(g, ids), key = (a, b) => a < b ? a * 4294967296 + b : b * 4294967296 + a, use = new Map();
+  for (let t = 0; t < tris.length; t += 3) for (let k = 0; k < 3; k++) { const e = key(tris[t + k], tris[t + (k + 1) % 3]); use.set(e, (use.get(e) || 0) + 1); }
+  let c = 0; for (const u of use.values()) if (u === 1) c++; return c;
+}
 function bakeResult(res, name) {
   res.updateMatrixWorld(true);
-  const g = res.geometry.clone();
+  let g = res.geometry.clone();
   if (!g.attributes.position || g.attributes.position.count === 0) return null;
   g.applyMatrix4(res.matrixWorld);
   clean(g);
+  if (window.__prof) console.log('PROF open prima', openEdgeCount(g), 'tri', g.attributes.position.count / 3);
+  g = healMesh(g);
+  if (window.__prof) console.log('PROF open dopo', openEdgeCount(g));
   g.computeBoundingBox();
   const b = g.boundingBox;
   const c = b.getCenter(new THREE.Vector3()), minZ = b.min.z;
@@ -639,7 +718,11 @@ function combineBrushes(solids, holes) {
   holes.forEach(m => m.updateMatrixWorld(true));
   let acc = solids[0];
   for (let i = 1; i < solids.length; i++) acc = evaluator.evaluate(acc, solids[i], ADDITION);
-  for (const h of holes) acc = evaluator.evaluate(acc, h, SUBTRACTION);
+  if (holes.length > 1) {                              // prima i fori tra loro (pezzi piccoli e veloci), poi un solo taglio sul solido grande
+    let hs = holes.slice();
+    while (hs.length > 1) { const nx = []; for (let i = 0; i < hs.length; i += 2) nx.push(i + 1 < hs.length ? evaluator.evaluate(hs[i], hs[i + 1], ADDITION) : hs[i]); hs = nx; }
+    acc = evaluator.evaluate(acc, hs[0], SUBTRACTION);
+  } else for (const h of holes) acc = evaluator.evaluate(acc, h, SUBTRACTION);
   return acc;
 }
 function addMerged(baked) {
@@ -664,19 +747,31 @@ function separateSelection(auto) {                       // divide in livelli di
   touch(); commit();
   toast('Parti separate: le trovi nei Livelli (F7)');
 }
-function combine() {
+const nextPaint = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
+let busyN = 0;
+async function busyRun(label, fn) {                    // mostra la barra di lavoro, la fa dipingere, poi esegue il calcolo pesante
+  const el = $('#busy'); $('#busy .b-t').textContent = tr(label); el.classList.remove('hidden'); busyN++;
+  await nextPaint(); await nextPaint();
+  try { return await fn(); } finally { if (--busyN <= 0) { busyN = 0; el.classList.add('hidden'); } }
+}
+const trisOf = list => list.reduce((a, m) => a + triCount(m.geometry), 0);
+async function combine() {
+  const heavy = selection.length > 12 || trisOf(selection) > 20000;
+  return heavy ? busyRun('Combino gli oggetti…', combineNow) : combineNow();
+}
+function combineNow() {
   const solids = selection.filter(m => !m.userData.hole);
   const holes = selection.filter(m => m.userData.hole);
   if (selection.length < 2 || !solids.length) return toast('Seleziona almeno due oggetti, di cui un solido (⇧ + clic)');
   if (heavyGuard(selection)) return;
-  const first = selection.length;
-  const res = combineBrushes(solids, holes);
-  const baked = bakeResult(res);
+  const first = selection.length, P0 = performance.now(), lg = (n) => { if (window.__prof) console.log('PROF', n, Math.round(performance.now() - P0)); };
+  const res = combineBrushes(solids, holes); lg('csg');
+  const baked = bakeResult(res); lg('bake');
   if (!baked) return toast('Il risultato è vuoto: i fori coprono tutto');
   [...selection].forEach(removeMesh);
-  const merged = addMerged(baked);
-  setSelection([merged]);
-  const parts = separateSelection(true);              // se il risultato è fatto di parti staccate, ognuna diventa un livello
+  const merged = addMerged(baked); lg('add');
+  setSelection([merged]); lg('sel');
+  const parts = separateSelection(true); lg('sep');              // se il risultato è fatto di parti staccate, ognuna diventa un livello
   touch(); commit();
   toast(parts > 1 ? `Combinati ${first} oggetti: il risultato è in ${parts} pezzi separati` : `Combinati ${first} oggetti`);
 }
@@ -714,7 +809,12 @@ addSteppers();
 
 /* ------------------------------------------------------------ ripeti: griglia, nido d'ape, cerchio */
 const RP = { mode: 'grid' };
-function repeatSelection(o) {
+async function repeatSelection(o) {
+  const n = o.mode === 'polar' ? o.n : (o.nx || 1) * (o.ny || 1);
+  if (n * selection.length > 40 || trisOf(selection) * n > 40000) return busyRun('Creo le copie…', () => repeatNow(o));
+  return repeatNow(o);
+}
+function repeatNow(o) {
   const src = selection.slice();
   if (!src.length) return toast('Seleziona prima un oggetto');
   const spots = [];                                   // per ogni copia: traslazione e rotazione attorno a Z
@@ -1648,7 +1748,8 @@ function syncPanel() {
     nameEl.disabled = false;
     const s = sizeOf(m), v = { x: m.position.x, y: m.position.y, z: m.position.z, w: s.w, d: s.d, h: s.h, r: m.userData.p.r ?? 0, ft: m.userData.p.ft ?? 0, fb: m.userData.p.fb ?? 0, t: m.userData.p.t ?? 100, q: m.userData.p.q ?? 0, ...eulerDeg(m) };
     ids.forEach(i => { if (document.activeElement !== F[i]) F[i].value = fmt(v[i]); });
-    $('#p-r-wrap').classList.toggle('hidden', m.userData.kind !== 'box');
+    $('#p-r-wrap').classList.toggle('hidden', !ROUND_KINDS.includes(m.userData.kind));
+    $('#p-r').parentElement.classList.toggle('hidden', !['box', 'prism'].includes(m.userData.kind));
     document.querySelectorAll('#p-rm button').forEach(b => b.classList.toggle('on', (m.userData.p.rm === 'chamfer') === (b.dataset.v === 'chamfer')));
     $('#p-t-wrap').classList.toggle('hidden', !['box', 'cylinder', 'prism'].includes(m.userData.kind));
     const qs = QSPEC[m.userData.kind];
@@ -1737,9 +1838,9 @@ bind('t', (m, v) => setTop(m, v));
 bind('ft', (m, v) => setBoxEdge(m, 'ft', v));
 bind('fb', (m, v) => setBoxEdge(m, 'fb', v));
 document.querySelectorAll('#p-rm button').forEach(b => b.addEventListener('click', () => {
-  const m = single(); if (!m || m.userData.kind !== 'box') return;
+  const m = single(); if (!m || !ROUND_KINDS.includes(m.userData.kind)) return;
   m.userData.p.rm = b.dataset.v === 'chamfer' ? 'chamfer' : null;
-  m.geometry.dispose(); m.geometry = buildGeometry('box', m.userData.p); refreshEdges(m); m.updateMatrixWorld(true);
+  m.geometry.dispose(); m.geometry = buildGeometry(m.userData.kind, m.userData.p); refreshEdges(m); m.updateMatrixWorld(true);
   touch(); updateHandles(); syncPanel(); commit();
 }));
 ['rx', 'ry', 'rz'].forEach(id => bind(id, m => setEulerDeg(m, +F.rx.value || 0, +F.ry.value || 0, +F.rz.value || 0)));
@@ -3768,7 +3869,11 @@ document.querySelectorAll('#cut-ax button').forEach(b => b.addEventListener('cli
 }));
 $('#cut-pos').addEventListener('input', () => { const v = parseFloat($('#cut-pos').value); if (isFinite(v)) { CUT.pos = v; cutRefresh(); } });
 $('#cut-pos').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') $('#cut-go').click(); });
-function planeCut() {
+async function planeCut() {
+  if (trisOf(selection) > 20000) return busyRun('Taglio l\'oggetto…', planeCutNow);
+  return planeCutNow();
+}
+function planeCutNow() {
   const list = selection.slice();
   if (!list.length) return toast('Seleziona prima un oggetto');
   if (heavyGuard(list)) return;
@@ -3795,7 +3900,7 @@ function planeCut() {
   toast(cutN === 1 ? 'Oggetto tagliato in due' : `Tagliati ${cutN} oggetti`);
 }
 $('#cut-go').addEventListener('click', () => { planeCut(); canvas.focus(); });
-window.forma = { planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */
