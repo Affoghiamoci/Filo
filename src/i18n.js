@@ -81,6 +81,8 @@ const EN = {
   'Nome del file': 'File name', 'Esporta': 'Export', '3MF · consigliato': '3MF · recommended',
   'Seleziona e muovi gli oggetti': 'Select and move objects', 'Ruota con scatto a 15°': 'Rotate in 15° steps', 'Spingi o tira un lato piatto': 'Push or pull a flat face', 'Aggiunge un blocco': 'Adds a block', 'Aggiunge un cilindro': 'Adds a cylinder', 'Scrive testo 3D con font a scelta': '3D text in the font you choose', 'Aggiunge una sfera': 'Adds a sphere', 'Trasforma in foro per scavare': 'Turns into a hole to cut', 'Unisce i solidi, sottrae i fori': 'Merges solids, subtracts holes', 'Muove più oggetti come uno': 'Moves several objects as one', 'Copia l’oggetto selezionato': 'Copies the selected object', 'Rimuove la selezione': 'Removes the selection', 'Corpo e coperchio su misura': 'Custom body and lid',
   'Aiuto': 'Help',
+  'Nuova guida: finestra grande con categorie, spiegazioni, screenshot e GIF (tasto ? o F1)': 'New guide: large window with categories, explanations, screenshots and GIFs (? or F1)',
+  'Guida': 'Guide', 'Strumenti, scorciatoie e trucchi': 'Tools, shortcuts and tips', 'Guida (F1)': 'Guide (F1)',
   'Blocca': 'Lock', 'Nascondi': 'Hide',
   'Inizia': 'Start', 'Cosa vuoi creare?': 'What do you want to make?', 'Blocchi, cilindri, coni, poligoni e anelli da combinare e forare.': 'Blocks, cylinders, cones, polygons and rings to combine and cut.', 'Scrivi in 3D con 4 font a scelta o carica il tuo (TTF, OTF, WOFF).': 'Write in 3D with 4 fonts or load your own (TTF, OTF, WOFF).', 'Apri un 3MF o STL da modificare, oppure un SVG: diventa un solido da 1 mm. Puoi anche trascinare il file qui.': 'Open a 3MF or STL to edit, or an SVG: it becomes a 1 mm solid. You can also drop the file here.', 'Scatolina con coperchio su misura, pronta da stampare.': 'Custom box with lid, ready to print.', 'Scatolina': 'Small box',
   'Cronologia': 'History', 'Mostra o nascondi la cronologia (F8)': 'Show or hide the history (F8)',
@@ -226,10 +228,6 @@ const EN = {
   'Impossibile spostare questo lato': 'Could not move this face',
   'Nessuna forma trovata nel file': 'No shape found in the file',
 };
-const NAV = {
-  it: '<b>Vista</b><br>Trascina nel vuoto o col tasto destro: ruota<br><b>Spazio</b> + trascina: sposta · Pizzico o rotella: zoom<br><b>⌘0</b> adatta · doppio clic: centra<br><br><b>Oggetti</b><br><b>⇧</b> + trascina: blocca un asse<br><b>⌘</b> + trascina: alza e abbassa · <b>[ ]</b> su e giù<br><b>⌥</b> + trascina: duplica<br><b>⌘G</b> raggruppa · <b>⇧⌘G</b> separa<br><b>⇧</b> + clic con Lato: più lati<br>Livelli: <b>⇧</b> + clic aggiunge · <b>⌘</b> + clic intervallo<br>Ruota: <b>⇧</b> scatto 5° · <b>⌥</b> libero<br><br><b>Aggancio</b><br><b>⇧</b> mentre trascini: un asse, senza aggancio<br><b>⌘</b> mentre trascini: spegne la calamita<br><br><b>Tasti</b><br>Q riquadro · W lazo · K taglia · U allunga<br>M misure · Z raggi X · F7 livelli · F8 cronologia<br><br><b>Maniglie</b><br><b>⇧</b> proporzionale · <b>⌥</b> dal centro<br><br>Con 2+ oggetti clicca quello <b>chiave</b>, poi allinea.',
-  en: '<b>View</b><br>Drag in empty space or with the right button: orbit<br><b>Space</b> + drag: pan · Pinch or wheel: zoom<br><b>⌘0</b> fit · double click: center<br><br><b>Objects</b><br><b>⇧</b> + drag: lock axis<br><b>⌘</b> + drag: move up and down · <b>[ ]</b> up and down<br><b>⌥</b> + drag: duplicate<br><b>⌘G</b> group · <b>⇧⌘G</b> ungroup<br><b>⇧</b> + click with Face: more faces<br>Layers: <b>⇧</b> + click adds · <b>⌘</b> + click range<br>Rotate: <b>⇧</b> 5° steps · <b>⌥</b> free<br><br><b>Snapping</b><br><b>⇧</b> while dragging: one axis, no snapping<br><b>⌘</b> while dragging: switches the magnet off<br><br><b>Keys</b><br>Q marquee · W lasso · K cut · U stretch<br>M dimensions · Z X-ray · F7 layers · F8 history<br><br><b>Handles</b><br><b>⇧</b> proportional · <b>⌥</b> from center<br><br>With 2+ objects click the <b>key</b> one, then align.',
-};
 const NAMEMAP = { Scatola: 'Box', Cilindro: 'Cylinder', Sfera: 'Sphere', Cono: 'Cone', Prisma: 'Prism', Toro: 'Torus', Pezzo: 'Part' };
 const RULES = [
   [/^Spigolo spostato di (.+) mm su ([XYZ])$/, (m) => `Edge moved by ${m[1]} mm on ${m[2]}`],
@@ -285,7 +283,7 @@ let lang = 'it';
 /* tasti: su Windows/Linux ⌘ diventa Ctrl, ⇧ Maiusc/Shift, ⌥ Alt, ⌫ Canc/Del */
 export const IS_MAC = /Mac|iPhone|iPad/i.test((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || navigator.userAgent || '');
 const MODS = /[⇧⌘⌥]+|⌫/g;
-function plat(s, more) {
+export function plat(s, more) {
   if (IS_MAC || !/[⇧⌘⌥⌫]/.test(s)) return s;
   return s.replace(MODS, (m, off, str) => {
     if (m === '⌫') return lang === 'en' ? 'Del' : 'Canc';
@@ -350,8 +348,6 @@ let obs = null, busy = false;
 export function setLang(l, save = true) {
   lang = l === 'en' ? 'en' : 'it';
   document.documentElement.lang = lang;
-  const nav = document.querySelector('[data-i18n-html]');
-  if (nav) nav.innerHTML = plat(NAV[lang]);
   busy = true; walk(document.documentElement); busy = false;
   document.querySelectorAll('[data-lang]').forEach(b => b.classList.toggle('on', b.dataset.lang === lang));
   if (save) { try { localStorage.setItem('forma.lang', lang); } catch (e) {} }

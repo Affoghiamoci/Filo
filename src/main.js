@@ -1,4 +1,6 @@
-import { initI18n, tr } from './i18n.js';
+import { initI18n, tr, plat, getLang } from './i18n.js';
+import { GROUPS, HELP } from './help.js';
+import IMG from './helpimg.js';
 import { computeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
 import * as THREE from 'three';
 import { STLExporter } from 'three/addons/exporters/STLExporter.js';
@@ -4578,12 +4580,32 @@ function syncTextPanel() {
 
 /* ------------------------------------------------------------------- aiuto */
 (function () {
-  const side = $('#side'), tg = $('#nav-toggle');
-  let off = window.innerHeight < 980;
-  try { const v = localStorage.getItem('forma.help'); if (v !== null) off = v === '0'; } catch (e) {}
-  const apply = () => { side.classList.toggle('help-off', off); tg.setAttribute('aria-expanded', String(!off)); };
-  apply();
-  tg.addEventListener('click', () => { off = !off; apply(); try { localStorage.setItem('forma.help', off ? '0' : '1'); } catch (e) {} });
+  const dlg = $('#dlg-help'), nav = $('#hp-nav'), main = $('#hp-main');
+  let cur = 'start';
+  const render = () => {
+    const lg = getLang(), items = HELP[lg], gr = GROUPS[lg];
+    nav.innerHTML = Object.keys(gr).map(g => {
+      const its = items.filter(x => x.g === g);
+      return its.length ? `<div class="hp-g">${gr[g]}</div>` + its.map(x => `<button data-id="${x.id}" class="${x.id === cur ? 'on' : ''}">${x.t}</button>`).join('') : '';
+    }).join('');
+    const it = items.find(x => x.id === cur) || items[0];
+    const body = it.h.replace(/\{\{img:([^|}]+)\|([^}]*)\}\}/g, (_, n, c) => IMG[n] ? `<figure><img src="${IMG[n]}" alt="${c.replace(/"/g, '')}" loading="lazy"><figcaption>${c}</figcaption></figure>` : '');
+    main.innerHTML = `<h2>${it.t}</h2>` + plat(body, false);
+    main.scrollTop = 0;
+    const i = items.indexOf(it), pv = items[i - 1], nx = items[i + 1];
+    main.insertAdjacentHTML('beforeend', `<div class="hp-pn">${pv ? `<button data-id="${pv.id}">← ${pv.t}</button>` : '<span></span>'}${nx ? `<button data-id="${nx.id}">${nx.t} →</button>` : ''}</div>`);
+  };
+  const open = id => { if (id) cur = id; render(); if (!dlg.open) dlg.showModal(); };
+  document.addEventListener('click', e => { const b = e.target.closest('#hp-nav button, .hp-pn button'); if (b) { cur = b.dataset.id; render(); } });
+  document.addEventListener('click', e => { if (e.target.closest('[data-lang]') && dlg.open) setTimeout(render, 0); });
+  $('#help-open').addEventListener('click', () => open());
+  $('#hp-close').addEventListener('click', () => dlg.close());
+  dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+  window.addEventListener('keydown', e => {
+    const t = e.target, typing = t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName);
+    if (e.key === 'F1' || (e.key === '?' && !typing && !e.metaKey && !e.ctrlKey)) { e.preventDefault(); e.stopPropagation(); dlg.open ? dlg.close() : open(); }
+  }, true);
+  window.openHelp = open;
 })();
 
 
