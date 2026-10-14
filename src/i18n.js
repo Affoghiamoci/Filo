@@ -102,6 +102,8 @@ const EN = {
   'Angoli verticali': 'Vertical corners', 'Bordo alto': 'Top edge', 'Bordo basso': 'Bottom edge',
   'Ripeti': 'Repeat', "Nido d'ape": 'Honeycomb', 'Cerchio': 'Circle', 'Colonne': 'Columns', 'Righe': 'Rows', 'Passo X': 'Step X', 'Passo Y': 'Step Y', 'Copie': 'Copies', 'Angolo': 'Angle', 'Centro X': 'Center X', 'Centro Y': 'Center Y',
   'Le righe dispari sono spostate di mezzo passo': 'Odd rows are shifted by half a step',
+  'Le righe dispari si spostano di mezzo passo in X. Usa Passo X': 'Odd rows shift by half a step in X. Uses Step X',
+  'Le colonne dispari si spostano di mezzo passo in Y. Usa Passo Y': 'Odd columns shift by half a step in Y. Uses Step Y',
   "Copia la selezione in righe e colonne, a nido d'ape o in cerchio. Usala con un foro per fare griglie di fori, poi Combina.": 'Copies the selection in rows and columns, honeycomb or a circle. Use it on a hole to make a grid of holes, then Combine.',
   'Seleziona prima un oggetto': 'Select an object first', "Con questi numeri non c'è nulla da copiare": 'Nothing to copy with these numbers', 'Troppe copie: il massimo è 600': 'Too many copies: the maximum is 600',
   "Ripeti: copie in griglia, nido d'ape o in cerchio": 'Repeat: copies in a grid, honeycomb or circle',
