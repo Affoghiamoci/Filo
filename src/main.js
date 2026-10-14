@@ -696,7 +696,7 @@ function addSteppers() {
 addSteppers();
 
 /* ------------------------------------------------------------ ripeti: griglia, nido d'ape, cerchio */
-const RP = { mode: 'grid', orient: 'rows' };
+const RP = { mode: 'grid' };
 function repeatSelection(o) {
   const src = selection.slice();
   if (!src.length) return toast('Seleziona prima un oggetto');
@@ -706,12 +706,10 @@ function repeatSelection(o) {
     for (let k = 1; k < n; k++) spots.push({ th: k * step * D2R });
   } else {
     const nx = clamp(Math.round(o.nx), 1, 60), ny = clamp(Math.round(o.ny), 1, 60), honey = o.mode === 'honey';
-    const cols = honey && o.orient === 'cols';        // nido d'ape a colonne: sono le colonne dispari a spostarsi di mezzo passo in Y
-    const py = honey && !cols ? o.px * 0.866 : o.py;
+    const py = o.py;                                    // in nido d'ape il passo Y parte da 0,866 × passo X ma si può cambiare
     for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
       if (!i && !j) continue;
-      if (cols) spots.push({ dx: i * o.py * 0.866, dy: j * o.py + (i % 2 ? o.py / 2 : 0) });
-      else spots.push({ dx: i * o.px + (honey && j % 2 ? o.px / 2 : 0), dy: j * py });
+      spots.push({ dx: i * o.px + (honey && j % 2 ? o.px / 2 : 0), dy: j * py });
     }
   }
   if (!spots.length) return toast('Con questi numeri non c\'è nulla da copiare');
@@ -746,16 +744,14 @@ function repeatDefaults() {                           // passo iniziale = ingomb
 document.querySelectorAll('#rp-mode button').forEach(b => b.addEventListener('click', () => {
   RP.mode = b.dataset.v;
   b.parentElement.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
-  $('#rp-or').classList.toggle('hidden', RP.mode !== 'honey');
+  if (RP.mode === 'honey') $('#rp-py').value = fmt(+(parseFloat($('#rp-px').value) * 0.866).toFixed(2));
   $('#rp-grid').classList.toggle('hidden', RP.mode === 'polar'); $('#rp-polar').classList.toggle('hidden', RP.mode !== 'polar');
-}));
-document.querySelectorAll('#rp-or button').forEach(b => b.addEventListener('click', () => {
-  RP.orient = b.dataset.v; b.parentElement.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
 }));
 $('#rp-go').addEventListener('click', () => {
   const v = id => parseFloat($('#' + id).value);
-  repeatSelection({ mode: RP.mode, orient: RP.orient, nx: v('rp-nx') || 1, ny: v('rp-ny') || 1, px: v('rp-px') || 10, py: v('rp-py') || 10, n: v('rp-n') || 6, arc: v('rp-arc') || 360, cx: v('rp-cx') || 0, cy: v('rp-cy') || 0 });
+  repeatSelection({ mode: RP.mode, nx: v('rp-nx') || 1, ny: v('rp-ny') || 1, px: v('rp-px') || 10, py: v('rp-py') || 10, n: v('rp-n') || 6, arc: v('rp-arc') || 360, cx: v('rp-cx') || 0, cy: v('rp-cy') || 0 });
 });
+$('#rp-px').addEventListener('input', () => { if (RP.mode === 'honey') { const v = parseFloat($('#rp-px').value); if (v > 0) $('#rp-py').value = fmt(+(v * 0.866).toFixed(2)); } });
 $('#p-repeat').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') $('#rp-go').click(); });
 
 function duplicateSelection(offset = true) {
