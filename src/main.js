@@ -1374,7 +1374,10 @@ canvas.addEventListener('pointerdown', e => {
   else if (state.tool === 'ruler') {
     drag.mode = 'orbit'; drag.rulerHit = pickHit(e);
   }
-  else if (planeTool()) { drag.mode = 'orbit'; drag.cutHit = pickHit(e); }
+  else if (planeTool()) {
+    if (cutPlaneHit(e)) { const cm = startCutMove(e); if (cm) { drag.mode = 'cutmove'; drag.cm = cm; canvas.style.cursor = 'grabbing'; return; } }
+    drag.mode = 'orbit'; drag.cutHit = pickHit(e);
+  }
   else if (state.tool === 'face') {
     if (faceHandle.visible) {
       setRay(e);
@@ -1426,6 +1429,7 @@ canvas.addEventListener('pointermove', e => {
     if (state.tool === 'edge' && !state.space) { updateEdgeHover(e); if (moveHandle.visible) { setRay(e); if (raycaster.intersectObject(moveHandle, false)[0]) canvas.style.cursor = 'pointer'; } if (edgeHandle.visible) { setRay(e); if (raycaster.intersectObject(edgeHandle, false)[0]) canvas.style.cursor = 'pointer'; } }
     else if (state.tool === 'face' && !state.space) { updateHover(e); if (faceHandle.visible) { setRay(e); canvas.style.cursor = raycaster.intersectObject(faceHandle, false)[0] ? 'pointer' : 'crosshair'; } } else hideHover();
     if (HANDLES[0].visible && state.tool === 'move' && !state.space) canvas.style.cursor = pickHandle(e) ? 'pointer' : 'default';
+    if (planeTool() && !state.space) canvas.style.cursor = cutPlaneHit(e) ? 'grab' : 'default';
     if (state.tool === 'ruler') rulerHover(e); else { if (rulerHov.style.display !== 'none') rulerHov.style.display = 'none'; if (faceDim.style.display !== 'none') faceDim.style.display = 'none'; }
     return;
   }
@@ -1439,6 +1443,7 @@ canvas.addEventListener('pointermove', e => {
   else if (drag.mode === 'facepush') moveFaceDrag(e, drag.fd);
   else if (drag.mode === 'edgescale') moveEdgeScale(e, drag.es);
   else if (drag.mode === 'edgemove') moveEdgeMove(e, drag.em);
+  else if (drag.mode === 'cutmove') moveCutMove(e, drag.cm);
   else if (drag.mode === 'rotate') {
     const r = drag.rot; setRay(e);
     const p = raycaster.ray.intersectPlane(r.pl, new THREE.Vector3());
@@ -1503,6 +1508,7 @@ canvas.addEventListener('pointerup', e => {
   if (d.mode === 'move') { vtxMark.visible = false; guide.visible = false; dragRead.style.display = 'none'; dirty = true; }
   if (d.mode === 'rotate') { dragRead.style.display = 'none'; if (d.moved && d.rot.delta !== 0) commit(); return; }
   if (d.mode === 'edgemove') { endEdgeMove(d.em, d.moved); return; }
+  if (d.mode === 'cutmove') { dragRead.style.display = 'none'; canvas.style.cursor = 'grab'; return; }
   if (d.mode === 'edgescale') {
     dragRead.style.display = 'none'; ringPrev.visible = false;
     if (d.moved && d.es.f !== 1) applyEdgeScale(d.es.f * 100); else updateEdgeHandle();
@@ -4165,7 +4171,7 @@ function cutEnsurePlane() {
   const g = new THREE.Group(), pl = new THREE.PlaneGeometry(1, 1);
   const fill = new THREE.Mesh(pl, new THREE.MeshBasicMaterial({ color: 0xff6a00, opacity: 0.16, transparent: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false }));
   const edge = new THREE.LineSegments(new THREE.EdgesGeometry(pl), new THREE.LineBasicMaterial({ color: 0xff6a00, depthTest: false, transparent: true }));
-  fill.renderOrder = edge.renderOrder = 950; fill.raycast = edge.raycast = () => {};
+  fill.renderOrder = edge.renderOrder = 950; edge.raycast = () => {};
   g.add(fill, edge); g.visible = false; scene.add(g); return (cutPlane = g);
 }
 function cutRefresh() {                                        // piano di anteprima: segue asse, posizione e ingombro della selezione
@@ -4187,6 +4193,23 @@ function cutToolChanged() {
     $('#cut-delta-wrap').classList.toggle('hidden', !st); $('#cut-hint-cut').classList.toggle('hidden', st); $('#cut-hint-str').classList.toggle('hidden', !st);
     cutReset(); if (!selection.length) toast(st ? 'Seleziona l\'oggetto da allungare, poi scegli il piano' : 'Seleziona l\'oggetto da tagliare, poi scegli il piano');
   } else cutRefresh();
+}
+function cutPlaneHit(e) { if (!cutPlane || !cutPlane.visible) return false; setRay(e); cutPlane.updateMatrixWorld(true); return !!raycaster.intersectObject(cutPlane.children[0], false)[0]; }
+function cutAxisParam(e) {                                     // punto dell'asse (retta per il centro del piano) più vicino al raggio del mouse
+  setRay(e);
+  const o = raycaster.ray.origin, d = raycaster.ray.direction, a = WAX[CUT.ax], p0 = cutPlane.position.clone();
+  const w = o.clone().sub(p0), b = d.dot(a), den = 1 - b * b;
+  if (den < 1e-4) return null;                                 // asse quasi verso la camera: non si può trascinare
+  return (a.dot(w) - b * d.dot(w)) / den;
+}
+function startCutMove(e) { const t = cutAxisParam(e); return t === null ? null : { t0: t, pos0: CUT.pos }; }
+function moveCutMove(e, cm) {
+  const t = cutAxisParam(e); if (t === null) return;
+  const b = selBox(); let v = snapV(cm.pos0 + (t - cm.t0));
+  v = clamp(v, b.min[CUT.ax] - 5, b.max[CUT.ax] + 5);
+  CUT.pos = Math.round(v * 100) / 100; $('#cut-pos').value = fmt(CUT.pos); cutRefresh();
+  dragRead.style.display = 'block'; dragRead.style.left = e.clientX + 18 + 'px'; dragRead.style.top = e.clientY - 12 + 'px';
+  dragRead.textContent = `${CUT.ax.toUpperCase()} ${fmt(CUT.pos)} mm`;
 }
 function cutClick(hit) {                                       // un clic sull'oggetto mette il piano in quel punto
   if (!hit) return;
