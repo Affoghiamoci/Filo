@@ -7,6 +7,12 @@ const EN = {
   'larghezza × profondità': 'width × depth', 'larghezza × altezza': 'width × height', 'Tieni premuto ⌥ per vedere larghezza e altezza del lato sotto il mouse.': 'Hold ⌥ to see the width and height of the face under the mouse.',
   'Distribuisci': 'Distribute', 'Per distribuire servono almeno 3 oggetti': 'You need at least 3 objects to distribute',
   'Servono almeno 3 oggetti': 'At least 3 objects needed', 'Con un solo oggetto in altezza si può solo appoggiare al piatto': 'With one object, height can only rest on the bed',
+  'Spigolo: sposta uno spigolo trascinando la maniglia o scrivendo i mm, per inclinare o allungare una faccia (da cubo a trapezio)': 'Edge: move an edge by dragging the handle or typing mm, to tilt or lengthen a face (cube to trapezoid)',
+  'Sposta lo spigolo': 'Move the edge', 'Sposta': 'Move',
+  "Trascina il quadratino sullo spigolo oppure scrivi di quanto spostarlo (negativo per l'altro verso). La faccia si inclina o si allunga: da un cubo si ottiene un trapezio. Il pezzo diventa libero, non più parametrico.": 'Drag the square on the edge or type how far to move it (negative for the other way). The face tilts or lengthens: a cube becomes a trapezoid. The piece becomes free, no longer parametric.',
+  'Questo spigolo è arrotondato: per spostarlo togli prima l\'arrotondamento': 'This edge is rounded: remove the rounding first to move it',
+  'Scrivi di quanti mm spostare lo spigolo': 'Type how many mm to move the edge',
+  'Questa direzione è lungo lo spigolo: scegline un\'altra': 'That direction runs along the edge: pick another one',
   'Elenco strumenti compatto sulle finestre basse e sfumatura che segnala i pannelli che scorrono': 'Compact tool list on short windows and a fade that shows scrollable panels',
   "Ripeti: Spazio tra le copie al posto del passo (ingombro reale più spazio); nido d'ape con Spazio Y modificabile": 'Repeat: Gap between copies instead of step (real size plus gap); honeycomb with editable Gap Y',
   'Scatto a tendina, con 0,1 mm e Libero (senza aggancio)': 'Step as a dropdown, with 0.1 mm and Free (no snapping)',
@@ -223,6 +229,7 @@ const NAV = {
 };
 const NAMEMAP = { Scatola: 'Box', Cilindro: 'Cylinder', Sfera: 'Sphere', Cono: 'Cone', Prisma: 'Prism', Toro: 'Torus', Pezzo: 'Part' };
 const RULES = [
+  [/^Spigolo spostato di (.+) mm su ([XYZ])$/, (m) => `Edge moved by ${m[1]} mm on ${m[2]}`],
   [/^Distribuiti con (.+) mm tra uno e l'altro$/, (m) => `Distributed with ${m[1]} mm between each`],
   [/^Distribuiti, ma si sovrappongono di (.+) mm$/, (m) => `Distributed, but they overlap by ${m[1]} mm`],
   [/^Spazi uguali tra gli oggetti su (.), tenendo fermi i due agli estremi$/, (m) => `Equal gaps between objects on ${m[1]}, keeping the two outer ones fixed`],
