@@ -973,6 +973,34 @@ function alignSelection(axis, mode) {
   }
   touch(); syncPanel(); updateHandles(); commit();
 }
+function distributeSelection(axis) {
+  const units = [], seen = new Set();
+  selection.forEach(m => {
+    if (seen.has(m)) return;
+    const mem = m.userData.gid != null ? selection.filter(o => o.userData.gid === m.userData.gid) : [m];
+    mem.forEach(o => seen.add(o));
+    const box = new THREE.Box3(); mem.forEach(o => box.union(worldBox(o)));
+    units.push({ mem, box });
+  });
+  if (units.length < 3) return toast('Per distribuire servono almeno 3 oggetti');
+  units.sort((a, b) => (a.box.min[axis] + a.box.max[axis]) - (b.box.min[axis] + b.box.max[axis]));
+  const lo = units[0].box.min[axis], hi = Math.max(...units.map(u => u.box.max[axis]));
+  const sum = units.reduce((t, u) => t + (u.box.max[axis] - u.box.min[axis]), 0);
+  const gap = (hi - lo - sum) / (units.length - 1);
+  let cur = lo;
+  units.forEach(u => {
+    const d = cur - u.box.min[axis];
+    if (Math.abs(d) > 1e-9) u.mem.forEach(o => { o.position[AXES[axis]] += d; o.updateMatrixWorld(true); });
+    cur += (u.box.max[axis] - u.box.min[axis]) + gap;
+  });
+  touch(); syncPanel(); updateHandles(); commit();
+  toast(gap < 0 ? `Distribuiti, ma si sovrappongono di ${fmt(-gap)} mm` : `Distribuiti con ${fmt(gap)} mm tra uno e l'altro`);
+}
+function distIcon(axis) {
+  let inner = '<path d="M4 3v18M20 3v18"/><rect x="10.2" y="6.5" width="3.6" height="11" rx="1.2" fill="currentColor" stroke="none"/>';
+  if (axis !== 'x') inner = `<g transform="rotate(-90 12 12)">${inner}</g>`;
+  return `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">${inner}</svg>`;
+}
 function alignIcon(axis, mode) {
   // linea di riferimento + due barre; per Y e Z il disegno è ruotato di 90°
   const pos = mode === 'min' ? 4 : mode === 'max' ? 20 : 12;
@@ -992,10 +1020,13 @@ function buildAlignPanel() {
   ];
   $('#p-align').innerHTML = rows.map(([ax, label, btns]) =>
     `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="width:14px;color:var(--muted);font-weight:600;font-size:11.5px">${label}</span>` +
-    btns.map(([mode, tip]) => `<button class="btn" style="flex:1;justify-content:center;background:var(--field);padding:6px 0" data-ax="${ax}" data-mode="${mode}" title="${tip}">${alignIcon(ax, mode)}</button>`).join('') + '</div>').join('');
+    btns.map(([mode, tip]) => `<button class="btn" style="flex:1;justify-content:center;background:var(--field);padding:6px 0" data-ax="${ax}" data-mode="${mode}" data-tip="${tip}" title="${tip}">${alignIcon(ax, mode)}</button>`).join('') + '</div>').join('')
+    + '<h4 style="margin-top:10px">Distribuisci</h4><div style="display:flex;align-items:center;gap:6px">' + ['x', 'y', 'z'].map(ax =>
+      `<button class="btn" style="flex:1;justify-content:center;background:var(--field);padding:6px 0;gap:4px" data-dist="${ax}" data-tip="Spazi uguali tra gli oggetti su ${ax.toUpperCase()}, tenendo fermi i due agli estremi" title="Spazi uguali tra gli oggetti su ${ax.toUpperCase()}, tenendo fermi i due agli estremi">${distIcon(ax)}<span style="font-size:11px;color:var(--muted)">${ax.toUpperCase()}</span></button>`).join('') + '</div>';
   $('#p-align').addEventListener('click', e => {
     const b = e.target.closest('button');
-    if (b) alignSelection(b.dataset.ax, b.dataset.mode);
+    if (!b) return;
+    if (b.dataset.dist) distributeSelection(b.dataset.dist); else alignSelection(b.dataset.ax, b.dataset.mode);
   });
 }
 
@@ -1769,6 +1800,12 @@ function syncPanel() {
     nameEl.disabled = true;
   }
   const nUnits = new Set(selection.map(o => o.userData.gid ?? o)).size;
+  document.querySelectorAll('#p-align button').forEach(b => {          // pulsanti che con questa selezione non servono: attenuati, con il motivo nel tooltip
+    let off = false, why = '';
+    if (b.dataset.dist) { off = nUnits < 3; why = 'Servono almeno 3 oggetti'; }
+    else if (nUnits < 2 && b.dataset.ax === 'z' && b.dataset.mode !== 'min') { off = true; why = 'Con un solo oggetto in altezza si può solo appoggiare al piatto'; }
+    b.style.opacity = off ? '.38' : ''; b.title = off ? why : b.dataset.tip;
+  });
   $('#p-key').textContent = nUnits < 2 ? 'Allinea al piatto.'
     : keyObj ? `Oggetto chiave: ${keyObj.userData.name}. Clicca un altro oggetto selezionato per cambiarlo.`
     : 'Allineo alla selezione. Per scegliere un oggetto chiave, clicca uno degli oggetti selezionati.';

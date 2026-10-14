@@ -1,6 +1,9 @@
 // Traduzione IT ⇄ EN: i testi originali sono in italiano, l'inglese si applica al volo su tutto il DOM.
 const EN = {
   'Posizione anche per gruppi e selezioni multiple': 'Position for groups and multiple selections too',
+  'Distribuisci: spazi uguali tra tre o più oggetti; i pulsanti Allinea che non servono sono attenuati': 'Distribute: equal gaps between three or more objects; unneeded Align buttons are dimmed',
+  'Distribuisci': 'Distribute', 'Per distribuire servono almeno 3 oggetti': 'You need at least 3 objects to distribute',
+  'Servono almeno 3 oggetti': 'At least 3 objects needed', 'Con un solo oggetto in altezza si può solo appoggiare al piatto': 'With one object, height can only rest on the bed',
   'Elenco strumenti compatto sulle finestre basse e sfumatura che segnala i pannelli che scorrono': 'Compact tool list on short windows and a fade that shows scrollable panels',
   "Ripeti: Spazio tra le copie al posto del passo (ingombro reale più spazio); nido d'ape con Spazio Y modificabile": 'Repeat: Gap between copies instead of step (real size plus gap); honeycomb with editable Gap Y',
   'Scatto a tendina, con 0,1 mm e Libero (senza aggancio)': 'Step as a dropdown, with 0.1 mm and Free (no snapping)',
@@ -217,6 +220,9 @@ const NAV = {
 };
 const NAMEMAP = { Scatola: 'Box', Cilindro: 'Cylinder', Sfera: 'Sphere', Cono: 'Cone', Prisma: 'Prism', Toro: 'Torus', Pezzo: 'Part' };
 const RULES = [
+  [/^Distribuiti con (.+) mm tra uno e l'altro$/, (m) => `Distributed with ${m[1]} mm between each`],
+  [/^Distribuiti, ma si sovrappongono di (.+) mm$/, (m) => `Distributed, but they overlap by ${m[1]} mm`],
+  [/^Spazi uguali tra gli oggetti su (.), tenendo fermi i due agli estremi$/, (m) => `Equal gaps between objects on ${m[1]}, keeping the two outer ones fixed`],
   [/^Allungato di (.+) mm$/, (m) => `Stretched by ${m[1]} mm`],
   [/^Accorciato di (.+) mm$/, (m) => `Shortened by ${m[1]} mm`],
   [/^Aggiunto: (.*)$/, (m) => `Added: ${tn(m[1])}`],
