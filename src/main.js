@@ -22,7 +22,7 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
 /* ------------------------------------------------------------------ stato */
-const state = { tool: 'move', space: false, snap: 1, dims: false, xray: false };
+const state = { tool: 'move', space: false, snap: 1, dims: false, xray: false, magnet: true };
 const objects = [];
 let selection = [];
 let keyObj = null;
@@ -1201,6 +1201,7 @@ canvas.addEventListener('pointermove', e => {
     if (state.tool === 'edge' && !state.space) { updateEdgeHover(e); if (edgeHandle.visible) { setRay(e); if (raycaster.intersectObject(edgeHandle, false)[0]) canvas.style.cursor = 'pointer'; } }
     else if (state.tool === 'face' && !state.space) { updateHover(e); if (faceHandle.visible) { setRay(e); canvas.style.cursor = raycaster.intersectObject(faceHandle, false)[0] ? 'pointer' : 'crosshair'; } } else hideHover();
     if (HANDLES[0].visible && state.tool === 'move' && !state.space) canvas.style.cursor = pickHandle(e) ? 'pointer' : 'default';
+    if (state.tool === 'ruler') rulerHover(e); else if (rulerHov.style.display !== 'none') rulerHov.style.display = 'none';
     return;
   }
   const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
@@ -1240,7 +1241,8 @@ canvas.addEventListener('pointermove', e => {
     let dxs = snapV(base.x + raw.x) - base.x, dys = snapV(base.y + raw.y) - base.y;
     // ⇧ = blocca sull'asse X o Y (quello in cui ti sei mosso di più)
     if (e.shiftKey) { if (Math.abs(raw.x) >= Math.abs(raw.y)) dys = 0; else dxs = 0; }
-    const sh = new THREE.Vector3(dxs, dys, 0), SI = e.shiftKey ? null : ensureSnap(drag, 'snap', drag.start);
+    const mag = state.magnet && !e.metaKey && !e.ctrlKey;     // ⌘ premuto = calamita spenta solo per questo trascinamento
+    const sh = new THREE.Vector3(dxs, dys, 0), SI = e.shiftKey || !mag ? null : ensureSnap(drag, 'snap', drag.start);
     const sv = SI ? snapVerts(SI, sh) : null, sn = SI && !sv ? snapFaces(SI, sh, 'xy') : null;
     if (sv) { dxs += sv.c.x; dys += sv.c.y; } else if (sn) { dxs += sn.c.x; dys += sn.c.y; }
     showSnap(sn, sh, e); if (sv || vtxMark.visible) showVertex(sv, e);
@@ -1333,7 +1335,7 @@ function ensureSnap(d, key, map) {
   for (const m of objects) { if (!m.visible) continue; (map.has(m) ? mov : stat).push(...worldPlanes(m)); }
   const movC = [], statC = [];
   for (const m of objects) { if (!m.visible) continue; (map.has(m) ? movC : statC).push(...worldCorners(m)); }
-  return (d[key] = { mov: mov.slice(0, 120), stat: stat.slice(0, 400), movC: movC.slice(0, 400), statC: statC.slice(0, 3000) });
+  return (d[key] = { mov: mov.slice(0, 120), stat: stat.slice(0, 400), movC: movC.slice(0, 400), statC: statC.slice(0, 20000) });
 }
 // s = spostamento dall'inizio; mode 'xy' per i lati verticali, 'z' per quelli orizzontali. Restituisce la correzione.
 function snapFaces(info, s, mode) {
@@ -1396,15 +1398,24 @@ function worldCorners(m) {
     }
   }
   for (let id = 0; id < info.nVerts; id++) if (sharp[id] && seen[id] >= 0) out.push(v.fromBufferAttribute(pos, seen[id]).clone().applyMatrix4(m.matrixWorld));
-  if (out.length > 160) { const step = out.length / 160, r = []; for (let i = 0; i < 160; i++) r.push(out[Math.floor(i * step)]); return r; }
+  if (out.length > 4000) { const step = out.length / 4000, r = []; for (let i = 0; i < 4000; i++) r.push(out[Math.floor(i * step)]); return r; }
   return out;
 }
 function snapVerts(info, s) {
   const tol = Math.min(8, worldPerPixel() * 10);
+  if (!info.box) {                                            // ingombro in pianta dei punti che si muovono: scarta subito i punti lontani
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const a of info.movC) { x0 = Math.min(x0, a.x); y0 = Math.min(y0, a.y); x1 = Math.max(x1, a.x); y1 = Math.max(y1, a.y); }
+    info.box = [x0, y0, x1, y1];
+  }
+  const [x0, y0, x1, y1] = info.box, lx = x0 + s.x - tol, hx = x1 + s.x + tol, ly = y0 + s.y - tol, hy = y1 + s.y + tol;
   let best = null, bd = tol;
-  for (const a of info.movC) for (const b of info.statC) {
-    const dx = b.x - (a.x + s.x), dy = b.y - (a.y + s.y), d = Math.hypot(dx, dy) + Math.abs(b.z - a.z) * 0.15;
-    if (d < bd) { bd = d; best = { c: new THREE.Vector3(dx, dy, 0), at: b }; }
+  for (const b of info.statC) {
+    if (b.x < lx || b.x > hx || b.y < ly || b.y > hy) continue;
+    for (const a of info.movC) {
+      const dx = b.x - (a.x + s.x), dy = b.y - (a.y + s.y), d = Math.hypot(dx, dy) + Math.abs(b.z - a.z) * 0.15;
+      if (d < bd) { bd = d; best = { c: new THREE.Vector3(dx, dy, 0), at: b }; }
+    }
   }
   return best;
 }
@@ -1438,7 +1449,7 @@ function moveVertical(e) {
   const dz = hit && d.vz0 !== null ? hit.z - d.vz0 : -(e.clientY - d.vy0) * worldPerPixel();
   const base = d.vstart.get(d.hit) ?? [...d.vstart.values()][0];
   let ddz = snapV(base.z + dz) - base.z;
-  const shz = new THREE.Vector3(0, 0, ddz), snz = snapFaces(ensureSnap(d, 'snapz', d.vstart), shz, 'z');
+  const shz = new THREE.Vector3(0, 0, ddz), snz = state.magnet && !e.metaKey && !e.ctrlKey ? snapFaces(ensureSnap(d, 'snapz', d.vstart), shz, 'z') : null;
   if (snz) ddz += snz.c.z;
   showSnap(snz, shz, e);
   d.vstart.forEach((p0, m) => { m.position.z = p0.z + ddz; m.updateMatrixWorld(true); });
@@ -2055,6 +2066,16 @@ $('#viewcube').addEventListener('click', e => {
 });
 $('#views').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if (b) { animateTo(VIEWS[b.dataset.view]); viewOn(b.dataset.view); } });
 $('#b-dims').addEventListener('click', () => setDims());
+function setMagnet(on, announce = true) {         // calamita: aggancio agli angoli e ai lati degli altri oggetti
+  state.magnet = on ?? !state.magnet;
+  $('#b-mag').classList.toggle('on', state.magnet);
+  if (!state.magnet) { vtxMark.visible = false; guide.visible = false; dragRead.style.display = 'none'; dirty = true; }
+  try { localStorage.setItem('forma.magnet', state.magnet ? '1' : '0'); } catch (e) {}
+  if (announce) toast(state.magnet ? 'Calamita attiva' : 'Calamita spenta');
+}
+$('#b-mag').addEventListener('click', () => { setMagnet(); canvas.focus(); });
+try { if (localStorage.getItem('forma.magnet') === '0') state.magnet = false; } catch (e) {}
+$('#b-mag').classList.toggle('on', state.magnet);
 function setXray(on) {   // contorni delle parti coperte, attivabile e disattivabile
   state.xray = on ?? !state.xray;
   $('#b-xray').classList.toggle('on', state.xray);
@@ -3246,9 +3267,9 @@ function clearRuler() {
 function rulerPick(hit) {
   const obj = hit.object, p = hit.point.clone();
   const n = hit.face ? hit.face.normal.clone().transformDirection(obj.matrixWorld).normalize() : null;
-  const wpp = 2 * Math.tan(camera.fov * D2R / 2) * camera.position.distanceTo(p) / canvas.clientHeight, thr = 12 * wpp;
+  const wpp = 2 * Math.tan(camera.fov * D2R / 2) * camera.position.distanceTo(p) / canvas.clientHeight, thr = 18 * wpp;
   const eg = obj.userData.edges?.geometry, pos = eg?.attributes.position;
-  let snap = null, bv = thr, be = thr * 0.7, pv = null, pe = null;
+  let snap = null, bv = thr, be = thr * 0.7, bm = thr * 0.85, pv = null, pe = null, pm = null;
   if (pos) {
     const A = new THREE.Vector3(), B = new THREE.Vector3(), AB = new THREE.Vector3(), tmp = new THREE.Vector3();
     obj.updateMatrixWorld(true);
@@ -3256,12 +3277,22 @@ function rulerPick(hit) {
       A.fromBufferAttribute(pos, i).applyMatrix4(obj.matrixWorld); B.fromBufferAttribute(pos, i + 1).applyMatrix4(obj.matrixWorld);
       for (const V of [A, B]) { const d = V.distanceTo(p); if (d < bv) { bv = d; pv = V.clone(); } }
       AB.subVectors(B, A); const l2 = AB.lengthSq(); if (l2 < 1e-12) continue;
+      { const mid = A.clone().add(B).multiplyScalar(0.5), dm = mid.distanceTo(p); if (dm < bm) { bm = dm; pm = mid; } }
       const t = clamp(tmp.subVectors(p, A).dot(AB) / l2, 0, 1), q = A.clone().addScaledVector(AB, t), d = q.distanceTo(p);
       if (d < be) { be = d; pe = q; }
     }
   }
-  if (pv) { p.copy(pv); snap = 'v'; } else if (pe) { p.copy(pe); snap = 'e'; }
+  if (pv) { p.copy(pv); snap = 'v'; } else if (pm) { p.copy(pm); snap = 'm'; } else if (pe) { p.copy(pe); snap = 'e'; }
   return { p, n, snap };
+}
+const rulerHov = document.createElement('div'); rulerHov.className = 'ruler-hov'; labelsEl.appendChild(rulerHov);
+function rulerHover(e) {                                  // anteprima del punto che verrebbe preso con un clic
+  const hit = pickHit(e);
+  if (!hit) { rulerHov.style.display = 'none'; return; }
+  const pt = rulerPick(hit), v = pt.p.clone().project(camera), w = window.innerWidth, h = window.innerHeight;
+  rulerHov.className = 'ruler-hov ' + (pt.snap || 'f');
+  rulerHov.style.display = 'block';
+  rulerHov.style.transform = `translate(${(v.x * 0.5 + 0.5) * w}px, ${(-v.y * 0.5 + 0.5) * h}px) translate(-50%, -50%)`;
 }
 function rulerClick(hit) {
   if (!hit) { clearRuler(); return; }

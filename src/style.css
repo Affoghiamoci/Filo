@@ -561,3 +561,10 @@ label.f.has-stp{position:relative;padding-right:3px}
 #side header .titles .beta{margin:2px 0 0 8px;padding:3px 7px 2px;border:1px solid var(--accent);border-radius:999px;background:rgba(255,106,0,.12);color:var(--accent);font:500 9.5px/1 var(--mono);letter-spacing:.04em;text-transform:none;white-space:nowrap;align-self:center}
 #side header .titles .beta span{display:inline;margin:0;color:inherit;font:inherit}
 #side.mini .titles .beta{display:none}
+
+/* anteprima del punto di Distanza: quadratino = angolo, rombo = metà lato, cerchio vuoto = lato, punto = faccia libera */
+.ruler-hov{position:absolute;left:0;top:0;width:12px;height:12px;border:2px solid var(--accent);background:rgba(255,255,255,.7);display:none;pointer-events:none}
+.ruler-hov.v{border-radius:0}
+.ruler-hov.m{transform-origin:center;border-radius:0;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);background:var(--accent)}
+.ruler-hov.e{border-radius:50%}
+.ruler-hov.f{width:6px;height:6px;border-radius:50%;opacity:.6}
