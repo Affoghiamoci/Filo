@@ -1394,10 +1394,12 @@ function snapFaces(info, s, mode) {
   const tol = Math.min(6, worldPerPixel() * 8), pad = tol + 0.05;
   let best = null;
   for (const M of info.mov) for (const S of info.stat) {
-    if (M.n.dot(S.n) > -0.998) continue;
+    const dn = M.n.dot(S.n);
+    if (dn > -0.998 && dn < 0.998) continue;                  // lati opposti = contatto; lati con la stessa direzione = a filo
+    const flush = dn > 0;
     const mask = mode === 'z' ? S.n.z * S.n.z : S.n.x * S.n.x + S.n.y * S.n.y;
     if (mask < 0.6 || (mode === 'z' && Math.abs(S.n.z) < 0.8)) continue;
-    const g = (-M.d + S.n.dot(s)) - S.d;
+    const g = ((flush ? M.d : -M.d) + S.n.dot(s)) - S.d;
     if (Math.abs(g) > tol || (best && Math.abs(g) >= Math.abs(best.g))) continue;
     let ok = true;
     for (const ax of ['x', 'y', 'z']) if (M.min[ax] + s[ax] > S.max[ax] + pad || M.max[ax] + s[ax] < S.min[ax] - pad) { ok = false; break; }
@@ -3697,7 +3699,7 @@ try {
   d.addEventListener('cancel', () => { try { sessionStorage.setItem('forma.mobile', '1'); } catch (e) {} });
   setTimeout(() => { try { d.showModal(); } catch (e) {} }, 400);
 })();
-window.forma = { separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */

@@ -3,7 +3,7 @@ const EN = {
   'Posizione anche per gruppi e selezioni multiple': 'Position for groups and multiple selections too',
   "Nido d'ape: Passo Y modificabile": 'Honeycomb: editable Step Y',
   'Scatto a tendina, con 0,1 mm e Libero (senza aggancio)': 'Step as a dropdown, with 0.1 mm and Free (no snapping)',
-  'Calamita: aggancio agli angoli di tutti gli altri oggetti, anche su modelli con molti fori; si spegne dalla barra o con ⌘ premuto': 'Magnet: snaps to the corners of all other objects, even on models with many holes; switch it off from the bar or hold ⌘',
+  'Calamita: aggancio agli angoli e ai lati degli altri oggetti, a contatto o a filo, anche su modelli con molti fori; si spegne dalla barra o con ⌘ premuto': 'Magnet: snaps to the corners and sides of other objects, touching or flush, even on models with many holes; switch it off from the bar or hold ⌘',
   'Distanza: anteprima del punto preso, aggancio a angoli, metà lato e lati': 'Distance: preview of the picked point, snapping to corners, edge midpoints and edges',
   'Strumento Riquadro (Q): selezione trascinando, da sinistra tutto dentro, da destra anche toccato; Q di nuovo per il lazo; ⇧ aggiunge': 'Marquee tool (Q): select by dragging, from the left everything inside, from the right anything touched; Q again for lasso; ⇧ adds',
   'Calamita: gli oggetti si agganciano a angoli e lati degli altri. ⌘ premuto la spegne per un trascinamento': 'Magnet: objects snap to the corners and sides of others. Hold ⌘ to turn it off during a drag',
