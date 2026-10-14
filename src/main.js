@@ -303,63 +303,89 @@ function roundedSolid(kind, p) {
   }
   return g;
 }
-/* ------------------------------------------- spigoli singoli della scatola (non distruttivi)
-   p.ed = { 'asse:s1:s2': { r, t:'f'|'c' } }  asse = direzione dello spigolo; s1,s2 = lato (±1) sugli altri due assi (x,y,z in ordine).
-   Il pezzo si ricalcola sempre dalla scatola intera togliendo un "tagliente" per spigolo. */
+/* ------------------------------------------- spigoli singoli (scatola e prisma), non distruttivi
+   p.ed = { chiave: { r, t:'f'|'c' } }
+   scatola: 'asse:s1:s2' = direzione dello spigolo e lato (±1) sugli altri due assi; prisma: 'pt:i' / 'pb:i' = bordo alto / basso del lato i.
+   Il pezzo si ricalcola sempre dalla forma intera togliendo un "tagliente" per spigolo. */
 const BOX_AX = { x: ['y', 'z'], y: ['x', 'z'], z: ['x', 'y'] };
-function boxEdgeKeys() { const L = []; for (const a of 'xyz') for (const s1 of [-1, 1]) for (const s2 of [-1, 1]) L.push(`${a}:${s1}:${s2}`); return L; }
-function boxEdgeMap(p) {                               // valori effettivi: parametri globali + spigoli singoli che li sostituiscono
+const edgeShape = (kind, p) => (kind === 'box' || (kind === 'prism' && !(p.r > 0))) && (p.t ?? 100) >= 99.99;   // forme che accettano spigoli singoli
+function edgeKeysOf(kind, p) {
+  const L = [];
+  if (kind === 'box') { for (const a of 'xyz') for (const s1 of [-1, 1]) for (const s2 of [-1, 1]) L.push(`${a}:${s1}:${s2}`); }
+  else { const n = prismSides(p); for (let i = 0; i < n; i++) L.push('pt:' + i, 'pb:' + i); }
+  return L;
+}
+function edgeMapOf(kind, p) {                          // valori effettivi: parametri globali + spigoli singoli che li sostituiscono
   const m = {}, ch = p.rm === 'chamfer' ? 'c' : 'f';
-  for (const sx of [-1, 1]) for (const sy of [-1, 1]) if (p.r > 0) m[`z:${sx}:${sy}`] = { r: p.r, t: ch };
-  for (const [sz, v] of [[1, p.ft], [-1, p.fb]]) if (v > 0) for (const s of [-1, 1]) { m[`x:${s}:${sz}`] = { r: v, t: ch }; m[`y:${s}:${sz}`] = { r: v, t: ch }; }
+  if (kind === 'box') {
+    if (p.r > 0) for (const sx of [-1, 1]) for (const sy of [-1, 1]) m[`z:${sx}:${sy}`] = { r: p.r, t: ch };
+    for (const [sz, v] of [[1, p.ft], [-1, p.fb]]) if (v > 0) for (const s of [-1, 1]) { m[`x:${s}:${sz}`] = { r: v, t: ch }; m[`y:${s}:${sz}`] = { r: v, t: ch }; }
+  } else {
+    const n = prismSides(p);
+    for (let i = 0; i < n; i++) { if (p.ft > 0) m['pt:' + i] = { r: p.ft, t: ch }; if (p.fb > 0) m['pb:' + i] = { r: p.fb, t: ch }; }
+  }
   for (const [k, v] of Object.entries(p.ed || {})) { if (v && v.r > 0) m[k] = v; else delete m[k]; }
   return m;
 }
-function boxEdgeSegment(p, key) {                      // estremi dello spigolo nelle coordinate locali
-  const [a, s1, s2] = key.split(':'), [b, c] = BOX_AX[a], s = { [b]: +s1, [c]: +s2 };
-  const H = { x: p.w / 2, y: p.d / 2, z: p.h / 2 }, C = { x: 0, y: 0, z: p.h / 2 };
-  const at = v => { const o = {}; o[b] = C[b] + s[b] * H[b]; o[c] = C[c] + s[c] * H[c]; o[a] = v; return new THREE.Vector3(o.x, o.y, o.z); };
-  return [at(C[a] - H[a]), at(C[a] + H[a])];
+function edgeFrame(kind, p, key) {                     // spigolo: estremi A,B (locali), direzione verso l'interno nel piano orizzontale o sugli assi
+  if (kind === 'box') {
+    const [a, s1, s2] = key.split(':'), [b, c] = BOX_AX[a], s = { [b]: +s1, [c]: +s2 };
+    const H = { x: p.w / 2, y: p.d / 2, z: p.h / 2 }, C = { x: 0, y: 0, z: p.h / 2 };
+    const at = v => { const o = {}; o[b] = C[b] + s[b] * H[b]; o[c] = C[c] + s[c] * H[c]; o[a] = v; return new THREE.Vector3(o.x, o.y, o.z); };
+    const es = new THREE.Vector3(), et = new THREE.Vector3(); es[b] = -s[b]; et[c] = -s[c];
+    return { A: at(C[a] - H[a]), B: at(C[a] + H[a]), es, et };
+  }
+  const [pt, i] = key.split(':'), n = prismSides(p), top = pt === 'pt', z = top ? p.h : 0;
+  const V = k => { const th = 2 * Math.PI * (k % n) / n; return new THREE.Vector3(Math.cos(th) * p.w / 2, Math.sin(th) * p.d / 2, z); };
+  const A = V(+i), B = V(+i + 1), dir = B.clone().sub(A).normalize();
+  let nOut = new THREE.Vector3(dir.y, -dir.x, 0); const mid = A.clone().add(B).multiplyScalar(0.5);
+  if (nOut.dot(new THREE.Vector3(mid.x, mid.y, 0)) < 0) nOut.negate();
+  const dirP = A.clone().sub(V(+i - 1 + n)).normalize(), dirN = V(+i + 2).sub(B).normalize();   // lati vicini: gli estremi del tagliente si chiudono a sbieco sulla bisettrice
+  return { A, B, es: nOut.clone().negate(), et: new THREE.Vector3(0, 0, top ? -1 : 1), dirP, dirN };
 }
-function boxEdgeCutter(p, key, r, t) {
-  const [a, s1, s2] = key.split(':'), [b, c] = BOX_AX[a], sb = +s1, sc = +s2, e = 0.6;
+function edgeCutter(kind, p, key, r, t) {
+  const { A, B, es, et, dirP, dirN } = edgeFrame(kind, p, key), e = 0.6, len = A.distanceTo(B) + 2 * e, ex = B.clone().sub(A).normalize();
   const pts = [[-e, -e], [r, -e], [r, 0]];
   if (t === 'c') pts.push([0, r]); else for (let i = 1; i <= 12; i++) { const th = (-90 - 90 * i / 12) * D2R; pts.push([r + r * Math.cos(th), r + r * Math.sin(th)]); }
   pts.push([-e, r]);
-  const [A, B] = boxEdgeSegment(p, key), len = A.distanceTo(B) + 2 * e;
   let g = new THREE.ExtrudeGeometry(new THREE.Shape(pts.map(q => new THREE.Vector2(q[0], q[1]))), { depth: len, bevelEnabled: false, curveSegments: 1 });
   g = g.index ? g.toNonIndexed() : g; g.deleteAttribute('uv'); g.deleteAttribute('normal');
-  const H = { x: p.w / 2, y: p.d / 2, z: p.h / 2 }, C = { x: 0, y: 0, z: p.h / 2 };
-  const ea = new THREE.Vector3(), eb = new THREE.Vector3(), ec = new THREE.Vector3(); ea[a] = 1; eb[b] = -sb; ec[c] = -sc;
-  const det = eb.dot(new THREE.Vector3().crossVectors(ec, ea));
-  const pos = g.attributes.position, o = {};
+  const det = es.dot(new THREE.Vector3().crossVectors(et, ex));
+  const pos = g.attributes.position, q = new THREE.Vector3();
   for (let i = 0; i < pos.count; i++) {
     const S = pos.getX(i), T = pos.getY(i), U = pos.getZ(i);
-    o[a] = C[a] - H[a] - e + U; o[b] = C[b] + sb * H[b] - sb * S; o[c] = C[c] + sc * H[c] - sc * T;
-    pos.setXYZ(i, o.x, o.y, o.z);
+    let u = U - e;
+    if (dirP) {                                          // prisma: chiusura sulla bisettrice del vertice (niente tacche sui lati vicini)
+      if (U < len / 2) { const m = ex.clone().add(dirP); u = -m.dot(es) * S / m.dot(ex); }
+      else { const m = ex.clone().add(dirN); u = A.distanceTo(B) - m.dot(es) * S / m.dot(ex); }
+    }
+    q.copy(A).addScaledVector(es, S).addScaledVector(et, T).addScaledVector(ex, u);
+    pos.setXYZ(i, q.x, q.y, q.z);
   }
   if (det < 0) for (let i = 0; i < pos.count; i += 3) { const x = pos.getX(i + 1), y = pos.getY(i + 1), z = pos.getZ(i + 1); pos.setXYZ(i + 1, pos.getX(i + 2), pos.getY(i + 2), pos.getZ(i + 2)); pos.setXYZ(i + 2, x, y, z); }
   g.computeVertexNormals();
   return g;
 }
-function boxEdgesGeometry(p) {
-  const lim = Math.min(p.w, p.d, p.h) / 2 - 0.05;
-  let base = new THREE.BoxGeometry(p.w, p.d, p.h); base.translate(0, 0, p.h / 2);
-  base = base.toNonIndexed(); base.computeVertexNormals();
+function edgeLimitOf(kind, p) { return kind === 'box' ? Math.min(p.w, p.d, p.h) / 2 - 0.05 : Math.min(p.h / 2, 0.45 * Math.min(p.w, p.d) * Math.cos(Math.PI / prismSides(p))) - 0.05; }
+function edgesGeometry(kind, p) {
+  const lim = edgeLimitOf(kind, p);
+  let base = kind === 'box' ? new THREE.BoxGeometry(p.w, p.d, p.h) : buildGeometry('prism', { ...p, ed: null, ft: 0, fb: 0 });
+  if (kind === 'box') base.translate(0, 0, p.h / 2);
+  base = base.index ? base.toNonIndexed() : base.clone(); base.computeVertexNormals();
   let acc = new Brush(base, M.solid); acc.updateMatrixWorld(true);
-  for (const [k, v] of Object.entries(boxEdgeMap(p))) {
+  for (const [k, v] of Object.entries(edgeMapOf(kind, p))) {
     const r = clamp(v.r, 0, lim); if (!(r > 0.01)) continue;
-    const br = new Brush(boxEdgeCutter(p, k, r, v.t), M.solid); br.updateMatrixWorld(true);
+    const br = new Brush(edgeCutter(kind, p, k, r, v.t), M.solid); br.updateMatrixWorld(true);
     acc = evaluator.evaluate(acc, br, SUBTRACTION);
   }
   let g = acc.geometry.clone(); clean(g); g = healMesh(g);
   g = g.index ? g.toNonIndexed() : g; g.deleteAttribute('normal'); g = toCreasedNormals(g, 30 * D2R);
   return clean(g);
 }
-const hasEdgeList = (kind, p) => kind === 'box' && p.ed && Object.keys(p.ed).length && (p.t ?? 100) >= 99.99;
+const hasEdgeList = (kind, p) => p.ed && Object.keys(p.ed).length && edgeShape(kind, p);
 
 function buildGeometry(kind, p) {
-  if (hasEdgeList(kind, p)) return boxEdgesGeometry(p);
+  if (hasEdgeList(kind, p)) return edgesGeometry(kind, p);
   if ((kind === 'cylinder' || kind === 'cone') && (p.ft > 0 || p.fb > 0)) return clean(roundedSolid(kind, p));
   if (kind === 'prism' && (p.ft > 0 || p.fb > 0 || p.r > 0)) return clean(roundedSolid(kind, p));
   let g;
@@ -3710,7 +3736,7 @@ function makeLines(chains, mat) {
   scene.add(l); return l;
 }
 function dropLines(l) { if (l) { scene.remove(l); l.geometry.dispose(); } }
-const isEdgeBox = o => o.userData.kind === 'box' && (o.userData.p.t ?? 100) >= 99.99;
+const isEdgeBox = o => edgeShape(o.userData.kind, o.userData.p);
 function edgeAtPointer(e, hit) {
   if (!hit) return null;
   const obj = hit.object;
@@ -3719,8 +3745,8 @@ function edgeAtPointer(e, hit) {
     obj.updateMatrixWorld(true);
     const lim = Math.max(0.8, 14 * wpp), ln = new THREE.Line3(), q = new THREE.Vector3();
     let best = null, bd = lim;
-    for (const k of boxEdgeKeys()) {
-      const [A, B] = boxEdgeSegment(obj.userData.p, k).map(v => v.applyMatrix4(obj.matrixWorld));
+    for (const k of edgeKeysOf(obj.userData.kind, obj.userData.p)) {
+      const fr = edgeFrame(obj.userData.kind, obj.userData.p, k), [A, B] = [fr.A, fr.B].map(v => v.clone().applyMatrix4(obj.matrixWorld));
       ln.set(A, B); ln.closestPointToPoint(hit.point, true, q);
       const d = q.distanceTo(hit.point);
       if (d < bd) { bd = d; best = { key: k, pts: [A, B] }; }
@@ -3755,7 +3781,7 @@ function selectEdgeAt(hit, add) {
 }
 function prefillEdgeSize() {                          // scatola: mostra misura e tipo già impostati sugli spigoli scelti
   const ks = edgeSel.map(x => x.chain.vkey); if (!ks.length || ks.some(k => !k)) return;
-  const mp = boxEdgeMap(edgeSel[0].obj.userData.p), vs = ks.map(k => mp[k]);
+  const mp = edgeMapOf(edgeSel[0].obj.userData.kind, edgeSel[0].obj.userData.p), vs = ks.map(k => mp[k]);
   if (vs.every(v => v && v.r === vs[0].r && v.t === vs[0].t)) { EF.size.value = fmt(vs[0].r); edgeMode.v = vs[0].t === 'c' ? 'chamfer' : 'fillet'; } else EF.size.value = '';
 }
 function refreshEdgeLines() {
@@ -3904,13 +3930,13 @@ function applyEdges() {
   if (!edgeSel.length) return;
   const obj = edgeSel[0].obj;
   if (edgeSel.every(x => x.chain.vkey)) {              // scatola: spigoli singoli, restano modificabili
-    const u = obj.userData, p = u.p, lim = Math.min(p.w, p.d, p.h) / 2 - 0.05;
+    const u = obj.userData, p = u.p, lim = edgeLimitOf(u.kind, p);
     if (!(size >= 0)) return toast('Scrivi una misura in mm (0 per togliere)');
-    if (size > lim) return toast('La misura è troppo grande per questa scatola: massimo ' + fmt(lim) + ' mm');
-    const ed = {}; for (const [k, v] of Object.entries(boxEdgeMap(p))) ed[k] = v;     // i parametri globali diventano spigoli singoli
-    for (const x of edgeSel) { if (size > 0) ed[x.chain.vkey] = { r: size, t: edgeMode.v === 'chamfer' ? 'c' : 'f' }; else ed[x.chain.vkey] = { r: 0, t: 'f' }; }
-    u.p = { ...p, ft: 0, fb: 0, r: 0, rm: null, ed };
-    obj.geometry.dispose(); obj.geometry = buildGeometry('box', u.p); refreshEdges(obj); obj.updateMatrixWorld(true);
+    if (size > lim) return toast('La misura è troppo grande per questo pezzo: massimo ' + fmt(lim) + ' mm');
+    const ed = {}; for (const [k, v] of Object.entries(edgeMapOf(u.kind, p))) ed[k] = v;     // i parametri globali diventano spigoli singoli
+    for (const x of edgeSel) ed[x.chain.vkey] = size > 0 ? { r: size, t: edgeMode.v === 'chamfer' ? 'c' : 'f' } : { r: 0, t: 'f' };
+    u.p = { ...p, ft: 0, fb: 0, rm: null, ed }; if (u.kind === 'box') u.p.r = 0;
+    obj.geometry.dispose(); obj.geometry = buildGeometry(u.kind, u.p); refreshEdges(obj); obj.updateMatrixWorld(true);
     syncPanel(); touch(); commit(); dirty = true;
     const n = edgeSel.length;
     return toast(size === 0 ? `Tolto da ${n} ${n === 1 ? 'spigolo' : 'spigoli'}` : `${edgeMode.v === 'fillet' ? 'Arrotondamento' : 'Smusso'} di ${fmt(size)} mm su ${n} ${n === 1 ? 'spigolo' : 'spigoli'}: resta modificabile`);
