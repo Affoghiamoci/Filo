@@ -574,7 +574,7 @@ function setSelection(list) {
   if (selection.length && typeof repeatDefaults === 'function') repeatDefaults();
   updateHandles();
   dimsDirty = dirty = true;
-  if (state.tool === 'cut') cutReset();
+  if (planeTool()) cutReset();
 }
 
 /* -------------------------------------------------- cronologia (annulla) */
@@ -1252,7 +1252,7 @@ canvas.addEventListener('pointerdown', e => {
   else if (state.tool === 'ruler') {
     drag.mode = 'orbit'; drag.rulerHit = pickHit(e);
   }
-  else if (state.tool === 'cut') { drag.mode = 'orbit'; drag.cutHit = pickHit(e); }
+  else if (planeTool()) { drag.mode = 'orbit'; drag.cutHit = pickHit(e); }
   else if (state.tool === 'face') {
     if (faceHandle.visible) {
       setRay(e);
@@ -1391,7 +1391,7 @@ canvas.addEventListener('pointerup', e => {
     return;
   }
   if (d.mode === 'marquee') { mqFinish(d, e); return; }
-  if (state.tool === 'cut' && d.mode === 'orbit' && !d.moved) { cutClick(d.cutHit); return; }
+  if (planeTool() && d.mode === 'orbit' && !d.moved) { cutClick(d.cutHit); return; }
   if (state.tool === 'ruler' && d.mode === 'orbit' && !d.moved) { rulerClick(d.rulerHit); return; }
   if (state.tool === 'edge' && d.mode === 'orbit' && !d.moved) {
     if (d.edgeHit) selectEdgeAt(d.edgeHit, d.shift); else if (!d.shift) clearEdges();
@@ -1638,7 +1638,7 @@ canvas.addEventListener('gesturestart', e => { e.preventDefault(); gDist = cam.d
 canvas.addEventListener('gesturechange', e => { e.preventDefault(); cam.dist = clamp(gDist / e.scale, 4, 3000); applyCamera(); });
 function updateCursor(grabbing) {
   const pan = state.space || state.tool === 'hand';
-  canvas.style.cursor = pan ? (grabbing ? 'grabbing' : 'grab') : state.tool === 'orbit' ? 'move' : state.tool === 'rotate' ? 'crosshair' : state.tool === 'face' || state.tool === 'edge' || state.tool === 'ruler' || state.tool === 'marquee' || state.tool === 'lasso' || state.tool === 'cut' ? 'crosshair' : 'default';
+  canvas.style.cursor = pan ? (grabbing ? 'grabbing' : 'grab') : state.tool === 'orbit' ? 'move' : state.tool === 'rotate' ? 'crosshair' : state.tool === 'face' || state.tool === 'edge' || state.tool === 'ruler' || state.tool === 'marquee' || state.tool === 'lasso' || planeTool() ? 'crosshair' : 'default';
 }
 
 /* ------------------------------------------------------------- pannello */
@@ -2136,6 +2136,7 @@ const I = {
   edge: '<path d="M4 20V9a5 5 0 0 1 5-5h11"/><path d="M4 20h16" opacity=".35"/><path d="M20 4v16" opacity=".35"/>',
   face: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5" opacity=".4"/><path d="M12 12l8-4.5v9L12 21z" fill="currentColor" stroke="none" opacity=".4"/>',
   lasso: '<ellipse cx="12" cy="9" rx="8" ry="5"/><path d="M9 13.6c-1.2 1.9-.4 3.6 1.2 4.5 1.4.8 1.2 2.1-.4 2.6"/>',
+  stretch: '<rect x="4" y="4" width="9" height="6"/><rect x="4" y="14" width="9" height="6"/><path d="M17 6v12M14.5 8.5L17 6l2.5 2.5M14.5 15.5L17 18l2.5-2.5"/>',
   cut: '<rect x="5" y="4" width="14" height="6"/><rect x="5" y="14" width="14" height="6"/><path d="M2.5 12h19" stroke-dasharray="2.5 2"/>',
   marquee: '<rect x="4" y="5" width="16" height="14" stroke-dasharray="3 2.5"/><path d="M10 10l5 2.5-2 .8 1.4 2.6-1.2.6-1.4-2.6-1.8 1.4z" fill="currentColor" stroke="none"/>',
   ruler: '<rect x="3" y="8" width="18" height="8" rx="1.5"/><path d="M7 8v3M11 8v4M15 8v3M19 8v4"/>',
@@ -2149,6 +2150,7 @@ const TOOLS = [
     { id: 'rotate', icon: 'rotate', name: 'Ruota', key: 'R', desc: 'Ruota con scatto a 15°', run: () => setTool('rotate') },
     { id: 'face', icon: 'face', name: 'Lato', key: 'L', desc: 'Spingi o tira un lato piatto', run: () => setTool('face') },
     { id: 'edge', icon: 'edge', name: 'Spigolo', key: 'E', desc: 'Arrotonda o smussa uno spigolo', run: () => setTool('edge') },
+    { id: 'stretch', icon: 'stretch', name: 'Allunga', key: 'U', desc: 'Allunga o accorcia una parte, da un piano in poi', run: () => setTool('stretch') },
     { id: 'cut', icon: 'cut', name: 'Taglia', key: 'K', desc: 'Taglia un oggetto con un piano', run: () => setTool('cut') },
     { id: 'ruler', icon: 'dist', name: 'Distanza', key: 'D', desc: 'Misura tra due punti o lati', run: () => setTool('ruler') },
   ]],
@@ -2454,6 +2456,7 @@ window.addEventListener('keydown', e => {
   else if (k === 'q') setTool('marquee');
   else if (k === 'w') setTool('lasso');
   else if (k === 'k') setTool('cut');
+  else if (k === 'u') setTool('stretch');
   else if (k === 'r') setTool('rotate');
   else if (k === 'b') createObject('box');
   else if (k === 'c') createObject('cylinder');
@@ -3833,7 +3836,8 @@ try {
   setTimeout(() => { try { d.showModal(); } catch (e) {} }, 400);
 })();
 /* ------------------------------------------------------------ taglia con un piano */
-var CUT = { ax: 'z', pos: 0 }, cutPlane = null;
+var CUT = { ax: 'z', pos: 0, delta: 10 }, cutPlane = null;
+function planeTool() { return state.tool === 'cut' || state.tool === 'stretch'; }
 function cutAxisCenter() { const b = selBox(); return b.isEmpty() ? 0 : b.getCenter(new THREE.Vector3())[CUT.ax]; }
 function cutEnsurePlane() {
   if (cutPlane) return cutPlane;
@@ -3844,7 +3848,7 @@ function cutEnsurePlane() {
   g.add(fill, edge); g.visible = false; scene.add(g); return (cutPlane = g);
 }
 function cutRefresh() {                                        // piano di anteprima: segue asse, posizione e ingombro della selezione
-  const g = cutEnsurePlane(), on = state.tool === 'cut' && selection.length > 0;
+  const g = cutEnsurePlane(), on = planeTool() && selection.length > 0;
   g.visible = on; dirty = true;
   if (!on) return;
   const b = selBox(), c = b.getCenter(new THREE.Vector3()), sz = b.getSize(new THREE.Vector3()), ax = CUT.ax, m = 8;
@@ -3855,8 +3859,13 @@ function cutRefresh() {                                        // piano di antep
 }
 function cutReset() { CUT.pos = Math.round(cutAxisCenter() * 100) / 100; $('#cut-pos').value = fmt(CUT.pos); cutRefresh(); }
 function cutToolChanged() {
-  $('#cut-card').classList.toggle('hidden', state.tool !== 'cut');
-  if (state.tool === 'cut') { cutReset(); if (!selection.length) toast('Seleziona l\'oggetto da tagliare, poi scegli il piano'); } else cutRefresh();
+  $('#cut-card').classList.toggle('hidden', !planeTool());
+  if (planeTool()) {
+    const st = state.tool === 'stretch';
+    $('#cut-title').textContent = tr(st ? 'Allunga' : 'Taglia'); $('#cut-go').textContent = tr(st ? 'Applica' : 'Taglia');
+    $('#cut-delta-wrap').classList.toggle('hidden', !st); $('#cut-hint-cut').classList.toggle('hidden', st); $('#cut-hint-str').classList.toggle('hidden', !st);
+    cutReset(); if (!selection.length) toast(st ? 'Seleziona l\'oggetto da allungare, poi scegli il piano' : 'Seleziona l\'oggetto da tagliare, poi scegli il piano');
+  } else cutRefresh();
 }
 function cutClick(hit) {                                       // un clic sull'oggetto mette il piano in quel punto
   if (!hit) return;
@@ -3899,8 +3908,72 @@ function planeCutNow() {
   setSelection(made); touch(); commit(); cutReset();
   toast(cutN === 1 ? 'Oggetto tagliato in due' : `Tagliati ${cutN} oggetti`);
 }
-$('#cut-go').addEventListener('click', () => { planeCut(); canvas.focus(); });
-window.forma = { openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+$('#cut-delta').addEventListener('input', () => { const v = parseFloat($('#cut-delta').value); if (isFinite(v)) CUT.delta = v; });
+$('#cut-delta').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') $('#cut-go').click(); });
+/* allunga / accorcia: i triangoli che attraversano il piano vengono divisi, poi i punti oltre il piano si spostano (con delta negativo si toglie la fetta tra pos+delta e pos) */
+function splitAtPlane(T, k, v) {                        // T = array piatto di triangoli (9 numeri ciascuno)
+  const out = [], E = 1e-6, A = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  const lerp = (a, b) => { const t = (v - a[k]) / (b[k] - a[k]), r = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; r[k] = v; return r; };
+  const push = (a, b, c) => out.push(...a, ...b, ...c);
+  for (let i = 0; i < T.length; i += 9) {
+    const P = [[T[i], T[i + 1], T[i + 2]], [T[i + 3], T[i + 4], T[i + 5]], [T[i + 6], T[i + 7], T[i + 8]]], d = P.map(q => q[k] - v);
+    const pos = d.filter(x => x > E).length, neg = d.filter(x => x < -E).length;
+    if (!pos || !neg) { push(...P); continue; }
+    // vertice isolato = quello da solo dalla sua parte (l'altro lato può avere anche vertici sul piano)
+    const lone = pos === 1 && neg >= 1 ? d.findIndex(x => x > E) : neg === 1 && pos >= 1 ? d.findIndex(x => x < -E) : -1;
+    const a = P[lone >= 0 ? lone : 0], b = P[((lone >= 0 ? lone : 0) + 1) % 3], c = P[((lone >= 0 ? lone : 0) + 2) % 3];
+    if (lone < 0) { push(...P); continue; }
+    const db = (lone + 1) % 3, dc = (lone + 2) % 3;
+    if (Math.abs(d[db]) <= E) { const m = lerp(a, c); push(a, b, m); push(b, c, m); }              // b sul piano: basta un taglio verso c
+    else if (Math.abs(d[dc]) <= E) { const m = lerp(a, b); push(a, m, c); push(m, b, c); }
+    else { const m1 = lerp(a, b), m2 = lerp(a, c); push(a, m1, m2); push(m1, b, c); push(m1, c, m2); }
+  }
+  return out;
+}
+function stretchPositions(world, k, pos, delta) {
+  const L = delta < 0 ? pos + delta : pos, H = pos, E = 1e-5;
+  if (delta > 0) { const T = Float32Array.from(world); for (let i = k; i < T.length; i += 3) if (T[i] >= H - E) T[i] += delta; return T; }   // ogni vertice oltre il piano scorre: le pareti si allungano
+  let T = splitAtPlane(world, k, H);
+  T = splitAtPlane(T, k, L);
+  const out = [];
+  for (let i = 0; i < T.length; i += 9) {
+    const c = [T[i + k], T[i + 3 + k], T[i + 6 + k]];
+    if (c.every(x => x <= L + E)) { out.push(...T.slice(i, i + 9)); continue; }
+    if (c.every(x => x >= H - E)) { const t = T.slice(i, i + 9); for (let j = 0; j < 3; j++) t[j * 3 + k] += delta; out.push(...t); continue; }
+    if (delta > 0) { const t = T.slice(i, i + 9); for (let j = 0; j < 3; j++) if (t[j * 3 + k] >= H - E) t[j * 3 + k] += delta; out.push(...t); }    // parete a cavallo del piano: si allunga
+    // con delta negativo i triangoli dentro la fetta vengono tolti
+  }
+  return Float32Array.from(out);
+}
+async function stretchSel() {
+  if (trisOf(selection) > 20000) return busyRun('Allungo la parte…', stretchNow);
+  return stretchNow();
+}
+function stretchNow() {
+  const list = selection.slice(), k = 'xyz'.indexOf(CUT.ax), pos = CUT.pos, delta = CUT.delta;
+  if (!list.length) return toast('Seleziona prima un oggetto');
+  if (!delta) return toast('Scrivi di quanti millimetri allungare (negativo per accorciare)');
+  if (heavyGuard(list)) return;
+  const made = []; let n = 0;
+  for (const m of list) {
+    const b = worldBox(m);
+    if (pos <= b.min[CUT.ax] + 1e-3 || pos >= b.max[CUT.ax] - 1e-3) { made.push(m); continue; }
+    if (delta < 0 && pos + delta <= b.min[CUT.ax] + 0.1) { toast('Si può accorciare al massimo fino a ' + fmt(pos - b.min[CUT.ax] - 0.1) + ' mm'); made.push(m); continue; }
+    m.updateMatrixWorld(true);
+    const g = m.geometry, idx = g.index, pa = g.attributes.position, nI = idx ? idx.count : pa.count, v = new THREE.Vector3(), W = new Float32Array(nI * 3);
+    for (let i = 0; i < nI; i++) { v.fromBufferAttribute(pa, idx ? idx.getX(i) : i).applyMatrix4(m.matrixWorld); W[i * 3] = v.x; W[i * 3 + 1] = v.y; W[i * 3 + 2] = v.z; }
+    const arr = stretchPositions(W, k, pos, delta);
+    if (!arr.length) { made.push(m); continue; }
+    const bk = bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(arr) }, m.userData.name);
+    if (!bk) { made.push(m); continue; }
+    replaceWithMerged(m, bk, true); made.push(...lastPieces); n++;
+  }
+  if (!n) return;
+  setSelection(made); touch(); commit(); cutReset();
+  toast(delta > 0 ? `Allungato di ${fmt(delta)} mm` : `Accorciato di ${fmt(-delta)} mm`);
+}
+$('#cut-go').addEventListener('click', () => { if (state.tool === 'stretch') stretchSel(); else planeCut(); canvas.focus(); });
+window.forma = { stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */
