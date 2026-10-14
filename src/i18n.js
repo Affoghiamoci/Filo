@@ -1,5 +1,6 @@
 // Traduzione IT ⇄ EN: i testi originali sono in italiano, l'inglese si applica al volo su tutto il DOM.
 const EN = {
+  'Posizione anche per gruppi e selezioni multiple': 'Position for groups and multiple selections too',
   'Dimenticare le impostazioni di stampa?': 'Forget the print settings?', 'Cosa fa.': 'What it does.', 'Cosa non cambia.': 'What stays the same.', 'Dopo.': 'Afterwards.',
   "Cancella da questo browser le impostazioni di stampa che Filo aveva memorizzato dall'ultimo 3MF di Bambu Studio importato: stampante, profilo di qualità, filamento, riempimento, pareti, supporti, temperature e velocità.": 'Deletes from this browser the print settings Filo stored from the last Bambu Studio 3MF you imported: printer, quality profile, filament, infill, walls, supports, temperatures and speeds.',
   'Il tuo modello e i file già esportati restano come sono. Non viene toccato nulla in Bambu Studio.': 'Your model and the files you already exported stay as they are. Nothing in Bambu Studio is touched.',

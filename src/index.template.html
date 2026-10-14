@@ -85,6 +85,12 @@
     </div>
   </section>
   <section id="p-multi" class="hidden">
+    <h4>Posizione (mm)</h4>
+    <div class="grid3">
+      <label class="f">X<input id="g-x" type="number" step="0.5"></label>
+      <label class="f">Y<input id="g-y" type="number" step="0.5"></label>
+      <label class="f">Z<input id="g-z" type="number" step="0.5"></label>
+    </div>
     <h4 class="h-lock">Misure (mm) <button id="g-lock" class="lock" title="Blocca le proporzioni: le tre misure cambiano insieme. Con Maiusc trascini senza proporzioni" aria-label="Blocca le proporzioni"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9"/><path class="sh" d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></button></h4>
     <div class="grid3">
       <label class="f">L<input id="g-w" type="number" step="0.5" min="0.1"></label>
@@ -280,7 +286,7 @@
     <p>Questa app è stata generata con l’ausilio dell’intelligenza artificiale.</p>
     <div class="info-row"><span class="lbl">Novità</span><div class="cl">
       <b>0.8.3</b>
-      <ul><li>Barra in basso in sezioni (Vista, Mostra, Scatto, Piano di lavoro, Pannelli), con icone e scorciatoie al passaggio del mouse</li><li>Scatto di spostamento e distanza della griglia separati</li><li>Vista attiva evidenziata nella barra</li><li>Livelli: ⌘ + clic seleziona un intervallo</li><li>Esporta 3MF mantenendo le impostazioni di stampa del file importato (Bambu Studio)</li><li>Frammenti senza volume (resti di un testo inciso portato a filo) tolti in automatico: lo slicer non dà più errore</li><li>Livelli, Cronologia, pannello laterale e barra in basso non si sovrappongono più</li></ul>
+      <ul><li>Barra in basso in sezioni (Vista, Mostra, Scatto, Piano di lavoro, Pannelli), con icone e scorciatoie al passaggio del mouse</li><li>Scatto di spostamento e distanza della griglia separati</li><li>Vista attiva evidenziata nella barra</li><li>Livelli: ⌘ + clic seleziona un intervallo</li><li>Esporta 3MF mantenendo le impostazioni di stampa del file importato (Bambu Studio)</li><li>Frammenti senza volume (resti di un testo inciso portato a filo) tolti in automatico: lo slicer non dà più errore</li><li>Livelli, Cronologia, pannello laterale e barra in basso non si sovrappongono più</li><li>Posizione anche per gruppi e selezioni multiple</li></ul>
       <details><summary>Versioni precedenti</summary>
         <b>0.7.9</b>
         <ul><li>Nuovo strumento Spigolo: arrotondare e smussare</li><li>Nuove forme: cono, prisma con n lati e toro</li><li>Tasti adattati a Windows e Linux</li><li>Tema chiaro, scuro o automatico</li><li>Misure con il tasto M</li><li>Spigoli arrotondati e smussati con superficie liscia</li><li>Lucchetto: Maiusc ridimensiona senza proporzioni</li><li>Angoli di rotazione più coerenti</li><li>Strumento Distanza (D) e vista Raggi X (Z)</li><li>Ripeti: copie in griglia, nido d'ape o in cerchio</li><li>Cilindro: il lato è un pezzo unico, si allarga o si stringe trascinando</li><li>Spigoli ad anello (cerchi o tutti i lati di una faccia): si ridimensionano trascinando o in %</li><li>Cima % su scatola, cilindro e prisma (tronchi e coni)</li><li>Scatola: raccordo e smusso su angoli, bordo alto e basso restano modificabili</li><li>Se un'operazione divide un oggetto in più parti, diventano un gruppo</li><li>Calamita tra lati: spostando un pezzo, lati e angoli vicini si agganciano a contatto</li><li>Frecce su e giù nei campi numerici (⇧ per salti da 10 passi)</li><li>Viste Davanti, Sopra e Destra senza prospettiva, per allineare con precisione</li><li>Lato a filo con un'altra superficie (anche sul fondo di un testo inciso): le facce si fondono in una sola</li><li>Esporta 3MF riparato (spigoli non chiusi o doppi), con Filo nei metadati</li><li>Cubo di orientamento e lingua scelta dal menu iniziale</li><li>Copia, taglia e incolla (⌘C, ⌘X, ⌘V), anche sul posto (⌘⇧V)</li><li>Esporta in un solo passaggio</li><li>Modelli pesanti più fluidi, con un avviso quando riduco risoluzione e ombre, e import 3MF di Bambu e Orca corretto</li><li>Contatore di visite anonimo sul sito ufficiale</li></ul>

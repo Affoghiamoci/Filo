@@ -1564,6 +1564,8 @@ function syncPanel() {
   } else {
     const gb = selBox(), gs = gb.getSize(new THREE.Vector3());
     [['w', 'x'], ['d', 'y'], ['h', 'z']].forEach(([id, ax]) => { const el = $('#g-' + id); if (document.activeElement !== el) el.value = fmt(gs[ax]); });
+    const gc = gb.getCenter(new THREE.Vector3());
+    [['x', gc.x], ['y', gc.y], ['z', gb.min.z]].forEach(([ax, v]) => { const el = $('#g-' + ax); if (document.activeElement !== el) el.value = fmt(v); });
     nameEl.value = isOneGroup() ? `Gruppo · ${selection.length} oggetti` : `${selection.length} oggetti`;
     nameEl.disabled = true;
   }
@@ -1572,6 +1574,20 @@ function syncPanel() {
     : keyObj ? `Oggetto chiave: ${keyObj.userData.name}. Clicca un altro oggetto selezionato per cambiarlo.`
     : 'Allineo alla selezione. Per scegliere un oggetto chiave, clicca uno degli oggetti selezionati.';
 }
+// posizione di un gruppo o di più oggetti: X e Y sono il centro dell'ingombro, Z la base
+['x', 'y', 'z'].forEach(ax => {
+  const el = $('#g-' + ax);
+  el.addEventListener('input', () => {
+    const v = parseFloat(el.value);
+    if (!isFinite(v) || selection.length < 2) return;
+    const b = selBox(), cur = ax === 'z' ? b.min.z : b.getCenter(new THREE.Vector3())[ax], d = v - cur;
+    if (!d) return;
+    selection.forEach(m => { m.position[ax] += d; m.updateMatrixWorld(true); });
+    touch(); updateHandles(); dirty = true;
+  });
+  el.addEventListener('change', () => { syncPanel(); commit(); });
+  el.addEventListener('keydown', e => { if (e.key === 'Enter') el.blur(); });
+});
 let gScale = null;
 ['x', 'y', 'z'].forEach(ax => {
   const el = $('#g-' + { x: 'w', y: 'd', z: 'h' }[ax]);
