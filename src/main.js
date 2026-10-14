@@ -1128,7 +1128,7 @@ canvas.addEventListener('pointerdown', e => {
   drag = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: false, mode: 'orbit', shift: e.shiftKey };
   if (e.button === 1 || state.space || state.tool === 'hand') drag.mode = 'pan';
   else if (e.button === 2 || state.tool === 'orbit') drag.mode = 'orbit';
-  else if (state.tool === 'marquee') { drag.mode = 'marquee'; drag.pts = [[e.clientX, e.clientY]]; mqShow(drag, e); }
+  else if (state.tool === 'marquee' || state.tool === 'lasso') { drag.mode = 'marquee'; drag.pts = [[e.clientX, e.clientY]]; mqShow(drag, e); }
   else if (state.tool === 'rotate') {
     const ax = pickRing(e);
     if (ax) {
@@ -1312,32 +1312,21 @@ canvas.addEventListener('pointerup', e => {
   else if (d.emptyClick && !d.moved && !d.shift) setSelection([]);
 });
 /* selezione a riquadro e lazo */
-let mqMode = 'rect';
+const mqMode = () => state.tool === 'lasso' ? 'lasso' : 'rect';
 const mqEl = $('#mq'), mqR = $('#mq-r'), mqP = $('#mq-p');
 function mqShow(d, e) {
-  mqEl.classList.remove('hidden', 'touch'); mqR.style.display = mqMode === 'rect' ? '' : 'none'; mqP.style.display = mqMode === 'lasso' ? '' : 'none';
+  mqEl.classList.remove('hidden', 'touch'); mqR.style.display = mqMode() === 'rect' ? '' : 'none'; mqP.style.display = mqMode() === 'lasso' ? '' : 'none';
   mqUpdate(d, e);
 }
 function mqUpdate(d, e) {
-  if (mqMode === 'rect') {
+  if (mqMode() === 'rect') {
     const [x0, y0] = d.pts[0], x = Math.min(x0, e.clientX), y = Math.min(y0, e.clientY);
     mqR.setAttribute('x', x); mqR.setAttribute('y', y); mqR.setAttribute('width', Math.abs(e.clientX - x0)); mqR.setAttribute('height', Math.abs(e.clientY - y0));
-    mqEl.classList.toggle('touch', e.clientX < x0);                 // da destra a sinistra: basta toccare
   } else {
     const l = d.pts[d.pts.length - 1];
     if (Math.hypot(e.clientX - l[0], e.clientY - l[1]) > 3) d.pts.push([e.clientX, e.clientY]);
     mqP.setAttribute('points', d.pts.map(p => p.join(',')).join(' '));
   }
-}
-function screenBox(m) {                                            // ingombro dell'oggetto sullo schermo
-  const b = worldBox(m), w = window.innerWidth, h = window.innerHeight, v = new THREE.Vector3();
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z]) {
-    v.set(x, y, z).project(camera);
-    const px = (v.x * 0.5 + 0.5) * w, py = (-v.y * 0.5 + 0.5) * h;
-    x0 = Math.min(x0, px); y0 = Math.min(y0, py); x1 = Math.max(x1, px); y1 = Math.max(y1, py);
-  }
-  return { x0, y0, x1, y1, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
 }
 function inPoly(x, y, pts) {
   let c = false;
@@ -1347,15 +1336,32 @@ function inPoly(x, y, pts) {
   }
   return c;
 }
+// gli oggetti toccati dall'area: si lanciano raggi su una griglia di punti dentro l'area, quindi conta la forma vera e non l'ingombro.
+// Si prendono solo quelli visibili; con Raggi X acceso anche quelli coperti.
+function pickInArea(inside, x0, y0, x1, y1) {
+  const cand = objects.filter(o => o.visible && !o.userData.locked), found = new Set();
+  const step = Math.max(5, Math.sqrt(Math.max(1, (x1 - x0) * (y1 - y0)) / 2500));
+  const test = (x, y) => {
+    if (!inside(x, y)) return;
+    setRay({ clientX: x, clientY: y });
+    const hits = raycaster.intersectObjects(cand, false);
+    if (state.xray) hits.forEach(h => found.add(h.object)); else if (hits[0]) found.add(hits[0].object);
+  };
+  for (let y = y0; y <= y1; y += step) for (let x = x0; x <= x1; x += step) test(x, y);
+  test(x1, y1); test((x0 + x1) / 2, (y0 + y1) / 2);
+  return [...found];
+}
 function mqFinish(d, e) {
   mqEl.classList.add('hidden');
   if (!d.moved) { if (!d.shift) setSelection([]); return; }
-  let found = [];
-  const cand = objects.filter(o => o.visible && !o.userData.locked);
-  if (mqMode === 'rect') {
-    const [sx, sy] = d.pts[0], x0 = Math.min(sx, e.clientX), x1 = Math.max(sx, e.clientX), y0 = Math.min(sy, e.clientY), y1 = Math.max(sy, e.clientY), touch = e.clientX < sx;
-    found = cand.filter(m => { const b = screenBox(m); return touch ? !(b.x1 < x0 || b.x0 > x1 || b.y1 < y0 || b.y0 > y1) : b.x0 >= x0 && b.x1 <= x1 && b.y0 >= y0 && b.y1 <= y1; });
-  } else if (d.pts.length > 2) found = cand.filter(m => { const b = screenBox(m); return inPoly(b.cx, b.cy, d.pts); });
+  let found;
+  if (mqMode() === 'rect') {
+    const [sx, sy] = d.pts[0], x0 = Math.min(sx, e.clientX), x1 = Math.max(sx, e.clientX), y0 = Math.min(sy, e.clientY), y1 = Math.max(sy, e.clientY);
+    found = pickInArea(() => true, x0, y0, x1, y1);
+  } else if (d.pts.length > 2) {
+    const xs = d.pts.map(p => p[0]), ys = d.pts.map(p => p[1]);
+    found = pickInArea((x, y) => inPoly(x, y, d.pts), Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys));
+  } else found = [];
   const sel = withGroups(found);
   setSelection(d.shift ? [...new Set([...selection, ...sel])] : sel);
   if (sel.length) toast(sel.length === 1 ? 'Selezionato 1 oggetto' : `Selezionati ${sel.length} oggetti`);
@@ -1529,7 +1535,7 @@ canvas.addEventListener('gesturestart', e => { e.preventDefault(); gDist = cam.d
 canvas.addEventListener('gesturechange', e => { e.preventDefault(); cam.dist = clamp(gDist / e.scale, 4, 3000); applyCamera(); });
 function updateCursor(grabbing) {
   const pan = state.space || state.tool === 'hand';
-  canvas.style.cursor = pan ? (grabbing ? 'grabbing' : 'grab') : state.tool === 'orbit' ? 'move' : state.tool === 'rotate' ? 'crosshair' : state.tool === 'face' || state.tool === 'edge' || state.tool === 'ruler' || state.tool === 'marquee' ? 'crosshair' : 'default';
+  canvas.style.cursor = pan ? (grabbing ? 'grabbing' : 'grab') : state.tool === 'orbit' ? 'move' : state.tool === 'rotate' ? 'crosshair' : state.tool === 'face' || state.tool === 'edge' || state.tool === 'ruler' || state.tool === 'marquee' || state.tool === 'lasso' ? 'crosshair' : 'default';
 }
 
 /* ------------------------------------------------------------- pannello */
@@ -2025,6 +2031,7 @@ const I = {
   dist: '<path d="M3.5 16.5l13-13 4 4-13 13z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/>',
   edge: '<path d="M4 20V9a5 5 0 0 1 5-5h11"/><path d="M4 20h16" opacity=".35"/><path d="M20 4v16" opacity=".35"/>',
   face: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5" opacity=".4"/><path d="M12 12l8-4.5v9L12 21z" fill="currentColor" stroke="none" opacity=".4"/>',
+  lasso: '<ellipse cx="12" cy="9" rx="8" ry="5"/><path d="M9 13.6c-1.2 1.9-.4 3.6 1.2 4.5 1.4.8 1.2 2.1-.4 2.6"/>',
   marquee: '<rect x="4" y="5" width="16" height="14" stroke-dasharray="3 2.5"/><path d="M10 10l5 2.5-2 .8 1.4 2.6-1.2.6-1.4-2.6-1.8 1.4z" fill="currentColor" stroke="none"/>',
   ruler: '<rect x="3" y="8" width="18" height="8" rx="1.5"/><path d="M7 8v3M11 8v4M15 8v3M19 8v4"/>',
   model: '<rect x="4" y="11" width="16" height="9" rx="2"/><path d="M3 7h18v4H3zM12 7v13"/>',
@@ -2032,7 +2039,8 @@ const I = {
 const TOOLS = [
   ['Strumenti', [
     { id: 'move', icon: 'move', name: 'Sposta', key: 'V', desc: 'Seleziona e muovi gli oggetti', run: () => setTool('move') },
-    { id: 'marquee', icon: 'marquee', name: 'Riquadro', key: 'Q', desc: 'Trascina per selezionare · Q: lazo', run: () => setTool('marquee') },
+    { id: 'marquee', icon: 'marquee', name: 'Riquadro', key: 'Q', desc: 'Seleziona trascinando un riquadro', run: () => setTool('marquee') },
+    { id: 'lasso', icon: 'lasso', name: 'Lazo', key: 'W', desc: 'Seleziona disegnando una linea libera', run: () => setTool('lasso') },
     { id: 'rotate', icon: 'rotate', name: 'Ruota', key: 'R', desc: 'Ruota con scatto a 15°', run: () => setTool('rotate') },
     { id: 'face', icon: 'face', name: 'Lato', key: 'L', desc: 'Spingi o tira un lato piatto', run: () => setTool('face') },
     { id: 'edge', icon: 'edge', name: 'Spigolo', key: 'E', desc: 'Arrotonda o smussa uno spigolo', run: () => setTool('edge') },
@@ -2050,7 +2058,6 @@ const TOOLS = [
   ['Modifica', [
     { icon: 'hole', name: 'Foro / Solido', key: 'X', desc: 'Trasforma in foro per scavare', run: toggleHole },
     { icon: 'combine', name: 'Combina', key: '⌘E', desc: 'Unisce i solidi, sottrae i fori', run: combine },
-    { icon: 'combine', name: 'Separa', key: '', desc: 'Divide le parti staccate in livelli distinti', run: () => separateSelection() },
     { icon: 'group', name: 'Raggruppa', key: '⌘G', desc: 'Muove più oggetti come uno', run: groupSelection },
     { icon: 'dup', name: 'Duplica', key: '⌘D', desc: 'Copia l’oggetto selezionato', run: () => duplicateSelection(true) },
     { icon: 'trash', name: 'Elimina', key: '⌫', desc: 'Rimuove la selezione', run: deleteSelection },
@@ -2337,7 +2344,8 @@ window.addEventListener('keydown', e => {
   else if (k === 'l') setTool('face');
   else if (k === 'e') setTool('edge');
   else if (k === 'd') setTool('ruler');
-  else if (k === 'q') { if (state.tool === 'marquee') { mqMode = mqMode === 'rect' ? 'lasso' : 'rect'; toast(mqMode === 'rect' ? 'Riquadro: da sinistra prende ciò che è tutto dentro, da destra anche ciò che tocchi' : 'Lazo: prende gli oggetti con il centro dentro la linea'); } else setTool('marquee'); }
+  else if (k === 'q') setTool('marquee');
+  else if (k === 'w') setTool('lasso');
   else if (k === 'r') setTool('rotate');
   else if (k === 'b') createObject('box');
   else if (k === 'c') createObject('cylinder');
@@ -3266,6 +3274,15 @@ function addImportedItems(items, baseName) {
     return makeMesh({ kind: 'merged', name: items.length > 1 ? `${baseName} ${i + 1}` : baseName, geo: g, pos: [c.x - ac.x, c.y - ac.y, b.min.z - all.min.z], p: { w: s.x, d: s.y, h: s.z }, base: { w: s.x, d: s.y, h: s.z } });
   });
 }
+function askSplit(n, name) {                           // finestra: dividere in livelli le parti staccate di un file
+  const dl = $('#dlg-split');
+  $('#split-n').textContent = n;
+  return new Promise(res => {
+    dl.returnValue = '';
+    dl.addEventListener('close', () => res(dl.returnValue === 'split'), { once: true });
+    dl.showModal();
+  });
+}
 async function importFiles(files) {
   for (const f of files) {
     const ext = f.name.split('.').pop().toLowerCase();
@@ -3298,7 +3315,14 @@ async function importFiles(files) {
         items = [{ pos: all }];
       }
       const made = addImportedItems(items, f.name.replace(/\.[^.]+$/, ''));
-      setSelection(made); touch(); commit(); fitView();
+      setSelection(made);
+      let nParts = 0;                                    // un solo oggetto fatto di parti staccate: si propone di dividerle
+      if (made.length === 1 && made[0].geometry.index.count / 3 < 400000) {
+        const bk = bakeResult(made[0], made[0].userData.name), pg = bk && pieceGroups(bk.geo);
+        if (pg && pg.parts.length > 1 && await askSplit(pg.parts.length, f.name)) nParts = separateSelection(true) || 0;
+      }
+      touch(); commit(); fitView();
+      if (nParts) { toast(`Importato ${f.name}: diviso in ${nParts} pezzi separati`); continue; }
       const tris = made.reduce((s, m) => s + m.geometry.index.count / 3, 0);
       toast(`Importato ${f.name}: ${made.length} ${made.length === 1 ? 'oggetto' : 'oggetti'}, ${tris.toLocaleString('it-IT')} triangoli`);
     } catch (err) { console.error(err); toast(`Impossibile leggere ${f.name}`); }
