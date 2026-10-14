@@ -538,3 +538,11 @@ label.f.has-stp{position:relative;padding-right:3px}
 #bar .row>.grp{height:30px;box-sizing:border-box;align-items:stretch}
 #bar .row>.btn{height:30px}
 #bar .btn em{position:relative;top:1px}
+
+#exp-print{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+#exp-print.hidden{display:none}
+.exp-chk{display:flex;align-items:center;gap:8px;font:500 11px var(--mono);letter-spacing:.04em;text-transform:uppercase}
+.exp-chk input{accent-color:var(--accent);width:15px;height:15px;margin:0}
+#exp-print .hint{margin:6px 0 0;word-break:break-word}
+.lnk{all:unset;cursor:default;text-decoration:underline;color:var(--text)}
+.lnk:hover{color:var(--accent)}

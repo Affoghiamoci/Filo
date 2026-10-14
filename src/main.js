@@ -1811,7 +1811,21 @@ function repairForExport(P, I) {
   }
   return { P: Float32Array.from(outP), I: outI, bad };
 }
-function build3MF(list) {
+/* impostazioni di stampa (Bambu Studio / Orca): si leggono dal 3MF importato e si rimettono nel 3MF esportato */
+let printCfg = null, keepPrint = true;
+try { const s = JSON.parse(localStorage.getItem('forma.print')); if (s && s.cfg) printCfg = s; keepPrint = localStorage.getItem('forma.keepPrint') !== '0'; } catch (e) {}
+function printSummary(cfg) {
+  try {
+    const d = JSON.parse(cfg), one = v => Array.isArray(v) ? v[0] : v;
+    const pa = (d.printable_area || []).map(s => String(s).split('x').map(Number)).filter(a => a.length === 2 && isFinite(a[0] + a[1]));
+    const cx = pa.length ? (Math.min(...pa.map(a => a[0])) + Math.max(...pa.map(a => a[0]))) / 2 : null;
+    const cy = pa.length ? (Math.min(...pa.map(a => a[1])) + Math.max(...pa.map(a => a[1]))) / 2 : null;
+    return { printer: d.printer_settings_id || d.printer_model || '', process: d.print_settings_id || '', filament: one(d.filament_settings_id) || '', center: cx === null ? null : [cx, cy] };
+  } catch (e) { return null; }
+}
+function savePrintCfg() { try { printCfg ? localStorage.setItem('forma.print', JSON.stringify(printCfg)) : localStorage.removeItem('forma.print'); } catch (e) {} }
+function build3MF(list, opt = {}) {
+  const pr = opt.print || null, off = pr && pr.sum && pr.sum.center ? pr.sum.center : [0, 0];
   const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const v = new THREE.Vector3();
   let objs = '', items = '', mats = '';
@@ -1824,7 +1838,7 @@ function build3MF(list) {
     g = mergeVertices(g, 1e-4);
     const pos = g.attributes.position, idx = g.index;
     const W = new Float32Array(pos.count * 3);
-    for (let k = 0; k < pos.count; k++) { v.fromBufferAttribute(pos, k).applyMatrix4(m.matrixWorld); W.set([+v.x.toFixed(4), +v.y.toFixed(4), +v.z.toFixed(4)], k * 3); }
+    for (let k = 0; k < pos.count; k++) { v.fromBufferAttribute(pos, k).applyMatrix4(m.matrixWorld); W.set([+(v.x + off[0]).toFixed(4), +(v.y + off[1]).toFixed(4), +v.z.toFixed(4)], k * 3); }
     const I0 = idx ? Uint32Array.from(idx.array) : Uint32Array.from({ length: pos.count }, (_, k) => k);
     const R = repairForExport(W, I0);
     let vs = '', ts = '';
@@ -1836,17 +1850,20 @@ function build3MF(list) {
     objs += `<object id="${id}" name="${esc(m.userData.name)}" type="model"${ci >= 0 ? ` pid="${list.length + 1}" pindex="${ci}"` : ''}><mesh><vertices>${vs}</vertices><triangles>${ts}</triangles></mesh></object>`;
     items += `<item objectid="${id}"/>`;
   });
-  const model = `<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"><metadata name="Application">Filo</metadata><resources>${mats}${objs}</resources><build>${items}</build></model>`;
+  const model = `<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"${pr ? ' xmlns:BambuStudio="http://schemas.bambulab.com/package/2021"' : ''}><metadata name="Application">${pr ? esc(pr.app || 'BambuStudio-02.00.00.00') : 'Filo'}</metadata>${pr ? '<metadata name="BambuStudio:3mfVersion">1</metadata><metadata name="ModifiedBy">Filo</metadata>' : ''}<resources>${mats}${objs}</resources><build>${items}</build></model>`;
   const types = '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>';
   const rels = '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>';
-  return zipSync({ '[Content_Types].xml': strToU8(types), '_rels/.rels': strToU8(rels), '3D/3dmodel.model': strToU8(model) });
+  const files = { '[Content_Types].xml': strToU8(types), '_rels/.rels': strToU8(rels), '3D/3dmodel.model': strToU8(model) };
+  if (pr) files['Metadata/project_settings.config'] = strToU8(pr.cfg);
+  return zipSync(files);
 }
 function export3MF(nameArg) {
   const list = exportList();
   if (!list.length) return toast('Niente da esportare: aggiungi almeno un solido');
-  const data = build3MF(list), name = nameArg || exportName(list);
+  const usePrint = printCfg && keepPrint;
+  const data = build3MF(list, { print: usePrint ? printCfg : null }), name = nameArg || exportName(list);
   download(data, 'model/3mf', `${name}.3mf`);
-  toast(`Esportato ${name}.3mf (${list.length} ${list.length === 1 ? 'pezzo' : 'pezzi'})`);
+  toast(`Esportato ${name}.3mf (${list.length} ${list.length === 1 ? 'pezzo' : 'pezzi'})${usePrint ? ' con le impostazioni di stampa' : ''}`);
   return data;
 }
 
@@ -2103,7 +2120,15 @@ $('#b-export').addEventListener('click', () => askExport(expFmt));
 const dlgExp = $('#dlg-exp'), expName = $('#exp-name');
 let expFmt = '3mf';
 const EXP_HINT = { '3mf': 'Millimetri, più pezzi in un file. Apre Bambu Studio senza sorprese.', stl: 'Solo la forma, compatibile con qualsiasi programma.' };
-function setExpFmt(f) { expFmt = f; document.querySelectorAll('#exp-fmt button').forEach(b => b.classList.toggle('on', b.dataset.v === f)); $('#exp-ext').textContent = '.' + f; $('#exp-hint').textContent = EXP_HINT[f]; }
+function syncPrintRow() {
+  const row = $('#exp-print'), on = expFmt === '3mf' && !!printCfg;
+  row.classList.toggle('hidden', !on);
+  if (!on) return;
+  $('#exp-keep').checked = keepPrint;
+  const s = printCfg.sum || {};
+  $('#exp-print-d').textContent = [printCfg.src, s.printer, s.process, s.filament].filter(Boolean).join(' · ');
+}
+function setExpFmt(f) { expFmt = f; syncPrintRow(); document.querySelectorAll('#exp-fmt button').forEach(b => b.classList.toggle('on', b.dataset.v === f)); $('#exp-ext').textContent = '.' + f; $('#exp-hint').textContent = EXP_HINT[f]; }
 function askExport(fmt = '3mf') {
   const list = exportList();
   if (!list.length) return toast('Niente da esportare: aggiungi almeno un solido');
@@ -2114,6 +2139,8 @@ function askExport(fmt = '3mf') {
   expName.focus(); expName.select();
 }
 $('#exp-fmt').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setExpFmt(b.dataset.v); });
+$('#exp-keep').addEventListener('change', e => { keepPrint = e.target.checked; try { localStorage.setItem('forma.keepPrint', keepPrint ? '1' : '0'); } catch (err) {} });
+$('#exp-forget').addEventListener('click', () => { printCfg = null; savePrintCfg(); syncPrintRow(); toast('Impostazioni di stampa dimenticate'); });
 $('#exp-cancel').addEventListener('click', () => dlgExp.close());
 $('#exp-form').addEventListener('submit', e => {
   e.preventDefault();
@@ -3052,6 +3079,12 @@ function parse3MF(buf) {
     return m;
   };
   const rootModel = load(root);
+  let pcfg = null;
+  if (files['Metadata/project_settings.config']) {
+    const cfg = dec.decode(files['Metadata/project_settings.config']), sum = printSummary(cfg);
+    const mm = /<metadata name="Application">([^<]*)</.exec(text(root));
+    if (sum) pcfg = { cfg, sum, app: mm ? mm[1] : '' };
+  }
   const scale = { micron: 0.001, millimeter: 1, centimeter: 10, inch: 25.4, foot: 304.8, meter: 1000 }[rootModel.unit] ?? 1;
   const emit = (path, id, M4, out, depth = 0) => {
     const o = load(path).objs[id];
@@ -3065,7 +3098,9 @@ function parse3MF(buf) {
   };
   let list = rootModel.items;
   if (!list.length) list = Object.keys(rootModel.objs).filter(k => rootModel.objs[k].v).map(k => ({ id: k, path: null, tf: null }));
-  return list.map(it => { const out = []; emit(it.path || root, it.id, mat(it.tf), out); return { pos: Float32Array.from(out) }; }).filter(it => it.pos.length >= 9);
+  const res = list.map(it => { const out = []; emit(it.path || root, it.id, mat(it.tf), out); return { pos: Float32Array.from(out) }; }).filter(it => it.pos.length >= 9);
+  res.print = pcfg;
+  return res;
 }
 function addImportedItems(items, baseName) {
   const boxes = items.map(it => { const b = new THREE.Box3(), p = new THREE.Vector3(); for (let i = 0; i < it.pos.length; i += 3) b.expandByPoint(p.set(it.pos[i], it.pos[i + 1], it.pos[i + 2])); return b; });
@@ -3086,7 +3121,10 @@ async function importFiles(files) {
     try {
       const buf = await f.arrayBuffer();
       let items;
-      if (ext === '3mf') items = parse3MF(buf);
+      if (ext === '3mf') {
+        items = parse3MF(buf);
+        if (items.print) { printCfg = { ...items.print, src: f.name }; keepPrint = true; savePrintCfg(); try { localStorage.setItem('forma.keepPrint', '1'); } catch (e) {} }
+      }
       else if (ext === 'stl') items = [{ pos: Float32Array.from(new STLLoader().parse(buf).attributes.position.array) }];
       else if (ext === 'svg') {
         const items = svgItems(new TextDecoder().decode(buf));
@@ -3475,7 +3513,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '0.8.0';
+const APP_VERSION = '0.8.1';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
@@ -3501,7 +3539,7 @@ try {
   d.addEventListener('cancel', () => { try { sessionStorage.setItem('forma.mobile', '1'); } catch (e) {} });
   setTimeout(() => { try { d.showModal(); } catch (e) {} }, 400);
 })();
-window.forma = { applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */
