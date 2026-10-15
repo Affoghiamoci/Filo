@@ -116,7 +116,7 @@ label.f{white-space:nowrap}
 .icon-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 #side{transition:width .22s ease}
 #side.opening{overflow:hidden}
-#side.opening>*{min-width:312px;white-space:nowrap}
+#side.opening>*{min-width:290px;white-space:nowrap}
 #side.opening .titles,#side.opening .tool .t,#side.opening .tool kbd,#side.opening #foot,#side.opening #nav-help,#side.opening #help-open,#side.opening #tools h3{animation:side-in .18s ease .08s backwards}
 @keyframes side-in{from{opacity:0}to{opacity:1}}
 #side.mini{width:60px;bottom:auto;max-height:calc(100% - 24px)}
