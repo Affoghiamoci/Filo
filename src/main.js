@@ -2,7 +2,6 @@ import { initI18n, tr, plat, getLang } from './i18n.js';
 import { GROUPS, HELP } from './help.js';
 import IMG1 from './helpimg.js';
 import IMG2 from './helpimg2.js';
-import { EXAMPLES } from './examples.js';
 const IMG = { ...IMG1, ...IMG2 };
 import { computeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
 import * as THREE from 'three';
@@ -5388,9 +5387,9 @@ function syncTextPanel() {
 }
 
 
-/* --------------------------------------------- esempi caricabili dalla Guida ("Prova ora") */
+/* --------------------------------------------- scene di esempio (usate dal generatore di immagini della Guida, tools/guide-shots.py) */
 function loadExample(id) {
-  const ex = typeof id === 'string' ? EXAMPLES[id] : id; if (!ex) return false;
+  const ex = id; if (!ex) return false;
   saveLast();                                                        // il lavoro di prima resta in Riprendi e si torna indietro con ⌘Z
   [...objects].forEach(removeMesh); keyObj = null;
   ex.items.forEach(d => makeMesh({ name: d.name, kind: d.kind, p: { ...defaultsFor(d.kind), ...d.p }, pos: d.pos || [0, 0, 0], hole: !!d.hole, rot: d.rot || 0 }));
@@ -5412,7 +5411,7 @@ function loadExample(id) {
     }).join('');
     const it = items.find(x => x.id === cur) || items[0];
     const body = it.h.replace(/\{\{img:([^|}]+)\|([^}]*)\}\}/g, (_, n, c) => IMG[n] ? `<figure><img src="${IMG[n]}" alt="${c.replace(/"/g, '')}" loading="lazy"><figcaption>${c}</figcaption></figure>` : '');
-    const body2 = body.replace(/\{\{try:([^|}]+)\|([^}]*)\}\}/g, (_, n, c) => EXAMPLES[n] ? `<p class="hp-try"><button type="button" class="btn primary" data-try="${n}">${c}</button></p>` : '');
+    const body2 = body;
     main.innerHTML = `<h2>${it.t}</h2>` + plat(body2, false);
     main.scrollTop = 0;
     const i = items.indexOf(it), pv = items[i - 1], nx = items[i + 1];
@@ -5421,7 +5420,6 @@ function loadExample(id) {
   const open = id => { if (id) cur = id; render(); if (!dlg.open) dlg.showModal(); };
   document.addEventListener('click', e => { const b = e.target.closest('#hp-nav button, .hp-pn button'); if (b) { cur = b.dataset.id; render(); } });
   document.addEventListener('click', e => { if (e.target.closest('[data-lang]') && dlg.open) setTimeout(render, 0); });
-  main.addEventListener('click', e => { const b = e.target.closest('[data-try]'); if (b && loadExample(b.dataset.try)) dlg.close(); });
   $('#help-open').addEventListener('click', () => open());
   $('#hp-close').addEventListener('click', () => dlg.close());
   dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });

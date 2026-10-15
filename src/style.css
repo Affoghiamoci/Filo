@@ -771,10 +771,3 @@ dialog[open],dialog[open]::backdrop{animation:fade-in .16s ease}
 #hp-main .hp-leg .mk.f{width:6px;height:6px;margin-top:8px;border-radius:50%;opacity:.6}
 #hp-main .hp-leg .mk.p{width:9px;height:9px;margin-top:6px;border-radius:50%;background:var(--on-accent)}
 
-#hp-main .hp-st{list-style:none;counter-reset:st;padding:0;max-width:none}
-#hp-main .hp-st>li{counter-increment:st;position:relative;padding:0 0 0 44px;margin:0 0 20px}
-#hp-main .hp-st>li::before{content:counter(st,decimal-leading-zero);position:absolute;left:0;top:-2px;font:400 24px/1 'VT323',var(--mono);color:var(--accent)}
-#hp-main .hp-st>li>b{display:block;font:600 11px/1.5 var(--mono);letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px}
-#hp-main .hp-st>li>p{margin:0 0 8px}
-#hp-main .hp-try{margin:0 0 16px}
-#hp-main .hp-try .btn{padding:8px 16px}
