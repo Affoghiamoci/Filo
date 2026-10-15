@@ -1,8 +1,7 @@
 import { initI18n, tr, plat, getLang } from './i18n.js';
 import { GROUPS, HELP } from './help.js';
 import IMG1 from './helpimg.js';
-import IMG2 from './helpimg2.js';
-const IMG = { ...IMG1, ...IMG2 };
+const IMG = IMG1;
 import { computeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
 import * as THREE from 'three';
 import { STLExporter } from 'three/addons/exporters/STLExporter.js';
@@ -5222,7 +5221,7 @@ $('#ew-resume').addEventListener('click', async e => {
 });
 offerResume();
 
-window.forma = { loadExample, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */
@@ -5453,18 +5452,6 @@ function syncTextPanel() {
 }
 
 
-/* --------------------------------------------- scene di esempio (usate dal generatore di immagini della Guida, tools/guide-shots.py) */
-function loadExample(id) {
-  const ex = id; if (!ex) return false;
-  saveLast();                                                        // il lavoro di prima resta in Riprendi e si torna indietro con ⌘Z
-  [...objects].forEach(removeMesh); keyObj = null;
-  ex.items.forEach(d => makeMesh({ name: d.name, kind: d.kind, p: { ...defaultsFor(d.kind), ...d.p }, pos: d.pos || [0, 0, 0], hole: !!d.hole, rot: d.rot || 0 }));
-  setSelection([]);
-  for (const op of ex.ops || []) { if (op.sel) setSelection(op.sel.map(i => objects[i])); if (op.do === 'combine') combineNow(); }
-  setSelection((ex.select || []).map(i => objects[i])); touch(); commit(); fitView();
-  toast(getLang() === 'en' ? `Example loaded: ${ex.en}. Press ⌘Z to go back to what you had` : `Esempio caricato: ${ex.it}. Con ⌘Z torni a quello che avevi`);
-  return true;
-}
 /* ------------------------------------------------------------------- aiuto */
 (function () {
   const dlg = $('#dlg-help'), nav = $('#hp-nav'), main = $('#hp-main');
@@ -5477,8 +5464,7 @@ function loadExample(id) {
     }).join('');
     const it = items.find(x => x.id === cur) || items[0];
     const body = it.h.replace(/\{\{img:([^|}]+)\|([^}]*)\}\}/g, (_, n, c) => IMG[n] ? `<figure><img src="${IMG[n]}" alt="${c.replace(/"/g, '')}" loading="lazy"><figcaption>${c}</figcaption></figure>` : '');
-    const body2 = body;
-    main.innerHTML = `<h2>${it.t}</h2>` + plat(body2, false);
+    main.innerHTML = `<h2>${it.t}</h2>` + plat(body, false);
     main.scrollTop = 0;
     const i = items.indexOf(it), pv = items[i - 1], nx = items[i + 1];
     main.insertAdjacentHTML('beforeend', `<div class="hp-pn">${pv ? `<button data-id="${pv.id}">← ${pv.t}</button>` : '<span></span>'}${nx ? `<button data-id="${nx.id}">${nx.t} →</button>` : ''}</div>`);
