@@ -24,7 +24,7 @@ with sync_playwright() as p:
         after=pg.evaluate(CROSS)
         for x,y,r in res:
             print(kind,round(x),round(y),r['disp'],round(r['cx']),round(r['cy']),r['tip'].replace('\n',' | ')[:40])
-        check(kind+': croce visibile con ⌥',all(r['disp']!='none' and r['d'].count('M')>=6 for _,_,r in res))
+        check(kind+': croce visibile con ⌥',all(r['disp']!='none' and r['d'].count('M')>=2 for _,_,r in res))
         check(kind+': il centro della croce è sul puntatore',all(abs(r['cx']-x)<8 and abs(r['cy']-y)<8 for x,y,r in res))
         check(kind+': la croce segue il puntatore',res[0][2]['d']!=res[1][2]['d'])
         check(kind+': senza ⌥ la croce sparisce',after['disp']=='none')

@@ -4234,8 +4234,6 @@ function drawFaceCross() {
   let d = '';
   for (const ln of crossData.lines) {
     for (const [A, B] of ln.segs) { const a = S(A), b = S(B); d += `M${a[0].toFixed(1)},${a[1].toFixed(1)}L${b[0].toFixed(1)},${b[1].toFixed(1)}`; }
-    const a = S(ln.e0), b = S(ln.e1), dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l * 4, ny = dx / l * 4;      // trattino ai due capi
-    d += `M${a[0] - nx},${a[1] - ny}L${a[0] + nx},${a[1] + ny}M${b[0] - nx},${b[1] - ny}L${b[0] + nx},${b[1] + ny}`;
   }
   const c = S(crossData.c);
   faceCross.style.display = 'block';
@@ -5519,29 +5517,107 @@ function syncTextPanel() {
 
 /* ------------------------------------------------------------------- aiuto */
 (function () {
-  const dlg = $('#dlg-help'), nav = $('#hp-nav'), main = $('#hp-main');
-  let cur = 'start';
-  const render = () => {
-    const lg = getLang(), items = HELP[lg], gr = GROUPS[lg];
-    nav.innerHTML = Object.keys(gr).map(g => {
-      const its = items.filter(x => x.g === g);
-      return its.length ? `<div class="hp-g">${gr[g]}</div>` + its.map(x => `<button data-id="${x.id}" class="${x.id === cur ? 'on' : ''}">${x.t}</button>`).join('') : '';
-    }).join('');
+  const dlg = $('#dlg-help'), nav = $('#hp-nav'), main = $('#hp-main'), qEl = $('#hp-q');
+  let cur = 'start', escUsed = false;
+  const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const foldMap = s => {                                          // minuscole e senza accenti, con la posizione di ogni carattere nell'originale
+    let t = '', map = [];
+    for (let i = 0; i < s.length; i++) { const f = s[i].normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); for (const ch of f) { t += ch; map.push(i); } }
+    return { t, map };
+  };
+  const wordsOf = () => foldMap(qEl.value.trim()).t.split(/\s+/).filter(Boolean);
+  const bodyOf = it => it.h.replace(/\{\{img:([^|}]+)\|([^}]*)\}\}/g, (_, n, c) => IMG[n] ? `<figure><img src="${IMG[n]}" alt="${c.replace(/"/g, '')}" loading="lazy"><figcaption>${c}</figcaption></figure>` : '');
+  const cache = new Map();
+  const textOf = it => {                                          // testo semplice della pagina, nella lingua e sul sistema in uso
+    const key = getLang() + it.id + (it.h.length);
+    if (!cache.has(key)) { const d = document.createElement('div'); d.innerHTML = plat(bodyOf(it), false).replace(/<\/(p|li|h3|h4|div|td|tr|figcaption|ul|ol)>/g, '$& '); cache.set(key, d.textContent.replace(/\s+/g, ' ')); }
+    return cache.get(key);
+  };
+  const ranges = (fm, words) => {                                 // tutte le occorrenze delle parole, in ordine e senza sovrapposizioni
+    const r = [];
+    for (const w of words) { let p = fm.t.indexOf(w); while (p >= 0) { r.push([p, p + w.length]); p = fm.t.indexOf(w, p + w.length); } }
+    r.sort((x, y) => x[0] - y[0] || y[1] - x[1]);
+    const out = [];
+    for (const x of r) { const l = out[out.length - 1]; if (l && x[0] < l[1]) { if (x[1] > l[1]) l[1] = x[1]; } else out.push(x.slice()); }
+    return out;
+  };
+  const search = words => {
+    const res = [];
+    for (const it of HELP[getLang()]) {
+      const ft = foldMap(textOf(it)), tt = foldMap(it.t).t;
+      if (!words.every(w => ft.t.includes(w) || tt.includes(w))) continue;
+      const rg = ranges(ft, words), txt = textOf(it), snips = [];
+      let last = -1e9;
+      for (const [s, e] of rg) {
+        if (snips.length >= 3) break;
+        if (s - last < 90) continue;
+        last = s;
+        const a = ft.map[s], z = ft.map[Math.min(e, ft.map.length) - 1] + 1;
+        let from = Math.max(0, a - 28), to = Math.min(txt.length, z + 52);
+        if (from > 0) { const sp = txt.indexOf(' ', from); if (sp >= 0 && sp < a) from = sp + 1; }
+        if (to < txt.length) { const sp = txt.lastIndexOf(' ', to); if (sp > z) to = sp; }
+        const part = txt.slice(from, to), fp = foldMap(part), pr = ranges(fp, words);
+        let html = '', pos = 0;
+        for (const [ps, pe] of pr) { const x = fp.map[ps], y = fp.map[pe - 1] + 1; html += esc(part.slice(pos, x)) + '<mark>' + esc(part.slice(x, y)) + '</mark>'; pos = y; }
+        html += esc(part.slice(pos));
+        snips.push({ n: rg.indexOf(rg.find(q => q[0] === s)), html: (from > 0 ? '… ' : '') + html + (to < txt.length ? ' …' : '') });
+      }
+      res.push({ it, count: rg.length, title: words.every(w => tt.includes(w)), snips });
+    }
+    res.sort((x, y) => (y.title - x.title) || (y.count - x.count));
+    return res;
+  };
+  const highlight = (words, n) => {
+    const walker = document.createTreeWalker(main, NodeFilter.SHOW_TEXT), nodes = [];
+    for (let nd = walker.nextNode(); nd; nd = walker.nextNode()) nodes.push(nd);
+    for (const nd of nodes) {
+      const fm = foldMap(nd.data), rg = ranges(fm, words);
+      for (let i = rg.length - 1; i >= 0; i--) {
+        const x = fm.map[rg[i][0]], y = fm.map[rg[i][1] - 1] + 1, mid = nd.splitText(x); mid.splitText(y - x);
+        const mk = document.createElement('mark'); mk.className = 'hp-hit'; mid.parentNode.replaceChild(mk, mid); mk.appendChild(mid);
+      }
+    }
+    const marks = main.querySelectorAll('mark.hp-hit');
+    if (marks.length) { const t = marks[Math.min(n, marks.length - 1)]; t.classList.add('cur'); t.scrollIntoView({ block: 'center' }); }
+  };
+  const render = (hitN = 0, noScroll) => {
+    const lg = getLang(), items = HELP[lg], gr = GROUPS[lg], words = wordsOf().length && qEl.value.trim().length >= 2 ? wordsOf() : null;
+    if (words) {
+      const res = search(words);
+      nav.innerHTML = `<div class="hp-g">${res.length ? `${res.length} ${tr(res.length === 1 ? 'risultato' : 'risultati')}` : tr('Nessun risultato')}</div>` +
+        res.map(r => `<button data-id="${r.it.id}" data-n="0" class="hp-res ${r.it.id === cur ? 'on' : ''}"><span>${r.it.t}</span><em>${r.count}</em></button>` + r.snips.map(s => `<button data-id="${r.it.id}" data-n="${s.n}" class="hp-sn">${s.html}</button>`).join('')).join('');
+      if (!res.length) nav.insertAdjacentHTML('beforeend', `<div class="hp-none">${esc(qEl.value.trim())}</div>`);
+      else if (!res.some(r => r.it.id === cur)) cur = res[0].it.id;
+    } else {
+      nav.innerHTML = Object.keys(gr).map(g => {
+        const its = items.filter(x => x.g === g);
+        return its.length ? `<div class="hp-g">${gr[g]}</div>` + its.map(x => `<button data-id="${x.id}" class="${x.id === cur ? 'on' : ''}">${x.t}</button>`).join('') : '';
+      }).join('');
+    }
     const it = items.find(x => x.id === cur) || items[0];
-    const body = it.h.replace(/\{\{img:([^|}]+)\|([^}]*)\}\}/g, (_, n, c) => IMG[n] ? `<figure><img src="${IMG[n]}" alt="${c.replace(/"/g, '')}" loading="lazy"><figcaption>${c}</figcaption></figure>` : '');
-    main.innerHTML = `<h2>${it.t}</h2>` + plat(body, false);
+    main.innerHTML = `<h2>${it.t}</h2>` + plat(bodyOf(it), false);
     main.scrollTop = 0;
     const i = items.indexOf(it), pv = items[i - 1], nx = items[i + 1];
     main.insertAdjacentHTML('beforeend', `<div class="hp-pn">${pv ? `<button data-id="${pv.id}">← ${pv.t}</button>` : '<span></span>'}${nx ? `<button data-id="${nx.id}">${nx.t} →</button>` : ''}</div>`);
+    if (words) highlight(words, hitN);
   };
-  const open = id => { if (id) cur = id; render(); if (!dlg.open) dlg.showModal(); };
-  document.addEventListener('click', e => { const b = e.target.closest('#hp-nav button, .hp-pn button'); if (b) { cur = b.dataset.id; render(); } });
+  const open = id => { if (id) { cur = id; qEl.value = ''; } render(); if (!dlg.open) dlg.showModal(); };
+  document.addEventListener('click', e => { const b = e.target.closest('#hp-nav button, .hp-pn button'); if (b) { cur = b.dataset.id; render(+b.dataset.n || 0); } });
   document.addEventListener('click', e => { if (e.target.closest('[data-lang]') && dlg.open) setTimeout(render, 0); });
+  qEl.addEventListener('input', () => render());
+  qEl.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { if (qEl.value) { e.preventDefault(); e.stopPropagation(); escUsed = true; qEl.value = ''; render(); } }
+    else if (e.key === 'Enter') { e.preventDefault(); const b = nav.querySelector('button.hp-res'); if (b) { cur = b.dataset.id; render(0); } }
+    else if (e.key === 'ArrowDown') { const b = nav.querySelector('button'); if (b) { e.preventDefault(); b.focus(); } }
+  });
+  dlg.addEventListener('cancel', e => { if (escUsed) { e.preventDefault(); escUsed = false; } });
+  dlg.addEventListener('close', () => { qEl.value = ''; });
   $('#help-open').addEventListener('click', () => open());
   $('#hp-close').addEventListener('click', () => dlg.close());
   dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
   window.addEventListener('keydown', e => {
     const t = e.target, typing = t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName);
+    if (dlg.open && ((e.key === '/' && !typing) || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f'))) { e.preventDefault(); e.stopPropagation(); qEl.focus(); qEl.select(); return; }
     if (e.key === 'F1' || (e.key === '?' && !typing && !e.metaKey && !e.ctrlKey)) { e.preventDefault(); e.stopPropagation(); dlg.open ? dlg.close() : open(); }
   }, true);
   window.openHelp = open;
