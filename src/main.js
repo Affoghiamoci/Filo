@@ -8,7 +8,7 @@ import { mergeVertices, mergeGeometries, toCreasedNormals } from 'three/addons/u
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { unzipSync, zipSync, strToU8 } from 'three/addons/libs/fflate.module.js';
 import { Brush, Evaluator, ADDITION, SUBTRACTION, INTERSECTION } from 'three-bvh-csg';
-import { initManifold, manifoldEvaluate, manifoldStretch, manifoldHalf } from './mcsg.js';
+import { initManifold, manifoldEvaluate, manifoldStretch, manifoldHalf, manifoldMod } from './mcsg.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
@@ -785,6 +785,7 @@ function healMesh(g) {
   for (let i = 0; i < fixed.length; i++) { out[i * 3] = P[fixed[i] * 3]; out[i * 3 + 1] = P[fixed[i] * 3 + 1]; out[i * 3 + 2] = P[fixed[i] * 3 + 2]; }
   return geometryFromPositions(out);
 }
+
 function openEdgeCount(g) {                                                    // lati usati da un solo triangolo: se sono 0 la superficie è chiusa
   const { ids } = weldPoints(g.attributes.position.array, 1e-3), tris = triList(g, ids), key = (a, b) => a < b ? a * 4294967296 + b : b * 4294967296 + a, use = new Map();
   for (let t = 0; t < tris.length; t += 3) for (let k = 0; k < 3; k++) { const e = key(tris[t + k], tris[t + (k + 1) % 3]); use.set(e, (use.get(e) || 0) + 1); }
@@ -4014,7 +4015,7 @@ function updateEdgePanel() {
   $('#e-fillet-box').classList.toggle('dim', !n); $('#e-scale-box').classList.toggle('dim', !lp);
   $('#e-size').disabled = !n; $('#e-scale').disabled = !lp; $('#e-scale-go').disabled = !lp;
   const mi = moveInfo(); $('#e-move-box').classList.toggle('dim', !mi); $('#e-mv').disabled = !mi; $('#e-mv-go').disabled = !mi;
-  document.querySelectorAll('#e-mv-ax button').forEach(b => { const a = mi ? edgeMoveAxis(mi) : null; b.classList.toggle('on', b.dataset.v === a); b.disabled = !mi || b.dataset.v === mi.par; });
+  document.querySelectorAll('#e-mv-ax button').forEach(b => { const a = mi ? edgeMoveAxis(mi) : null; b.classList.toggle('on', b.dataset.v === a); b.disabled = !mi || b.dataset.v === mi.par || (b.dataset.v === 'n' && !mi.n); });
   document.querySelectorAll('#e-type button').forEach(b => b.classList.toggle('on', b.dataset.v === edgeMode.v));
 }
 document.querySelectorAll('#e-type button').forEach(b => b.addEventListener('click', () => { edgeMode.v = b.dataset.v; updateEdgePanel(); }));
@@ -4174,15 +4175,25 @@ function moveInfo() {                                   // spigoli scelti (non u
     const d = edgeSel[0].chain.pts[1].clone().sub(edgeSel[0].chain.pts[0]).normalize();
     for (const a of 'xyz') if (Math.abs(d.dot(WAX[a])) > 0.999) par = a;
   }
-  return { obj: edgeSel[0].obj, pts, c, par };
+  let n = null;                                          // spigolo orizzontale e storto (es. un lato dell'esagono): si può spostare anche in perpendicolare, verso l'esterno
+  if (edgeSel.length === 1 && edgeSel[0].chain.pts.length === 2 && !par) {
+    const d = edgeSel[0].chain.pts[1].clone().sub(edgeSel[0].chain.pts[0]).normalize();
+    if (Math.abs(d.z) < 0.02) {
+      n = new THREE.Vector3(d.y, -d.x, 0).normalize();
+      const bb = new THREE.Box3().setFromObject(edgeSel[0].obj), cc = bb.getCenter(new THREE.Vector3());
+      if (n.dot(new THREE.Vector3(c.x - cc.x, c.y - cc.y, 0)) < 0) n.negate();
+    }
+  }
+  return { obj: edgeSel[0].obj, pts, c, par, n };
 }
+const axV = (mi, ax) => ax === 'n' ? mi.n : WAX[ax];
 const EM = { ax: null };
-function edgeMoveAxis(mi) { if (EM.ax && EM.ax !== mi.par) return EM.ax; return 'xyz'.split('').find(a => a !== mi.par); }
+function edgeMoveAxis(mi) { if (EM.ax && EM.ax !== mi.par && (EM.ax !== 'n' || mi.n)) return EM.ax; if (mi.n) return 'n'; return 'xyz'.split('').find(a => a !== mi.par); }
 function moveEdgeBy(mi, ax, mm) {                       // sposta davvero: i vertici dello spigolo, poi il pezzo diventa libero
-  const obj = mi.obj, arr = worldPositions(obj), keys = new Set(mi.pts.map(p => ekey(p.x, p.y, p.z))), hit = new Set();
+  const obj = mi.obj, arr = worldPositions(obj), keys = new Set(mi.pts.map(p => ekey(p.x, p.y, p.z))), hit = new Set(), dv = axV(mi, ax);
   for (let i = 0; i < arr.length; i += 3) {
     const k = ekey(arr[i], arr[i + 1], arr[i + 2]);
-    if (keys.has(k)) { arr[i + 'xyz'.indexOf(ax)] += mm; hit.add(k); }
+    if (keys.has(k)) { arr[i] += dv.x * mm; arr[i + 1] += dv.y * mm; arr[i + 2] += dv.z * mm; hit.add(k); }
   }
   if (hit.size < keys.size) { toast('Questo spigolo è arrotondato: per spostarlo togli prima l\'arrotondamento'); return false; }
   const baked = bakeResult(new THREE.Mesh(geometryFromPositions(arr)), obj.userData.name);
@@ -4190,7 +4201,7 @@ function moveEdgeBy(mi, ax, mm) {                       // sposta davvero: i ver
   const nm = replaceWithMerged(obj, baked, true);
   nm.userData.color = obj.userData.color ?? null;
   clearEdges(); setSelection([nm]); touch(); commit();
-  toast(`Spigolo spostato di ${fmt(mm)} mm su ${ax.toUpperCase()}`);
+  toast(ax === 'n' ? `Spigolo spostato di ${fmt(mm)} mm in perpendicolare` : `Spigolo spostato di ${fmt(mm)} mm su ${ax.toUpperCase()}`);
   return true;
 }
 function startEdgeMove(e) {
@@ -4201,14 +4212,14 @@ function startEdgeMove(e) {
   if (hit.size < keys.size) { toast('Questo spigolo è arrotondato: per spostarlo togli prima l\'arrotondamento'); return null; }
   const sc = new THREE.Vector2(), proj = p => { const q = p.clone().project(camera); return new THREE.Vector2((q.x * 0.5 + 0.5) * window.innerWidth, (-q.y * 0.5 + 0.5) * window.innerHeight); };
   const c0 = proj(mi.c), dirs = {};
-  for (const a of 'xyz') if (a !== mi.par) { const d = proj(mi.c.clone().addScaledVector(WAX[a], 10)).sub(c0); dirs[a] = d; }
+  for (const a of (mi.n ? 'xyzn' : 'xyz')) if (a !== mi.par) { const d = proj(mi.c.clone().addScaledVector(axV(mi, a), 10)).sub(c0); dirs[a] = d; }
   return { mi, idx, orig: pos.array.slice(), origN: obj.geometry.attributes.normal ? obj.geometry.attributes.normal.array.slice() : null, sx: e.clientX, sy: e.clientY, dirs, ax: null, mm: 0, inv: new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().copy(obj.matrixWorld).invert()) };
 }
 function setEdgeMovePreview(em, mm) {
-  const { mi, idx } = em, pos = mi.obj.geometry.attributes.position, dl = WAX[em.ax].clone().multiplyScalar(mm).applyMatrix3(em.inv);
+  const { mi, idx } = em, pos = mi.obj.geometry.attributes.position, dl = axV(mi, em.ax).clone().multiplyScalar(mm).applyMatrix3(em.inv);
   for (const i of idx) pos.setXYZ(i, em.orig[i * 3] + dl.x, em.orig[i * 3 + 1] + dl.y, em.orig[i * 3 + 2] + dl.z);
   pos.needsUpdate = true; mi.obj.geometry.computeVertexNormals(); mi.obj.geometry.computeBoundingSphere(); mi.obj.geometry.computeBoundingBox();
-  const sh = WAX[em.ax].clone().multiplyScalar(mm);
+  const sh = axV(mi, em.ax).clone().multiplyScalar(mm);
   dropLines(edgeLines); edgeLines = makeLines(edgeSel.map(x => ({ ...x.chain, pts: x.chain.pts.map(p => p.clone().add(sh)) })), edgeMat);
   moveHandle.position.copy(mi.c.clone().add(sh));
   dirty = true;
@@ -4220,7 +4231,8 @@ function restoreEdgeMove(em) {
   refreshEdgeLines(); updateEdgeHandle();
 }
 function edgeMoveTargets(em) {                          // coordinate (lungo l'asse scelto) a cui lo spigolo si aggancia: dov'era, parallelo agli altri vertici del pezzo, altri oggetti
-  const { mi } = em, k = 'xyz'.indexOf(em.ax), out = [{ v: mi.c[em.ax], t: 'orig' }], seen = new Set([Math.round(mi.c[em.ax] * 1000)]);
+  const { mi } = em; if (em.ax === 'n') return [{ v: mi.c.dot(mi.n), t: 'orig' }];
+  const k = 'xyz'.indexOf(em.ax), out = [{ v: mi.c[em.ax], t: 'orig' }], seen = new Set([Math.round(mi.c[em.ax] * 1000)]);
   const moved = new Set(mi.pts.map(p => ekey(p.x, p.y, p.z)));
   const add = (v, t) => { const q = Math.round(v * 1000); if (!seen.has(q)) { seen.add(q); out.push({ v, t }); } };
   const arr = worldPositions(mi.obj);
@@ -4242,19 +4254,19 @@ function moveEdgeMove(e, em) {
   let mm = dv.dot(d) / (d.lengthSq()) * 10, tag = '';
   if (state.magnet && !e.metaKey && !e.ctrlKey) {       // calamita: torna com'era, si allinea ai vertici paralleli del pezzo o agli altri oggetti
     if (!em.targets) em.targets = edgeMoveTargets(em);
-    const thr = Math.min(6, 90 / d.length()), cur = em.mi.c[em.ax] + mm;
+    const cv = em.ax === 'n' ? em.mi.c.dot(em.mi.n) : em.mi.c[em.ax], thr = Math.min(6, 90 / d.length()), cur = cv + mm;
     let best = null, bd = thr;
     for (const t of em.targets) { const dd = Math.abs(t.v - cur); if (dd < bd) { bd = dd; best = t; } }
-    if (best) { mm = best.v - em.mi.c[em.ax]; tag = best.t; }
+    if (best) { mm = best.v - cv; tag = best.t; }
   }
   if (!tag) mm = snapV(mm);
   em.mm = mm;
   setEdgeMovePreview(em, mm);
-  const v = em.mi.c.clone().addScaledVector(WAX[em.ax], mm).project(camera);
+  const v = em.mi.c.clone().addScaledVector(axV(em.mi, em.ax), mm).project(camera);
   dragRead.style.display = 'block';
   dragRead.style.left = ((v.x * 0.5 + 0.5) * window.innerWidth + 18) + 'px';
   dragRead.style.top = ((-v.y * 0.5 + 0.5) * window.innerHeight - 12) + 'px';
-  dragRead.textContent = `${em.ax.toUpperCase()} ${mm > 0 ? '+' : ''}${fmt(mm)} mm${tag ? ' · ' + tr(MAG_TAG[tag]) : ''}`;
+  dragRead.textContent = `${em.ax === 'n' ? '⊥' : em.ax.toUpperCase()} ${mm > 0 ? '+' : ''}${fmt(mm)} mm${tag ? ' · ' + tr(MAG_TAG[tag]) : ''}`;
 }
 function endEdgeMove(em, moved) {
   dragRead.style.display = 'none';
@@ -4377,7 +4389,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '0.8.3';
+const APP_VERSION = '0.8.8';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
@@ -4576,7 +4588,7 @@ function scrollFade(el) {
 }
 scrollFade($('#tools')); scrollFade($('#props'));
 
-window.forma = { evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */

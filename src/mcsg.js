@@ -6,6 +6,7 @@ import wasmB64 from './manifold.wasm.js';
 
 let M = null;
 export const manifoldReady = () => !!M;
+export const manifoldMod = () => M;
 export const initManifold = () => {
   const bin = Uint8Array.from(atob(wasmB64), c => c.charCodeAt(0));
   return Module({ wasmBinary: bin }).then(m => { m.setup(); M = m; return m; }).catch(e => { console.warn('Manifold KO ' + JSON.stringify(Object.getOwnPropertyNames(e || {})) + ' ' + (e && e.message) + ' ' + (e && e.code) + ' ' + String(e && e.stack).slice(0, 400)); });
