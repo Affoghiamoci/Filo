@@ -319,6 +319,7 @@ const EN = {
   'Codice': 'Code',
   'Il codice di Filo è aperto e rilasciato con licenza MIT: puoi leggerlo, usarlo e proporre modifiche su GitHub.': 'The code of Filo is open and released under the MIT licence: you can read it, use it and suggest changes on GitHub.',
   'Spigolo: anche i verticali del prisma e il bordo di cilindro e cono restano modificabili, e un raggio grande si riseleziona cliccando sulla curva': 'Edge: the prism\'s vertical edges and the rim of cylinder and cone stay editable too, and a large radius can be reselected by clicking the curve',
+  'Metro: tenendo premuto ⌥ su un lato compare una croce che passa dal puntatore e arriva agli estremi misurati, così si vede quali punti sono presi in esame': 'Ruler: holding ⌥ over a face shows a cross through the pointer reaching the measured extremes, so you can see which points are being measured',
   'Nuovo motore per Combina, Taglia e Allunga: solidi sempre chiusi e più veloci': 'New engine for Combine, Cut and Stretch: always closed solids, and faster',
   'Nuova guida: finestra grande con immagini e GIF (tasto ? o F1)': 'New guide: large window with images and GIFs (? key or F1)',
   'Metro, Ruota, Distribuisci e Ripeti più completi; Scatto da 0,1 mm e Libero': 'Tape measure, Rotate, Distribute and Repeat improved; 0.1 mm Step and Free',

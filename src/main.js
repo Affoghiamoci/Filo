@@ -4179,7 +4179,41 @@ function faceRect(fs) {                                    // rettangolo più pi
 }
 const faceDim = document.createElement('div'); faceDim.className = 'alt-tip'; faceDim.style.pointerEvents = 'none'; labelsEl.appendChild(faceDim);
 let rulerLastEv = null;
-function hideFaceDim() { faceDim.style.display = 'none'; if (hoverMesh) hideHover(); }
+function hideFaceDim() { faceDim.style.display = 'none'; if (crossData) { crossData = null; dirty = true; } if (hoverMesh) hideHover(); }
+
+/* ⌥ su un lato: croce che passa dal puntatore e arriva agli estremi misurati (larghezza e altezza), con un trattino a ogni estremo */
+const faceCross = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+faceCross.setAttribute('class', 'face-cross');
+faceCross.innerHTML = '<path class="h"/><path class="l"/><circle r="3.5"/>';
+labelsEl.appendChild(faceCross);
+const faceCrossPaths = faceCross.querySelectorAll('path'), faceCrossDot = faceCross.querySelector('circle');
+let crossData = null;
+function setFaceCross(fs, hp, ang) {
+  const c = Math.cos(ang), s = Math.sin(ang), T = fs.tri2d;
+  let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
+  for (let i = 0; i < T.length; i += 2) {
+    const a = T[i] * c + T[i + 1] * s, b = -T[i] * s + T[i + 1] * c;
+    a0 = Math.min(a0, a); a1 = Math.max(a1, a); b0 = Math.min(b0, b); b1 = Math.max(b1, b);
+  }
+  const rel = hp.clone().sub(fs.o), pu = rel.dot(fs.u), pv = rel.dot(fs.v), dn = rel.dot(fs.n);
+  const pa = clamp(pu * c + pv * s, a0, a1), pb = clamp(-pu * s + pv * c, b0, b1);
+  const P = (a, b) => fs.o.clone().addScaledVector(fs.u, a * c - b * s).addScaledVector(fs.v, a * s + b * c).addScaledVector(fs.n, dn);
+  crossData = { segs: [[P(a0, pb), P(a1, pb)], [P(pa, b0), P(pa, b1)]], c: P(pa, pb) };
+  dirty = true;
+}
+function drawFaceCross() {
+  if (!crossData) { faceCross.style.display = 'none'; return; }
+  const w = window.innerWidth, h = window.innerHeight, S = P => { const v = P.clone().project(camera); return [(v.x * 0.5 + 0.5) * w, (-v.y * 0.5 + 0.5) * h]; };
+  let d = '';
+  for (const [A, B] of crossData.segs) {
+    const a = S(A), b = S(B), dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l * 5, ny = dx / l * 5;
+    d += `M${a[0]},${a[1]}L${b[0]},${b[1]}M${a[0] - nx},${a[1] - ny}L${a[0] + nx},${a[1] + ny}M${b[0] - nx},${b[1] - ny}L${b[0] + nx},${b[1] + ny}`;
+  }
+  const c = S(crossData.c);
+  faceCross.style.display = 'block';
+  faceCrossPaths.forEach(p => p.setAttribute('d', d));
+  faceCrossDot.setAttribute('cx', c[0]); faceCrossDot.setAttribute('cy', c[1]);
+}
 
 /* ⌥ su un angolo: angolo interno del lato; ⌥ su uno spigolo: angolo tra i due lati */
 function setAltTip(big, cap, rows) {
@@ -4228,6 +4262,7 @@ function rulerHover(e) {                                  // anteprima del punto
     }
     const ang = angleAt(hit, e);
     if (ang) {
+      if (crossData) { crossData = null; dirty = true; }
       const v = ang.p.clone().project(camera);
       rulerHov.className = 'ruler-hov ' + (ang.kind === 'corner' ? 'v' : 'e'); rulerHov.style.display = 'block';
       rulerHov.style.transform = `translate(${(v.x * 0.5 + 0.5) * window.innerWidth}px, ${(-v.y * 0.5 + 0.5) * window.innerHeight}px) translate(-50%, -50%)`;
@@ -4237,12 +4272,13 @@ function rulerHover(e) {                                  // anteprima del punto
       return;
     }
     const fs = hoverFs, flat = Math.abs(fs.n.z) > 0.9;
-    let w1 = fs.W, h1 = fs.H;
+    let w1 = fs.W, h1 = fs.H, cang = 0;
     if (!fs.curved) {                                    // asse "alto" = quello più vicino alla direzione su (lato) o avanti (piano)
       const r = faceRect(fs), d = Math.abs(Math.cos(r.ang));                       // r.a è lungo la direzione r.ang rispetto all'asse u del lato
       const uAlong = d > Math.SQRT1_2;                                             // r.a quasi parallelo a u
-      const A = r.a, B = r.b; w1 = uAlong ? A : B; h1 = uAlong ? B : A;
+      const A = r.a, B = r.b; w1 = uAlong ? A : B; h1 = uAlong ? B : A; cang = r.ang;
     }
+    setFaceCross(fs, hit.point, cang);
     setAltTip(`${fs.curved ? '≈ ' : ''}${fmt(w1)} × ${fmt(h1)} mm`, tr(flat ? 'larghezza × profondità' : 'larghezza × altezza'), []);
     faceDim.style.display = 'block';
     faceDim.style.transform = `translate(${e.clientX + 18}px, ${e.clientY + 18}px)`;
@@ -4314,6 +4350,7 @@ function render() {
   updateHandleFacing();
   updateDims();   // prima del disegno: la scatola e le linee delle misure compaiono subito, non al movimento successivo
   updateRuler();
+  drawFaceCross();
   renderer.render(scene, camera);
   // le maniglie hanno dimensione costante sullo schermo: nulla da aggiornare
 }
