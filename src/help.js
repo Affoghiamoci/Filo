@@ -42,8 +42,8 @@ export const HELP = {
       <p>Con due o più oggetti selezionati, clicca quello che vuoi come <b>chiave</b>: gli altri si allineano a lui.</p>` },
     { id: 'ctx', g: 'select', t: 'Menu del tasto destro', h: `
       <p>Fai clic destro, senza trascinare, su un oggetto o sul vuoto: compare un menu corto con le azioni più usate, ognuna con la sua scorciatoia. Trascinando con il destro la scena continua a ruotare.</p>
-      <ul><li><b>Su un oggetto</b>: Duplica, Copia, Trasforma in foro o in solido, Appoggia a terra, Blocca, Nascondi, Elimina. Se l'oggetto non era selezionato, si seleziona.</li><li><b>Con più oggetti selezionati</b>: in più Combina, Interseca e Raggruppa (o Separa gruppo).</li><li><b>Sul vuoto</b>: Incolla, Seleziona tutto, Inquadra tutto, Raggi X e Misure.</li></ul>
-      <div class="tip">Blocca e Nascondi tolgono l'oggetto dalla selezione: per riprenderlo apri i <b>Livelli</b> (${K('F7')}). Esc chiude il menu, le frecce su e giù scorrono le voci e Invio sceglie.</div>` },
+      <ul><li><b>Su un oggetto</b>: Duplica, Copia, Trasforma in foro o in solido, Appoggia sul piatto, Blocca, Nascondi, Elimina. Se l'oggetto non era selezionato, si seleziona.</li><li><b>Con più oggetti selezionati</b>: in più Combina, Interseca e Raggruppa (o Separa gruppo).</li><li><b>Sul vuoto</b>: Incolla, Seleziona tutto, Inquadra tutto, Raggi X e Misure.</li></ul>
+      <div class="tip">Blocca e Nascondi tolgono l'oggetto dalla selezione: per riprenderlo apri i <b>Livelli</b> (${K('F7')}), oppure premi ${K('⌘Z')}: Annulla riporta indietro anche Blocca e Nascondi. Esc chiude il menu, le frecce su e giù scorrono le voci e Invio sceglie.</div>` },
     { id: 'align', g: 'transform', t: 'Allinea e distribuisci', h: `
       <p>Con più oggetti selezionati, il pannello a destra mostra Allinea su X, Y e Z (inizio, centro, fine). Si allinea alla selezione, oppure all'oggetto <b>chiave</b> se ne hai cliccato uno.</p>
       <p><b>Distribuisci</b> (X, Y, Z) mette spazi uguali tra tre o più oggetti, lasciando fermi i due agli estremi. Se non ci stanno, ti dice di quanto si sovrappongono.</p>
@@ -157,7 +157,7 @@ export const HELP = {
     { id: 'ctx', g: 'select', t: 'Right-click menu', h: `
       <p>Right-click, without dragging, on an object or on empty space: a short menu shows the most used actions, each with its shortcut. Dragging with the right button still orbits the scene.</p>
       <ul><li><b>On an object</b>: Duplicate, Copy, Turn into hole or solid, Drop to plate, Lock, Hide, Delete. If the object was not selected, it gets selected.</li><li><b>With several objects selected</b>: also Combine, Intersect and Group (or Ungroup).</li><li><b>On empty space</b>: Paste, Select all, Fit all, X-ray and Size.</li></ul>
-      <div class="tip">Lock and Hide remove the object from the selection: to get it back open <b>Layers</b> (${K('F7')}). Esc closes the menu, the up and down arrows move through the items and Enter picks one.</div>` },
+      <div class="tip">Lock and Hide remove the object from the selection: to get it back open <b>Layers</b> (${K('F7')}), or press ${K('⌘Z')}: Undo also reverts Lock and Hide. Esc closes the menu, the up and down arrows move through the items and Enter picks one.</div>` },
     { id: 'align', g: 'transform', t: 'Align and distribute', h: `
       <p>With several objects selected, the right panel shows Align on X, Y and Z (start, center, end). It aligns to the selection, or to the <b>key</b> object if you clicked one.</p>
       <p><b>Distribute</b> (X, Y, Z) sets equal gaps between three or more objects, keeping the two outer ones fixed. If they do not fit, it tells you by how much they overlap.</p>

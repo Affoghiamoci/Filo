@@ -681,11 +681,11 @@ function setSelection(list) {
 /* -------------------------------------------------- cronologia (annulla) */
 const history = [];
 let hIdx = -1;
-const visState = new Map(); // blocca e nascondi non fanno parte della cronologia
 const entryOf = m => ({
   id: m.userData.id, name: m.userData.name, kind: m.userData.kind, p: { ...m.userData.p }, hole: m.userData.hole,
   base: m.userData.base ? { ...m.userData.base } : null, geo: m.userData.geo, gid: m.userData.gid ?? null,
   pos: m.position.toArray(), q: m.quaternion.toArray(), scale: m.scale.toArray(), color: m.userData.color ?? null, text: m.userData.text ? { ...m.userData.text } : null,
+  hidden: !!m.userData.hidden, locked: !!m.userData.locked,       // blocca e nascondi sono nella cronologia: Annulla li riporta com'erano
 });
 function snapshot() {
   return { sel: selection.map(m => m.userData.id), list: objects.map(entryOf) };
@@ -704,6 +704,8 @@ function describeChange(prev, cur) {
   cur.list.forEach(d => {
     const o = P.get(d.id); if (!o) return;
     const k = [];
+    if (!!o.hidden !== !!d.hidden) k.push(d.hidden ? 'Nascosto' : 'Mostrato');
+    if (!!o.locked !== !!d.locked) k.push(d.locked ? 'Bloccato' : 'Sbloccato');
     if (o.gid !== d.gid) k.push(d.gid != null ? 'Raggruppato' : 'Gruppo separato');
     if (o.name !== d.name) k.push('Rinominato');
     if (o.hole !== d.hole) k.push(d.hole ? 'Foro' : 'Solido');
@@ -757,7 +759,7 @@ function jumpTo(i) {
 function restore(s) {
   [...objects].forEach(removeMesh);
   keyObj = null;
-  const made = s.list.map(d => makeMesh({ ...d, ...(visState.get(d.id) || {}) }));
+  const made = s.list.map(d => makeMesh({ ...d }));
   setSelection(made.filter(m => s.sel.includes(m.userData.id)));
   touch();
   applyCtx(s.ctx);
@@ -2608,8 +2610,7 @@ function flagSelection(key) {                        // blocca o nasconde la sel
   if (!list.length) return;
   list.forEach(o => { o.userData[key] = true; o.visible = !o.userData.hidden; });
   setSelection([]);
-  list.forEach(o => visState.set(o.userData.id, { hidden: !!o.userData.hidden, locked: !!o.userData.locked }));
-  touch(); dirty = true;
+  touch(); dirty = true; commit();
   toast(key === 'locked' ? 'Bloccato: lo sblocchi dai Livelli (F7)' : 'Nascosto: lo ritrovi nei Livelli (F7)');
 }
 function ctxObjectItems() {
@@ -2623,7 +2624,7 @@ function ctxObjectItems() {
   if (multi) items.push({ t: 'Combina', k: '⌘E', f: () => combine() }, { t: 'Interseca', k: '⇧⌘E', f: () => intersect() });
   if (grouped) items.push({ t: 'Separa gruppo', k: '⇧⌘G', f: ungroupSelection });
   else if (multi) items.push({ t: 'Raggruppa', k: '⌘G', f: groupSelection });
-  items.push('sep', { t: 'Appoggia a terra', f: groundSelection }, { t: 'Blocca', f: () => flagSelection('locked') }, { t: 'Nascondi', f: () => flagSelection('hidden') },
+  items.push('sep', { t: 'Appoggia sul piatto', f: groundSelection }, { t: 'Blocca', f: () => flagSelection('locked') }, { t: 'Nascondi', f: () => flagSelection('hidden') },
     'sep', { t: 'Elimina', k: '⌫', f: deleteSelection });
   return items;
 }
@@ -5135,8 +5136,7 @@ layersList.addEventListener('click', e => {
     const key = (d.lg || d.lo) ? 'locked' : 'hidden', val = !list.every(o => o.userData[key]);
     list.forEach(o => { o.userData[key] = val; o.visible = !o.userData.hidden; });
     setSelection(selection.filter(o => o.visible && !o.userData.locked));
-    list.forEach(o => visState.set(o.userData.id, { hidden: !!o.userData.hidden, locked: !!o.userData.locked }));
-    touch(); renderLayers(); dirty = true;
+    touch(); renderLayers(); dirty = true; commit();
     return;
   }
   const car = e.target.closest('[data-car]');
