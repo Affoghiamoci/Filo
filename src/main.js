@@ -5606,7 +5606,7 @@ function syncTextPanel() {
   document.addEventListener('click', e => { if (e.target.closest('[data-lang]') && dlg.open) setTimeout(render, 0); });
   qEl.addEventListener('input', () => render());
   qEl.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { if (qEl.value) { e.preventDefault(); e.stopPropagation(); escUsed = true; qEl.value = ''; render(); } }
+    if (e.key === 'Escape') { if (qEl.value) { e.preventDefault(); e.stopPropagation(); escUsed = true; setTimeout(() => { escUsed = false; }, 0); qEl.value = ''; render(); } }
     else if (e.key === 'Enter') { e.preventDefault(); const b = nav.querySelector('button.hp-res'); if (b) { cur = b.dataset.id; render(0); } }
     else if (e.key === 'ArrowDown') { const b = nav.querySelector('button'); if (b) { e.preventDefault(); b.focus(); } }
   });
