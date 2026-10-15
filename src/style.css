@@ -752,3 +752,13 @@ dialog[open],dialog[open]::backdrop{animation:fade-in .16s ease}
 #flyout{z-index:45;width:256px;padding:6px;display:flex;flex-direction:column;gap:2px;animation:fade-in .14s ease}
 #flyout .tool{justify-items:stretch}
 #tip small.alt{margin-top:6px;font:500 9.5px var(--mono);letter-spacing:.06em;text-transform:uppercase}
+/* menu del tasto destro */
+#ctx{z-index:46;min-width:216px;padding:6px;display:flex;flex-direction:column;animation:fade-in .14s ease}
+#ctx button{all:unset;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:14px;position:relative;
+  padding:6px 10px;border-radius:2px;cursor:default;font:600 12.5px var(--font);color:var(--text);transition:background-color .12s ease,color .12s ease}
+#ctx button:hover:not([disabled]){background:var(--hover)}
+#ctx button:focus-visible{box-shadow:0 0 0 2px var(--accent)}
+#ctx button[disabled]{color:var(--muted);opacity:.55}
+#ctx hr{border:0;height:1px;margin:6px 4px;background:var(--line)}
+#ctx.has-chk button{padding-left:24px}
+#ctx button.on::before{content:'';position:absolute;left:10px;top:50%;width:6px;height:6px;margin-top:-3px;background:var(--accent)}

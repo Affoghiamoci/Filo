@@ -14,7 +14,7 @@ export const HELP = {
       <div class="tip"><b>Piatto di stampa.</b> In basso, in "Piano di lavoro", scegli la tua stampante (A1 mini, X1C, H2D…) o una misura libera. Z = 0 è il piatto.</div>
       <p>Usa il menu a sinistra per leggere come funziona ogni strumento. Con <kbd>?</kbd> riapri questa guida quando vuoi.</p>` },
     { id: 'view', g: 'start', t: 'Muovere la vista', h: `
-      <ul><li><b>Ruotare</b>: trascina nel vuoto o con il tasto destro.</li><li><b>Spostare</b>: ${K('Spazio')} + trascina.</li><li><b>Zoom</b>: rotella o pizzico sul trackpad; ${K('⌥')} + scorrimento funziona con qualsiasi dispositivo.</li><li><b>Adatta alla vista</b>: ${K('⌘0')}; doppio clic su un oggetto per centrarlo.</li></ul>
+      <ul><li><b>Ruotare</b>: trascina nel vuoto o con il tasto destro. Un clic destro senza trascinare apre il menu.</li><li><b>Spostare</b>: ${K('Spazio')} + trascina.</li><li><b>Zoom</b>: rotella o pizzico sul trackpad; ${K('⌥')} + scorrimento funziona con qualsiasi dispositivo.</li><li><b>Adatta alla vista</b>: ${K('⌘0')}; doppio clic su un oggetto per centrarlo.</li></ul>
       <p>Il cubo in alto a sinistra mostra l'orientamento. Nella barra in basso, "Vista" porta subito Davanti, Sopra, Destra o 3D. Davanti, Sopra e Destra sono senza prospettiva, comode per allineare.</p>
       <ul><li>${K('M')} mostra le <b>Misure</b> reali degli oggetti.</li><li>${K('Z')} attiva i <b>Raggi X</b>: i contorni delle parti coperte.</li><li>${K('Tab')} riduce la barra laterale.</li></ul>` },
     { id: 'shapes', g: 'create', t: 'Forme', h: `
@@ -40,6 +40,10 @@ export const HELP = {
     { id: 'groups', g: 'select', t: 'Gruppi, livelli e cronologia', h: `
       <ul><li><b>Gruppo</b>: ${K('⌘G')} unisce più oggetti perché si muovano insieme; ${K('⇧⌘G')} li separa.</li><li><b>Livelli</b> (${K('F7')}): elenco degli oggetti, con blocco e nascondi. ${K('⇧')} + clic aggiunge, ${K('⌘')} + clic prende un intervallo.</li><li><b>Cronologia</b> (${K('F8')}): ogni passaggio con anteprima, per tornare indietro. ${K('⌘Z')} annulla, ${K('⇧⌘Z')} ripete. Dopo un annulla ritrovi anche gli spigoli e i lati che avevi selezionato, così puoi ritentare con un'altra misura.</li></ul>
       <p>Con due o più oggetti selezionati, clicca quello che vuoi come <b>chiave</b>: gli altri si allineano a lui.</p>` },
+    { id: 'ctx', g: 'select', t: 'Menu del tasto destro', h: `
+      <p>Fai clic destro, senza trascinare, su un oggetto o sul vuoto: compare un menu corto con le azioni più usate, ognuna con la sua scorciatoia. Trascinando con il destro la scena continua a ruotare.</p>
+      <ul><li><b>Su un oggetto</b>: Duplica, Copia, Trasforma in foro o in solido, Appoggia a terra, Blocca, Nascondi, Elimina. Se l'oggetto non era selezionato, si seleziona.</li><li><b>Con più oggetti selezionati</b>: in più Combina, Interseca e Raggruppa (o Separa gruppo).</li><li><b>Sul vuoto</b>: Incolla, Seleziona tutto, Inquadra tutto, Raggi X e Misure.</li></ul>
+      <div class="tip">Blocca e Nascondi tolgono l'oggetto dalla selezione: per riprenderlo apri i <b>Livelli</b> (${K('F7')}). Esc chiude il menu, le frecce su e giù scorrono le voci e Invio sceglie.</div>` },
     { id: 'align', g: 'transform', t: 'Allinea e distribuisci', h: `
       <p>Con più oggetti selezionati, il pannello a destra mostra Allinea su X, Y e Z (inizio, centro, fine). Si allinea alla selezione, oppure all'oggetto <b>chiave</b> se ne hai cliccato uno.</p>
       <p><b>Distribuisci</b> (X, Y, Z) mette spazi uguali tra tre o più oggetti, lasciando fermi i due agli estremi. Se non ci stanno, ti dice di quanto si sovrappongono.</p>
@@ -124,7 +128,7 @@ export const HELP = {
       <div class="tip"><b>Print bed.</b> At the bottom, in "Work plane", pick your printer (A1 mini, X1C, H2D…) or a custom size. Z = 0 is the bed.</div>
       <p>Use the menu on the left to read how each tool works. Press <kbd>?</kbd> to reopen this guide whenever you want.</p>` },
     { id: 'view', g: 'start', t: 'Moving the view', h: `
-      <ul><li><b>Orbit</b>: drag in empty space or with the right button.</li><li><b>Pan</b>: ${K('Space')} + drag.</li><li><b>Zoom</b>: wheel or pinch on the trackpad; ${K('⌥')} + scroll works with any device.</li><li><b>Fit to view</b>: ${K('⌘0')}; double click an object to center it.</li></ul>
+      <ul><li><b>Orbit</b>: drag in empty space or with the right button. A right-click without dragging opens the menu.</li><li><b>Pan</b>: ${K('Space')} + drag.</li><li><b>Zoom</b>: wheel or pinch on the trackpad; ${K('⌥')} + scroll works with any device.</li><li><b>Fit to view</b>: ${K('⌘0')}; double click an object to center it.</li></ul>
       <p>The cube at the top left shows the orientation. In the bottom bar, "View" jumps to Front, Top, Right or 3D. Front, Top and Right have no perspective, handy for aligning.</p>
       <ul><li>${K('M')} shows the real <b>Dimensions</b> of objects.</li><li>${K('Z')} toggles <b>X-ray</b>: outlines of hidden parts.</li><li>${K('Tab')} collapses the sidebar.</li></ul>` },
     { id: 'shapes', g: 'create', t: 'Shapes', h: `
@@ -150,6 +154,10 @@ export const HELP = {
     { id: 'groups', g: 'select', t: 'Groups, layers and history', h: `
       <ul><li><b>Group</b>: ${K('⌘G')} joins several objects so they move together; ${K('⇧⌘G')} ungroups.</li><li><b>Layers</b> (${K('F7')}): list of objects, with lock and hide. ${K('⇧')} + click adds, ${K('⌘')} + click picks a range.</li><li><b>History</b> (${K('F8')}): every step with a preview, to go back. ${K('⌘Z')} undoes, ${K('⇧⌘Z')} redoes. After an undo, the edges and faces you had selected are selected again, so you can retry with another value.</li></ul>
       <p>With two or more objects selected, click the one you want as the <b>key</b>: the others align to it.</p>` },
+    { id: 'ctx', g: 'select', t: 'Right-click menu', h: `
+      <p>Right-click, without dragging, on an object or on empty space: a short menu shows the most used actions, each with its shortcut. Dragging with the right button still orbits the scene.</p>
+      <ul><li><b>On an object</b>: Duplicate, Copy, Turn into hole or solid, Drop to plate, Lock, Hide, Delete. If the object was not selected, it gets selected.</li><li><b>With several objects selected</b>: also Combine, Intersect and Group (or Ungroup).</li><li><b>On empty space</b>: Paste, Select all, Fit all, X-ray and Size.</li></ul>
+      <div class="tip">Lock and Hide remove the object from the selection: to get it back open <b>Layers</b> (${K('F7')}). Esc closes the menu, the up and down arrows move through the items and Enter picks one.</div>` },
     { id: 'align', g: 'transform', t: 'Align and distribute', h: `
       <p>With several objects selected, the right panel shows Align on X, Y and Z (start, center, end). It aligns to the selection, or to the <b>key</b> object if you clicked one.</p>
       <p><b>Distribute</b> (X, Y, Z) sets equal gaps between three or more objects, keeping the two outer ones fixed. If they do not fit, it tells you by how much they overlap.</p>

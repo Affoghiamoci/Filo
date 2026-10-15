@@ -288,6 +288,9 @@ const EN = {
   'Seleziona almeno due solidi da intersecare (⇧ + clic)': 'Select at least two solids to intersect (⇧ + click)',
   'Gli oggetti non si sovrappongono: non c’è niente in comune': 'The objects do not overlap: nothing in common',
   'Tieni premuto per altre varianti': 'Hold for more variants',
+  'Copia': 'Copy', 'Trasforma in foro': 'Turn into hole', 'Trasforma in solido': 'Turn into solid', 'Appoggia a terra': 'Drop to plate', 'Separa gruppo': 'Ungroup',
+  'Incolla': 'Paste', 'Seleziona tutto': 'Select all', 'Inquadra tutto': 'Fit all',
+  'Bloccato: lo sblocchi dai Livelli (F7)': 'Locked: unlock it from Layers (F7)', 'Nascosto: lo ritrovi nei Livelli (F7)': 'Hidden: find it again in Layers (F7)', 'È già appoggiato al piatto': 'Already on the plate',
   'Proporzioni bloccate: le misure cambiano insieme': 'Proportions locked: sizes change together', 'Proporzioni libere': 'Proportions free',
   'Aggiungi una forma per vedere le misure': 'Add a shape to see its size',
   'Niente da esportare: aggiungi almeno un solido': 'Nothing to export: add at least one solid',
@@ -319,6 +322,7 @@ const EN = {
   'Riprendi l\'ultimo lavoro dalla schermata iniziale, con avviso prima di ricaricare la pagina': 'Resume your last work from the start screen, with a warning before reloading the page',
   'Export 3MF con le impostazioni di Bambu Studio e riparazione automatica delle crepe': '3MF export with Bambu Studio settings and automatic crack repair',
   'Esporta porta sempre tutto il piatto, Esc annulla le modifiche e chiude i menu, animazioni più morbide': 'Export always takes the whole plate, Esc cancels edits and closes menus, smoother animations',
+  'Menu con il tasto destro su oggetti e sul vuoto: duplica, copia, foro, appoggia a terra, blocca, nascondi, combina e interseca': 'Right-click menu on objects and on empty space: duplicate, copy, hole, drop to plate, lock, hide, combine and intersect',
   'Nuovo comando Interseca (⇧⌘E) e strumenti in seconda funzione nella barra: Riquadro e Lazo, Taglia e Allunga, Combina e Interseca': 'New Intersect command (⇧⌘E) and tools with a second function in the bar: Marquee and Lasso, Cut and Stretch, Combine and Intersect',
 };
 const NAMEMAP = { Scatola: 'Box', Cilindro: 'Cylinder', Sfera: 'Sphere', Cono: 'Cone', Prisma: 'Prism', Toro: 'Torus', Pezzo: 'Part', Testo: 'Text' };

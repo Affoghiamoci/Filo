@@ -1415,7 +1415,7 @@ canvas.addEventListener('contextmenu', e => e.preventDefault());
 canvas.addEventListener('pointerdown', e => {
   canvas.focus();
   canvas.setPointerCapture(e.pointerId);
-  drag = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: false, mode: 'orbit', shift: e.shiftKey };
+  drag = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: false, mode: 'orbit', shift: e.shiftKey, btn: e.button };
   if (e.button === 1 || state.space || state.tool === 'hand') drag.mode = 'pan';
   else if (e.button === 2 || state.tool === 'orbit') drag.mode = 'orbit';
   else if (state.tool === 'marquee' || state.tool === 'lasso') { drag.mode = 'marquee'; drag.pts = [[e.clientX, e.clientY]]; mqShow(drag, e); }
@@ -1577,6 +1577,7 @@ canvas.addEventListener('pointerup', e => {
   if (!drag) return;
   const d = drag; drag = null;
   updateCursor(false);
+  if (d.btn === 2 && d.mode === 'orbit' && !d.moved) { openCtx(e); return; }     // tasto destro senza trascinare: menu; trascinando si orbita come sempre
   if (d.mode === 'move') { vtxMark.visible = false; guide.visible = false; dragRead.style.display = 'none'; dirty = true; }
   if (d.mode === 'rotate') { rotEnd(); dragRead.style.display = 'none'; if (d.moved && d.rot.delta !== 0) commit(); return; }
   if (d.mode === 'edgemove') { endEdgeMove(d.em, d.moved); return; }
@@ -2582,6 +2583,96 @@ $('#tools').addEventListener('click', e => {
   TOOLS[b.dataset.s][1][b.dataset.i].run();
   canvas.focus();
 });
+/* ---------------------------------------------------------------- menu del tasto destro
+   Compare con un clic destro che non trascina (trascinando si orbita). Breve: solo le azioni più frequenti, ognuna con la sua scorciatoia. */
+const ctxEl = document.createElement('div');
+ctxEl.id = 'ctx'; ctxEl.className = 'panel hidden'; ctxEl.setAttribute('role', 'menu');
+document.body.appendChild(ctxEl);
+let ctxActs = [];
+const ctxOpen = () => !ctxEl.classList.contains('hidden');
+function closeCtx(back = false) {
+  if (!ctxOpen()) return false;
+  ctxEl.classList.add('hidden'); ctxEl.innerHTML = ''; ctxActs = [];
+  if (back) canvas.focus();
+  return true;
+}
+function groundSelection() {                         // appoggia al piatto: il punto più basso della selezione va a quota 0
+  if (!selection.length) return;
+  const dz = -selBox().min.z;
+  if (Math.abs(dz) < 1e-6) return toast('È già appoggiato al piatto');
+  selection.forEach(m => { m.position.z += dz; m.updateMatrixWorld(true); });
+  touch(); syncPanel(); updateHandles(); commit();
+}
+function flagSelection(key) {                        // blocca o nasconde la selezione (come i pulsanti dei Livelli: non entra nella cronologia)
+  const list = selection.slice();
+  if (!list.length) return;
+  list.forEach(o => { o.userData[key] = true; o.visible = !o.userData.hidden; });
+  setSelection([]);
+  list.forEach(o => visState.set(o.userData.id, { hidden: !!o.userData.hidden, locked: !!o.userData.locked }));
+  touch(); dirty = true;
+  toast(key === 'locked' ? 'Bloccato: lo sblocchi dai Livelli (F7)' : 'Nascosto: lo ritrovi nei Livelli (F7)');
+}
+function ctxObjectItems() {
+  const S = selection, multi = S.length > 1, grouped = S.some(m => m.userData.gid != null);
+  const items = [
+    { t: 'Duplica', k: '⌘D', f: () => duplicateSelection(true) },
+    { t: 'Copia', k: '⌘C', f: () => copySelection() },
+    'sep',
+    { t: S.every(m => m.userData.hole) ? 'Trasforma in solido' : 'Trasforma in foro', k: 'X', f: toggleHole },
+  ];
+  if (multi) items.push({ t: 'Combina', k: '⌘E', f: () => combine() }, { t: 'Interseca', k: '⇧⌘E', f: () => intersect() });
+  if (grouped) items.push({ t: 'Separa gruppo', k: '⇧⌘G', f: ungroupSelection });
+  else if (multi) items.push({ t: 'Raggruppa', k: '⌘G', f: groupSelection });
+  items.push('sep', { t: 'Appoggia a terra', f: groundSelection }, { t: 'Blocca', f: () => flagSelection('locked') }, { t: 'Nascondi', f: () => flagSelection('hidden') },
+    'sep', { t: 'Elimina', k: '⌫', f: deleteSelection });
+  return items;
+}
+const ctxEmptyItems = () => [
+  { t: 'Incolla', k: '⌘V', f: () => pasteClip(), off: !(clip && clip.length) },
+  { t: 'Seleziona tutto', k: '⌘A', f: () => setSelection([...objects]), off: !objects.length },
+  'sep',
+  { t: 'Inquadra tutto', k: '⌘0', f: fitView },
+  { t: 'Raggi X', k: 'Z', f: () => setXray(), chk: true, on: state.xray },
+  { t: 'Misure', k: 'M', f: () => setDims(), chk: true, on: state.dims },
+];
+function openCtx(e) {
+  closeFlyout(); hideTip();
+  const hit = pickObject(e);
+  if (hit && !selection.includes(hit)) setSelection(withGroups([hit]));       // come un clic: se l'oggetto non è già selezionato, si seleziona
+  const items = hit && selection.length ? ctxObjectItems() : ctxEmptyItems();
+  ctxActs = items.filter(i => i !== 'sep');
+  let n = 0;
+  ctxEl.classList.toggle('has-chk', items.some(i => i.chk));
+  ctxEl.innerHTML = items.map(i => i === 'sep' ? '<hr>' :
+    `<button role="menuitem" data-n="${n++}"${i.off ? ' disabled' : ''}${i.on ? ' class="on"' : ''}><span>${i.t}</span>${i.k ? `<kbd>${i.k}</kbd>` : ''}</button>`).join('');
+  ctxEl.classList.remove('hidden');
+  const w = ctxEl.offsetWidth, h = ctxEl.offsetHeight;
+  const x = e.clientX + 4 + w > window.innerWidth - 12 ? e.clientX - 4 - w : e.clientX + 4;
+  const y = e.clientY + 4 + h > window.innerHeight - 12 ? e.clientY - 4 - h : e.clientY + 4;
+  ctxEl.style.left = Math.max(12, x) + 'px';
+  ctxEl.style.top = Math.max(12, y) + 'px';
+}
+ctxEl.addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b || b.disabled) return;
+  const a = ctxActs[+b.dataset.n];
+  closeCtx(true);
+  if (a) a.f();
+});
+document.addEventListener('pointerdown', e => { if (ctxOpen() && !e.target.closest('#ctx')) closeCtx(); }, true);
+['resize', 'blur'].forEach(ev => window.addEventListener(ev, () => closeCtx()));
+window.addEventListener('wheel', () => closeCtx(), { passive: true, capture: true });
+window.addEventListener('keydown', e => {                // frecce: si scorrono le voci; ogni altro tasto chiude (Esc lo gestisce il passo dei menu)
+  if (!ctxOpen() || e.key === 'Escape' || ['Shift', 'Control', 'Meta', 'Alt'].includes(e.key)) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault(); e.stopPropagation();
+    const bs = [...ctxEl.querySelectorAll('button:not([disabled])')], i = bs.indexOf(document.activeElement), down = e.key === 'ArrowDown';
+    if (bs.length) bs[i < 0 ? (down ? 0 : bs.length - 1) : (i + (down ? 1 : bs.length - 1)) % bs.length].focus();
+    return;
+  }
+  if (e.key === 'Enter' && ctxEl.contains(document.activeElement)) return;      // il pulsante a fuoco fa il suo clic
+  closeCtx();
+}, true);
 function setTool(t) {
   noStash = true; try { setToolInner(t); } finally { noStash = false; }
 }
@@ -2877,7 +2968,7 @@ document.addEventListener('focusin', e => { if (e.target.tagName === 'INPUT') fi
 function closeOpenMenus() {
   const open = [snapMenu, dotMenu, bedMenu].filter(m => !m.classList.contains('hidden'));
   const fontOpen = !tFontList.classList.contains('hidden');
-  const flyWas = closeFlyout(true);
+  const flyWas = [closeFlyout(true), closeCtx(true)].some(Boolean);
   if (!open.length && !fontOpen) return flyWas;
   open.forEach(m => m.classList.add('hidden')); closeFontList(); menuState();
   return true;
@@ -4645,7 +4736,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '0.9.0';
+const APP_VERSION = '0.10.0';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
@@ -4996,7 +5087,7 @@ $('#ew-resume').addEventListener('click', async e => {
 });
 offerResume();
 
-window.forma = { restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, openCtx, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */
