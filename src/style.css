@@ -640,3 +640,11 @@ label.f.has-stp{position:relative;padding-right:3px}
 #bx-prev .i{fill:var(--field);stroke:var(--muted);stroke-width:1}
 #bx-prev .l{fill:none;stroke:#FF6A00;stroke-width:1;stroke-dasharray:3 2}
 #bx-prev .l2{fill:rgba(255,106,0,.25);stroke:#FF6A00;stroke-width:1.2}
+
+/* etichetta di ⌥ (misure e angoli) */
+.alt-tip{position:absolute;left:0;top:0;display:none;min-width:130px;padding:8px 12px 8px 14px;border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:2px;background:var(--panel);color:var(--text);box-shadow:0 8px 24px rgba(0,0,0,.18);white-space:nowrap;pointer-events:none;z-index:6}
+.alt-tip b{display:block;font:600 17px/1.15 var(--mono);letter-spacing:.01em}
+.alt-tip .c{display:block;margin-top:3px;font:500 10px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.alt-tip .r{display:flex;justify-content:space-between;gap:16px;margin-top:5px;padding-top:5px;border-top:1px dotted var(--line);font:500 11.5px var(--mono)}
+.alt-tip .r span{color:var(--muted)}
+.alt-tip .r em{font-style:normal;font-weight:600}

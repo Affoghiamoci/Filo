@@ -3700,11 +3700,14 @@ function faceRect(fs) {                                    // rettangolo più pi
   }
   return best;
 }
-const faceDim = document.createElement('div'); faceDim.className = 'dim-label'; faceDim.style.pointerEvents = 'none'; labelsEl.appendChild(faceDim);
+const faceDim = document.createElement('div'); faceDim.className = 'alt-tip'; faceDim.style.pointerEvents = 'none'; labelsEl.appendChild(faceDim);
 let rulerLastEv = null;
 function hideFaceDim() { faceDim.style.display = 'none'; if (hoverMesh) hideHover(); }
 
 /* ⌥ su un angolo: angolo interno del lato; ⌥ su uno spigolo: angolo tra i due lati */
+function setAltTip(big, cap, rows) {
+  faceDim.innerHTML = `<b>${big}</b>${rows.map(r => `<div class="r"><span>${r[0]}</span><em>${r[1]}</em></div>`).join('')}<span class="c">${cap}</span>`;
+}
 function angleAt(hit, e) {
   const obj = hit.object, an = edgeAnalysis(obj), W = window.innerWidth, H = window.innerHeight;
   const toS = p => { const v = p.clone().project(camera); return [(v.x * 0.5 + 0.5) * W, (-v.y * 0.5 + 0.5) * H]; };
@@ -3713,10 +3716,10 @@ function angleAt(hit, e) {
   for (const [vi, edges] of an.at) {
     const p = an.vp(vi), s = toS(p), d = Math.hypot(s[0] - e.clientX, s[1] - e.clientY);
     if (d >= bd) continue;
-    const dirs = [];
+    const dirs = [], lens = [];
     for (const ed of edges) {
       const q = an.vp(ed.a === vi ? ed.b : ed.a).sub(p).normalize();
-      if (Math.abs(q.dot(fn)) < 0.02) dirs.push(q);                              // solo gli spigoli che stanno nel piano del lato
+      if (Math.abs(q.dot(fn)) < 0.02) { dirs.push(q); lens.push(an.vp(ed.a).distanceTo(an.vp(ed.b))); }                              // solo gli spigoli che stanno nel piano del lato
     }
     if (dirs.length < 2) continue;
     const u = dirs[0].clone(), w = fn.clone().cross(u);
@@ -3725,14 +3728,14 @@ function angleAt(hit, e) {
     const pd = hit.point.clone().sub(p), pa = (Math.atan2(pd.dot(w), pd.dot(u)) + 2 * Math.PI) % (2 * Math.PI);
     let lo = sorted[sorted.length - 1], hi = sorted[0], wedge = 2 * Math.PI - lo[0] + hi[0];
     for (let i = 0; i < sorted.length; i++) { const a = sorted[i], b = sorted[(i + 1) % sorted.length]; const span = (b[0] - a[0] + 2 * Math.PI) % (2 * Math.PI) || 2 * Math.PI; const rel = (pa - a[0] + 2 * Math.PI) % (2 * Math.PI); if (rel <= span) { lo = a; hi = b; wedge = span; break; } }
-    best = { kind: 'corner', deg: wedge * 180 / Math.PI, p }; bd = d;
+    best = { kind: 'corner', deg: wedge * 180 / Math.PI, p, sides: [lens[lo[1]], lens[hi[1]]] }; bd = d;
   }
   if (best) return best;
   const dist = camera.position.distanceTo(hit.point), tol = dist * 2 * Math.tan(camera.fov * D2R / 2) / H * 9;
   const ed = nearestEdge(an, hit.point, tol);
   if (!ed) return null;
   const a = an.vp(ed.a), b = an.vp(ed.b), ab = b.clone().sub(a), t = Math.max(0, Math.min(1, hit.point.clone().sub(a).dot(ab) / ab.lengthSq()));
-  return { kind: 'edge', deg: 180 - Math.acos(Math.max(-1, Math.min(1, ed.n1.dot(ed.n2)))) * 180 / Math.PI, p: a.clone().addScaledVector(ab, t) };
+  return { kind: 'edge', deg: 180 - Math.acos(Math.max(-1, Math.min(1, ed.n1.dot(ed.n2)))) * 180 / Math.PI, len: ab.length(), p: a.clone().addScaledVector(ab, t) };
 }
 function rulerHover(e) {                                  // anteprima del punto che verrebbe preso con un clic; con ⌥ misura il lato sotto il mouse
   rulerLastEv = e;
@@ -3751,7 +3754,7 @@ function rulerHover(e) {                                  // anteprima del punto
       const v = ang.p.clone().project(camera);
       rulerHov.className = 'ruler-hov ' + (ang.kind === 'corner' ? 'v' : 'e'); rulerHov.style.display = 'block';
       rulerHov.style.transform = `translate(${(v.x * 0.5 + 0.5) * window.innerWidth}px, ${(-v.y * 0.5 + 0.5) * window.innerHeight}px) translate(-50%, -50%)`;
-      faceDim.textContent = `${fmt(ang.deg)}° · ${tr(ang.kind === 'corner' ? 'angolo del lato' : 'angolo tra i due lati')}`;
+      setAltTip(`${fmt(ang.deg)}°`, ang.kind === 'corner' ? tr('angolo del lato') : tr('angolo tra i due lati'), ang.len !== undefined ? [[tr('Lunghezza'), `${fmt(ang.len)} mm`]] : ang.sides ? [[tr('Lati'), `${fmt(ang.sides[0])} · ${fmt(ang.sides[1])} mm`]] : []);
       faceDim.style.display = 'block';
       faceDim.style.transform = `translate(${e.clientX + 18}px, ${e.clientY + 18}px)`;
       return;
@@ -3763,7 +3766,7 @@ function rulerHover(e) {                                  // anteprima del punto
       const uAlong = d > Math.SQRT1_2;                                             // r.a quasi parallelo a u
       const A = r.a, B = r.b; w1 = uAlong ? A : B; h1 = uAlong ? B : A;
     }
-    faceDim.textContent = `${fs.curved ? '≈ ' : ''}${fmt(w1)} × ${fmt(h1)} mm · ${tr(flat ? 'larghezza × profondità' : 'larghezza × altezza')}`;
+    setAltTip(`${fs.curved ? '≈ ' : ''}${fmt(w1)} × ${fmt(h1)} mm`, tr(flat ? 'larghezza × profondità' : 'larghezza × altezza'), []);
     faceDim.style.display = 'block';
     faceDim.style.transform = `translate(${e.clientX + 18}px, ${e.clientY + 18}px)`;
     return;
