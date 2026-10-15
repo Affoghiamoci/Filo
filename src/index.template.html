@@ -63,6 +63,18 @@
       <label class="f">P<input id="p-d" type="number" step="0.5" min="0.1"></label>
       <label class="f">A<input id="p-h" type="number" step="0.5" min="0.1"></label>
     </div>
+    <h4>Rotazione (°)</h4>
+    <div class="grid3">
+      <label class="f">X<input id="p-rx" type="number" step="15"></label>
+      <label class="f">Y<input id="p-ry" type="number" step="15"></label>
+      <label class="f">Z<input id="p-rz" type="number" step="15"></label>
+    </div>
+  </section>
+  <section id="p-rotq">
+    <h4 data-help="In alternativa usa lo strumento Ruota (R). Gli anelli scattano ogni 15°.">Ruota di 90°<i class="inf" aria-hidden="true">?</i></h4>
+    <div class="grid3 rq"><button class="btn" data-rq="x" title="Ruota di 90° attorno a X (⇧ per il verso opposto)">X</button><button class="btn" data-rq="y" title="Ruota di 90° attorno a Y (⇧ per il verso opposto)">Y</button><button class="btn" data-rq="z" title="Ruota di 90° attorno a Z (⇧ per il verso opposto)">Z</button></div>
+  </section>
+  <section id="p-single2">
     <div id="p-r-wrap">
       <h4>Angoli e bordi</h4>
       <div class="seg" id="p-rm"><button data-v="fillet" class="on">Arrotondato</button><button data-v="chamfer">Smussato</button></div>
@@ -76,16 +88,6 @@
       <h4>Forma</h4>
       <div class="grid1"><label class="f" id="p-q-lab">Cima %<input id="p-q" type="number" step="5" min="0"></label></div>
     </div>
-    <h4>Rotazione (°)</h4>
-    <div class="grid3">
-      <label class="f">X<input id="p-rx" type="number" step="15"></label>
-      <label class="f">Y<input id="p-ry" type="number" step="15"></label>
-      <label class="f">Z<input id="p-rz" type="number" step="15"></label>
-    </div>
-  </section>
-  <section id="p-rotq">
-    <h4 data-help="In alternativa usa lo strumento Ruota (R). Gli anelli scattano ogni 15°.">Ruota di 90°<i class="inf" aria-hidden="true">?</i></h4>
-    <div class="grid3 rq"><button class="btn" data-rq="x" title="Ruota di 90° attorno a X (⇧ per il verso opposto)">X</button><button class="btn" data-rq="y" title="Ruota di 90° attorno a Y (⇧ per il verso opposto)">Y</button><button class="btn" data-rq="z" title="Ruota di 90° attorno a Z (⇧ per il verso opposto)">Z</button></div>
   </section>
   <section id="p-multi" class="hidden">
     <h4>Posizione (mm)</h4>

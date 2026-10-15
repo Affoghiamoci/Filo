@@ -1957,7 +1957,7 @@ function syncPanel() {
   $('#p-face').classList.toggle('hidden', !faceSel);
   if (faceSel) { updateFacePanel(); return; }
   const m = single();
-  $('#p-single').classList.toggle('hidden', !m);
+  $('#p-single').classList.toggle('hidden', !m); $('#p-single2').classList.toggle('hidden', !m); if (m) $('#p-single2').before($('#p-rotq')); else $('#p-multi').after($('#p-rotq'));
   $('#p-multi').classList.toggle('hidden', !!m);
   const allHole = selection.every(o => o.userData.hole);
   document.querySelectorAll('#p-type button').forEach(b => b.classList.toggle('on', (b.dataset.v === 'hole') === allHole));
