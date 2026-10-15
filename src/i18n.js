@@ -316,6 +316,7 @@ const EN = {
   'La misura è troppo grande per questa scatola': 'The size is too big for this box', 'La misura è troppo grande per questo pezzo': 'The size is too big for this piece',
   'Controlla stampa: anteprima a strati, pareti sottili, sbalzi, pezzi sospesi e stima di peso e tempo': 'Check print: layer preview, thin walls, overhangs, floating pieces and weight and time estimate',
   'Spigolo: ogni spigolo ha il suo raggio e resta modificabile; gli anelli si ridimensionano con la calamita': 'Edge: each edge has its own radius and stays editable; rings resize with the magnet',
+  'Spigolo: anche i verticali del prisma e il bordo di cilindro e cono restano modificabili, e un raggio grande si riseleziona cliccando sulla curva': 'Edge: the prism\'s vertical edges and the rim of cylinder and cone stay editable too, and a large radius can be reselected by clicking the curve',
   'Nuovo motore per Combina, Taglia e Allunga: solidi sempre chiusi e più veloci': 'New engine for Combine, Cut and Stretch: always closed solids, and faster',
   'Nuova guida: finestra grande con immagini e GIF (tasto ? o F1)': 'New guide: large window with images and GIFs (? key or F1)',
   'Metro, Ruota, Distribuisci e Ripeti più completi; Scatto da 0,1 mm e Libero': 'Tape measure, Rotate, Distribute and Repeat improved; 0.1 mm Step and Free',

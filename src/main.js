@@ -319,7 +319,7 @@ const edgeShape = (kind, p) => (kind === 'box' || (kind === 'prism' && !(p.r > 0
 function edgeKeysOf(kind, p) {
   const L = [];
   if (kind === 'box') { for (const a of 'xyz') for (const s1 of [-1, 1]) for (const s2 of [-1, 1]) L.push(`${a}:${s1}:${s2}`); }
-  else { const n = prismSides(p); for (let i = 0; i < n; i++) L.push('pt:' + i, 'pb:' + i); }
+  else { const n = prismSides(p); for (let i = 0; i < n; i++) L.push('pt:' + i, 'pb:' + i, 'pv:' + i); }
   return L;
 }
 function edgeMapOf(kind, p) {                          // valori effettivi: parametri globali + spigoli singoli che li sostituiscono
@@ -343,6 +343,11 @@ function edgeFrame(kind, p, key) {                     // spigolo: estremi A,B (
     return { A: at(C[a] - H[a]), B: at(C[a] + H[a]), es, et };
   }
   const [pt, i] = key.split(':'), n = prismSides(p), top = pt === 'pt', z = top ? p.h : 0;
+  if (pt === 'pv') {                                   // spigolo verticale: da Z = 0 a Z = h, es e et vanno lungo i due lati che si incontrano lì
+    const Vz = (k, zz) => { const th = 2 * Math.PI * (((k % n) + n) % n) / n; return new THREE.Vector3(Math.cos(th) * p.w / 2, Math.sin(th) * p.d / 2, zz); };
+    const C0 = Vz(+i, 0);
+    return { A: C0, B: Vz(+i, p.h), es: Vz(+i - 1, 0).sub(C0).normalize(), et: Vz(+i + 1, 0).sub(C0).normalize() };
+  }
   const V = k => { const th = 2 * Math.PI * (k % n) / n; return new THREE.Vector3(Math.cos(th) * p.w / 2, Math.sin(th) * p.d / 2, z); };
   const A = V(+i), B = V(+i + 1), dir = B.clone().sub(A).normalize();
   let nOut = new THREE.Vector3(dir.y, -dir.x, 0); const mid = A.clone().add(B).multiplyScalar(0.5);
@@ -373,6 +378,33 @@ function edgeCutter(kind, p, key, r, t) {
   g.computeVertexNormals();
   return g;
 }
+function vertCutter(p, i, r, t) {                      // spigolo verticale del prisma: il lato è inclinato, il profilo non è a 90°
+  const n = prismSides(p), V = k => { const th = 2 * Math.PI * (((k % n) + n) % n) / n; return new THREE.Vector3(Math.cos(th) * p.w / 2, Math.sin(th) * p.d / 2, 0); };
+  const C = V(i), f1 = V(i - 1).sub(C).normalize(), f2 = V(i + 1).sub(C).normalize();
+  const half = Math.acos(clamp(f1.dot(f2), -1, 1)) / 2, tt = t === 'c' ? r : r / Math.tan(half), e = 0.6;
+  const perp = (f, away) => { const o = new THREE.Vector3(-f.y, f.x, 0); if (o.dot(away) > 0) o.negate(); return o; };
+  const o1 = perp(f1, f2), o2 = perp(f2, f1);
+  const T1 = C.clone().addScaledVector(f1, tt), T2 = C.clone().addScaledVector(f2, tt), pts = [T1];
+  if (t !== 'c') {
+    const b = f1.clone().add(f2).normalize(), cc = C.clone().addScaledVector(b, r / Math.sin(half));
+    const a0 = Math.atan2(T1.y - cc.y, T1.x - cc.x); let da = Math.atan2(T2.y - cc.y, T2.x - cc.x) - a0;
+    while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
+    for (let k = 1; k < 12; k++) pts.push(new THREE.Vector3(cc.x + r * Math.cos(a0 + da * k / 12), cc.y + r * Math.sin(a0 + da * k / 12), 0));
+  }
+  pts.push(T2, T2.clone().addScaledVector(o2, e), C.clone().addScaledVector(o1, e).addScaledVector(o2, e), T1.clone().addScaledVector(o1, e));
+  let g = new THREE.ExtrudeGeometry(new THREE.Shape(pts.map(q => new THREE.Vector2(q.x, q.y))), { depth: p.h + 2 * e, bevelEnabled: false, curveSegments: 1 });
+  g = g.index ? g.toNonIndexed() : g; g.deleteAttribute('uv'); g.deleteAttribute('normal'); g.translate(0, 0, -e); g.computeVertexNormals();
+  return g;
+}
+function edgeKeyLimit(kind, p, key, t) {               // misura massima per quello spigolo
+  if (kind === 'prism' && key.startsWith('pv:')) {
+    const n = prismSides(p), i = +key.slice(3), V = k => { const th = 2 * Math.PI * (((k % n) + n) % n) / n; return new THREE.Vector3(Math.cos(th) * p.w / 2, Math.sin(th) * p.d / 2, 0); };
+    const C = V(i), a = V(i - 1).sub(C), b = V(i + 1).sub(C), tmax = 0.49 * Math.min(a.length(), b.length());
+    const half = Math.acos(clamp(a.normalize().dot(b.normalize()), -1, 1)) / 2;
+    return Math.min(t === 'c' ? tmax : tmax * Math.tan(half), p.h / 2) - 0.02;
+  }
+  return edgeLimitOf(kind, p);
+}
 function edgeLimitOf(kind, p) { return kind === 'box' ? Math.min(p.w, p.d, p.h) / 2 - 0.05 : Math.min(p.h / 2, 0.45 * Math.min(p.w, p.d) * Math.cos(Math.PI / prismSides(p))) - 0.05; }
 function edgesGeometry(kind, p) {
   const lim = edgeLimitOf(kind, p);
@@ -381,8 +413,8 @@ function edgesGeometry(kind, p) {
   base = base.index ? base.toNonIndexed() : base.clone(); base.computeVertexNormals();
   let acc = new Brush(base, M.solid); acc.updateMatrixWorld(true);
   for (const [k, v] of Object.entries(edgeMapOf(kind, p))) {
-    const r = clamp(v.r, 0, lim); if (!(r > 0.01)) continue;
-    const br = new Brush(edgeCutter(kind, p, k, r, v.t), M.solid); br.updateMatrixWorld(true);
+    const r = clamp(v.r, 0, kind === 'prism' && k.startsWith('pv:') ? edgeKeyLimit(kind, p, k, v.t) : lim); if (!(r > 0.01)) continue;
+    const br = new Brush(k.startsWith('pv:') ? vertCutter(p, +k.slice(3), r, v.t) : edgeCutter(kind, p, k, r, v.t), M.solid); br.updateMatrixWorld(true);
     acc = evaluator.evaluate(acc, br, SUBTRACTION);
   }
   let g = acc.geometry.clone(); clean(g); g = healMesh(g);
@@ -4325,32 +4357,47 @@ function makeLines(chains, mat) {
 }
 function dropLines(l) { if (l) { scene.remove(l); l.geometry.dispose(); } }
 const isEdgeBox = o => edgeShape(o.userData.kind, o.userData.p);
+const ringShape = o => ['cylinder', 'cone'].includes(o.userData.kind) && !o.userData.p.ed && (o.userData.p.ft > 0 || o.userData.p.fb > 0);
+function ringKeyOf(obj, pts) {                          // anello alto o basso di cilindro/cono (anche il bordo di uno smusso già fatto): 'ft', 'fb' o null
+  if (!['cylinder', 'cone'].includes(obj.userData.kind) || obj.userData.p.ed || pts.length < 8) return null;
+  const p = obj.userData.p; obj.updateMatrixWorld(true);
+  const L = pts.map(v => obj.worldToLocal(v.clone())), z0 = L[0].z;
+  if (!L.every(v => Math.abs(v.z - z0) < 0.02)) return null;
+  if (Math.abs(z0 - p.h) < 0.02 || (p.ft > 0 && Math.abs(z0 - (p.h - p.ft)) < 0.02)) return 'ft';
+  if (Math.abs(z0) < 0.02 || (p.fb > 0 && Math.abs(z0 - p.fb) < 0.02)) return 'fb';
+  return null;
+}
 function edgeAtPointer(e, hit) {
   if (!hit) return null;
   const obj = hit.object;
   const wpp = 2 * camera.position.distanceTo(hit.point) * Math.tan(camera.fov * D2R / 2) / canvas.clientHeight;
-  if (isEdgeBox(obj)) {                                // scatola: i 12 spigoli "virtuali" della forma intera
+  if (isEdgeBox(obj)) {                                // scatola e prisma: gli spigoli "virtuali" della forma intera
     obj.updateMatrixWorld(true);
-    const lim = Math.max(0.8, 14 * wpp), ln = new THREE.Line3(), q = new THREE.Vector3();
+    const lim = Math.max(0.8, 14 * wpp), ln = new THREE.Line3(), q = new THREE.Vector3(), u = obj.userData, mp = edgeMapOf(u.kind, u.p);
     let best = null, bd = lim;
-    for (const k of edgeKeysOf(obj.userData.kind, obj.userData.p)) {
-      const fr = edgeFrame(obj.userData.kind, obj.userData.p, k), [A, B] = [fr.A, fr.B].map(v => v.clone().applyMatrix4(obj.matrixWorld));
-      ln.set(A, B); ln.closestPointToPoint(hit.point, true, q);
-      const d = q.distanceTo(hit.point);
-      if (d < bd) { bd = d; best = { key: k, pts: [A, B] }; }
-    }
-    if (obj.userData.kind === 'prism') {                // anche gli spigoli verticali (si possono spostare e arrotondare)
-      const p = obj.userData.p, n = prismSides(p);
-      for (let i = 0; i < n; i++) {
-        const th = 2 * Math.PI * i / n, x = Math.cos(th) * p.w / 2, y = Math.sin(th) * p.d / 2;
-        const [A, B] = [new THREE.Vector3(x, y, 0), new THREE.Vector3(x, y, p.h)].map(v => v.applyMatrix4(obj.matrixWorld));
-        ln.set(A, B); ln.closestPointToPoint(hit.point, true, q);
-        const d = q.distanceTo(hit.point);
-        if (d < bd) { bd = d; best = { key: 'pv:' + i, pts: [A, B], vert: true }; }
+    const test = (A, B, k, pts) => { ln.set(A, B); ln.closestPointToPoint(hit.point, true, q); const d = q.distanceTo(hit.point); if (d < bd) { bd = d; best = { key: k, pts }; } };
+    for (const k of edgeKeysOf(u.kind, u.p)) {
+      const fr = edgeFrame(u.kind, u.p, k), [A, B] = [fr.A, fr.B].map(v => v.clone().applyMatrix4(obj.matrixWorld));
+      test(A, B, k, [A, B]);
+      const v = mp[k];                                 // spigolo già arrotondato o smussato: la curva sta più dentro dello spigolo vivo, si cerca anche lì
+      if (v && v.r > 0) {
+        const half = Math.acos(clamp(fr.es.dot(fr.et), -1, 1)) / 2, off = fr.es.clone().add(fr.et).normalize().multiplyScalar(v.t === 'c' ? v.r * Math.cos(half) : v.r * (1 / Math.sin(half) - 1));
+        const A2 = fr.A.clone().add(off).applyMatrix4(obj.matrixWorld), B2 = fr.B.clone().add(off).applyMatrix4(obj.matrixWorld);
+        test(A2, B2, k, [A, B]);
       }
     }
-    if (best && best.vert) return { obj, virt: { key: best.key, chain: { pts: best.pts, closed: false, verts: [best.key] } } };
     return best ? { obj, virt: { key: best.key, chain: { pts: best.pts, closed: false, verts: [best.key], vkey: best.key } } } : null;
+  }
+  if (ringShape(obj)) {                                // cilindro e cono con bordo arrotondato: l'anello vivo non c'è più, lo cerco dove si vede la curva
+    const u = obj.userData, p = u.p, tt = u.kind === 'cone' ? Math.max(p.q || 0, 1) / 100 : clamp(p.t ?? 100, 1, 100) / 100;
+    let best = null, bd = Math.max(0.8, 14 * wpp), ln = new THREE.Line3(), q = new THREE.Vector3();
+    for (const [rk, f] of [['ft', p.ft], ['fb', p.fb]]) {
+      if (!(f > 0)) continue;
+      const ring = (zz, inset) => { const k = 1 + (tt - 1) * zz / p.h, P = []; for (let j = 0; j < 72; j++) { const th = 2 * Math.PI * j / 72; P.push(new THREE.Vector3(Math.cos(th) * Math.max(0.05, p.w / 2 * k - inset), Math.sin(th) * Math.max(0.05, p.d / 2 * k - inset), zz).applyMatrix4(obj.matrixWorld)); } return P; };
+      const vis = rk === 'ft' ? ring(p.h - f * 0.3, f * 0.3) : ring(f * 0.3, f * 0.3), mid = ring(rk === 'ft' ? p.h - f : f, 0);
+      for (let j = 0; j < 72; j++) { ln.set(vis[j], vis[(j + 1) % 72]); ln.closestPointToPoint(hit.point, true, q); const d = q.distanceTo(hit.point); if (d < bd) { bd = d; best = { rk, pts: mid }; } }
+    }
+    if (best) return { obj, virt: { key: 'r:' + best.rk, chain: { pts: best.pts, closed: true, verts: ['r:' + best.rk], rkey: best.rk } } };
   }
   const an = edgeAnalysis(obj);
   const ed = nearestEdge(an, hit.point, Math.max(0.8, 14 * wpp));
@@ -4380,6 +4427,12 @@ function selectEdgeAt(hit, add) {
   prefillEdgeSize(); refreshEdgeLines(); updateEdgePanel(); updateEdgeHandle();
 }
 function prefillEdgeSize() {                          // scatola: mostra misura e tipo già impostati sugli spigoli scelti
+  const rks = edgeSel.map(x => x.chain.rkey || (x.chain.closed && ringKeyOf(x.obj, x.chain.pts)));
+  if (rks.length && rks.every(Boolean)) {              // cilindro e cono: bordo alto o basso
+    const pp = edgeSel[0].obj.userData.p, vs = rks.map(k => pp[k] || 0);
+    if (vs.every(v => v === vs[0]) && vs[0] > 0) { EF.size.value = fmt(vs[0]); edgeMode.v = pp.rm === 'chamfer' ? 'chamfer' : 'fillet'; } else EF.size.value = '';
+    return;
+  }
   const ks = edgeSel.map(x => x.chain.vkey); if (!ks.length || ks.some(k => !k)) return;
   const mp = edgeMapOf(edgeSel[0].obj.userData.kind, edgeSel[0].obj.userData.p), vs = ks.map(k => mp[k]);
   if (vs.every(v => v && v.r === vs[0].r && v.t === vs[0].t)) { EF.size.value = fmt(vs[0].r); edgeMode.v = vs[0].t === 'c' ? 'chamfer' : 'fillet'; } else EF.size.value = '';
@@ -4397,7 +4450,7 @@ const EF = { size: $('#e-size'), go: $('#e-go'), info: $('#e-info'), hint: $('#e
 function updateEdgePanel() {
   const n = edgeSel.length;
   EF.info.textContent = n ? `· ${n} ${n === 1 ? 'spigolo' : 'spigoli'}` : tr('· nessuno selezionato');
-  EF.hint.textContent = n ? (edgeSel.every(x => x.chain.vkey) ? 'Scegli tipo e misura, poi Applica. Per cambiarlo dopo, riseleziona lo spigolo (con 0 lo togli).' : 'Scegli tipo e misura, poi Applica.') : 'Clicca uno spigolo. Con Maiusc ne scegli più di uno.';
+  EF.hint.textContent = n ? (edgeSel.every(x => x.chain.vkey || x.chain.rkey || (x.chain.closed && ringKeyOf(x.obj, x.chain.pts))) ? 'Scegli tipo e misura, poi Applica. Per cambiarlo dopo, riseleziona lo spigolo (con 0 lo togli).' : 'Scegli tipo e misura, poi Applica.') : 'Clicca uno spigolo. Con Maiusc ne scegli più di uno.';
   EF.go.disabled = !n;
   const lp = !!selectedLoop();
   $('#e-fillet-box').classList.toggle('dim', !n); $('#e-scale-box').classList.toggle('dim', !lp);
@@ -4454,7 +4507,7 @@ ringPrev.renderOrder = 998; ringPrev.visible = false; ringPrev.frustumCulled = f
 // geometria dell'anello selezionato: centro, normale del piano, raggio medio
 // anello selezionato: una catena chiusa (cerchio) oppure più catene unite in un giro chiuso (i 4 spigoli di una faccia)
 function selectedLoop() {
-  if (!edgeSel.length || edgeSel.some(x => x.obj !== edgeSel[0].obj)) return null;
+  if (!edgeSel.length || edgeSel.some(x => x.obj !== edgeSel[0].obj || x.chain.rkey)) return null;
   if (edgeSel.length === 1) return edgeSel[0].chain.closed ? edgeSel[0].chain.pts.slice() : null;
   const key = p => Math.round(p.x * 500) + ',' + Math.round(p.y * 500) + ',' + Math.round(p.z * 500);
   const ch = edgeSel.map(x => x.chain);
@@ -4554,7 +4607,7 @@ const moveHandle = (() => {
 const WAX = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0), z: new THREE.Vector3(0, 0, 1) };
 const ekey = (x, y, z) => Math.round(x * 2000) + ',' + Math.round(y * 2000) + ',' + Math.round(z * 2000);
 function moveInfo() {                                   // spigoli scelti (non un anello): punti, centro e asse parallelo da escludere
-  if (!edgeSel.length || edgeSel.some(x => x.obj !== edgeSel[0].obj) || selectedLoop()) return null;
+  if (!edgeSel.length || edgeSel.some(x => x.obj !== edgeSel[0].obj || x.chain.rkey) || selectedLoop()) return null;
   const seen = new Map(), c = new THREE.Vector3();
   edgeSel.forEach(x => x.chain.pts.forEach(p => seen.set(ekey(p.x, p.y, p.z), p)));
   const pts = [...seen.values()]; pts.forEach(p => c.add(p)); c.divideScalar(pts.length);
@@ -4705,8 +4758,19 @@ function applyEdges() {
   const size = parseFloat(String(EF.size.value).replace(',', '.'));
   if (!edgeSel.length) return;
   const obj = edgeSel[0].obj;
+  const rks = ['cylinder', 'cone'].includes(obj.userData.kind) ? edgeSel.map(x => x.chain.rkey || (x.chain.closed && ringKeyOf(x.obj, x.chain.pts))) : [];
+  if (rks.length && rks.every(Boolean) && edgeSel.every(x => x.obj === obj)) {   // cilindro e cono: bordo alto e basso, restano modificabili
+    const u = obj.userData;
+    if (!(size >= 0)) return toast('Scrivi una misura in mm (0 per togliere)');
+    if (size > 0 && (size >= Math.min(u.p.w, u.p.d) / 2 || size >= u.p.h)) return toast('La misura è troppo grande per questo pezzo');
+    for (const k of new Set(rks)) u.p[k] = size;
+    if (size > 0) u.p.rm = edgeMode.v === 'chamfer' ? 'chamfer' : null;
+    obj.geometry.dispose(); obj.geometry = buildGeometry(u.kind, u.p); refreshEdges(obj); obj.updateMatrixWorld(true);
+    clearEdges(); setSelection([obj]); touch(); commit(); EF.size.value = '';
+    return toast(size === 0 ? 'Bordo tolto' : edgeMode.v === 'fillet' ? 'Arrotondamento applicato: resta modificabile dal pannello' : 'Smusso applicato: resta modificabile dal pannello');
+  }
   if (edgeSel.every(x => x.chain.vkey)) {              // scatola: spigoli singoli, restano modificabili
-    const u = obj.userData, p = u.p, lim = edgeLimitOf(u.kind, p);
+    const u = obj.userData, p = u.p, lim = Math.min(...edgeSel.map(x => edgeKeyLimit(u.kind, p, x.chain.vkey, edgeMode.v === 'chamfer' ? 'c' : 'f')));
     if (!(size >= 0)) return toast('Scrivi una misura in mm (0 per togliere)');
     if (size > lim) return toast('La misura è troppo grande per questo pezzo: massimo ' + fmt(lim) + ' mm');
     const ed = {}; for (const [k, v] of Object.entries(edgeMapOf(u.kind, p))) ed[k] = v;     // i parametri globali diventano spigoli singoli
