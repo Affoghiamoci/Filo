@@ -721,6 +721,14 @@ html:not(.ui-ready) #side{visibility:hidden}
 #topbar .btn.ic,#topbar .btn.ic.primary{flex:0 0 40px;height:34px;padding:0;justify-content:center}
 #topbar #b-check{height:34px;padding:0 10px}
 #topbar .btn.ic svg{display:block}
+/* barra in alto: tre tasti separati, ognuno con il suo riquadro */
+#topbar.panel{background:none;border:0;box-shadow:none;padding:0;gap:8px}
+#topbar .btn{height:40px;padding:0 12px;background:var(--panel);border:1px solid var(--line);border-radius:2px;box-shadow:var(--shadow);box-sizing:border-box}
+#topbar .btn:hover{background:var(--hover)}
+#topbar .btn.ic,#topbar .btn.ic.primary{flex:0 0 56px;height:40px;padding:0}
+#topbar .btn.primary{background:var(--ink);color:var(--on-ink);border-color:var(--ink);box-shadow:var(--shadow),inset 0 -2px 0 var(--accent)}
+#topbar #b-check{height:40px;padding:0 10px}
+#props{top:64px}
 </style>
 </head>
 <body>
