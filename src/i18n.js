@@ -124,6 +124,7 @@ const EN = {
   "Guida con nuove immagini e GIF (Ruota, Spigolo, Controlla)": "Guide with new images and GIFs (Rotate, Edge, Check)",
   "Riprendi l'ultimo lavoro dalla schermata iniziale e avviso prima di ricaricare la pagina": 'Resume your last work from the start screen and a warning before reloading the page',
   'Barra in alto con tre icone: Importa, Controlla, Esporta': 'Top bar with three icons: Import, Check, Export',
+  'Trascina per spostare': 'Drag to move',
   "Riprendi": "Resume",
   "Ultimo lavoro salvato in questo browser.": "Last work saved in this browser.",
   "Elimina il lavoro salvato": "Delete the saved work",

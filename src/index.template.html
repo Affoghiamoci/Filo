@@ -287,14 +287,14 @@
 </dialog>
 <dialog id="dlg-check" aria-label="Controlla stampa">
   <div class="chk">
-    <div class="chk-head"><span class="exp-title">Controlla stampa</span><button class="icon-btn" id="chk-x" aria-label="Chiudi"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="chk-head" id="chk-drag" title="Trascina per spostare"><span class="chk-grip" aria-hidden="true"></span><span class="exp-title">Controlla stampa</span><button class="icon-btn" id="chk-x" aria-label="Chiudi"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="chk-wait" id="chk-wait">Sto analizzando…</div>
     <div id="chk-body" class="hidden">
-      <div class="chk-prev"><canvas id="chk-cv" width="680" height="440"></canvas><div class="chk-rd" id="chk-rd"></div></div>
+      <div class="chk-prev"><div class="chk-rd" id="chk-rd"></div><canvas id="chk-cv" width="680" height="440"></canvas></div>
       <input type="range" id="chk-sl" min="0" max="100" value="0" aria-label="Strato">
       <div class="chk-opts">
-        <label>Strato<select id="chk-lh"><option value="0.12">0,12 mm</option><option value="0.16">0,16 mm</option><option value="0.2" selected>0,20 mm</option><option value="0.28">0,28 mm</option></select></label>
-        <label>Parete minima<select id="chk-mw"><option value="0.4">0,4 mm</option><option value="0.8" selected>0,8 mm</option><option value="1.2">1,2 mm</option></select></label>
+        <div class="chk-f"><span>Strato</span><div class="chk-seg" id="chk-lh" data-v="0.2"><button type="button" data-v="0.12">0,12</button><button type="button" data-v="0.16">0,16</button><button type="button" data-v="0.2" class="on">0,20</button><button type="button" data-v="0.28">0,28</button></div></div>
+        <div class="chk-f"><span>Parete minima</span><div class="chk-seg" id="chk-mw" data-v="0.8"><button type="button" data-v="0.4">0,4</button><button type="button" data-v="0.8" class="on">0,8</button><button type="button" data-v="1.2">1,2</button></div></div>
       </div>
       <ul id="chk-list"></ul>
       <div class="chk-est" id="chk-est"></div>

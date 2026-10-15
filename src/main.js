@@ -2752,8 +2752,9 @@ function toast(msg, ms = 2400) {
 /* ------------------------------------------------------------ tastiera */
 window.addEventListener('keydown', e => {
   const tag = e.target.tagName;
-  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || dlg.open || document.querySelector('dialog[open]')) return;
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || dlg.open || document.querySelector('dialog[open]:not(#dlg-check)')) return;
   const mod = e.metaKey || e.ctrlKey, k = e.key.toLowerCase();
+  if (k === 'tab' && !mod && !e.altKey) { e.preventDefault(); setMini(!sideEl.classList.contains('mini')); return; }
   if (k === 'f7') { e.preventDefault(); setLayers(!layersOn); return; }
   if (k === 'f8') { e.preventDefault(); setHistory(!histOn); return; }
   if (e.code === 'Space') {
@@ -4718,7 +4719,7 @@ async function chkRun() {
   chkClear();
   const list = exportList();
   if (!list.length) { toast('Niente da controllare: aggiungi almeno un solido'); chk.busy = false; dlgChk.close(); return; }
-  try { chk.R = buildCheck(list, { layer: parseFloat($('#chk-lh').value), minWall: parseFloat($('#chk-mw').value) }); } catch (e) { console.warn(e); chk.R = { err: 'Non sono riuscito ad analizzare il pezzo', open: [] }; }
+  try { chk.R = buildCheck(list, { layer: parseFloat($('#chk-lh').dataset.v), minWall: parseFloat($('#chk-mw').dataset.v) }); } catch (e) { console.warn(e); chk.R = { err: 'Non sono riuscito ad analizzare il pezzo', open: [] }; }
   const R = chk.R;
   if (R.err) { toast(R.err); chk.busy = false; return; }
   $('#chk-wait').classList.add('hidden'); $('#chk-body').classList.remove('hidden');
@@ -4744,7 +4745,11 @@ $('#b-check').addEventListener('click', () => dlgChk.open ? dlgChk.close() : ope
 $('#chk-x').addEventListener('click', () => dlgChk.close());
 dlgChk.addEventListener('close', () => { clearTimeout(chk.timer); chkClear(); });
 $('#chk-sl').addEventListener('input', e => chkDraw(+e.target.value));
-$('#chk-lh').addEventListener('change', chkRun); $('#chk-mw').addEventListener('change', chkRun);
+for (const id of ['#chk-lh', '#chk-mw']) $(id).addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const g = $(id); g.dataset.v = b.dataset.v; g.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); chkRun(); });
+{ const hd = $('#chk-drag'); let d = null;
+  hd.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; const r = dlgChk.getBoundingClientRect(); d = { dx: e.clientX - r.left, dy: e.clientY - r.top }; hd.setPointerCapture(e.pointerId); hd.classList.add('drag'); });
+  hd.addEventListener('pointermove', e => { if (!d) return; const w = dlgChk.offsetWidth; const x = Math.max(8, Math.min(innerWidth - w - 8, e.clientX - d.dx)), y = Math.max(8, Math.min(innerHeight - 60, e.clientY - d.dy)); dlgChk.style.left = x + 'px'; dlgChk.style.top = y + 'px'; dlgChk.style.right = 'auto'; dlgChk.style.maxHeight = (innerHeight - y - 16) + 'px'; });
+  const up = () => { d = null; hd.classList.remove('drag'); }; hd.addEventListener('pointerup', up); hd.addEventListener('pointercancel', up); }
 $('#chk-ov').addEventListener('change', e => { if (chk.ov) { chk.ov.visible = e.target.checked; dirty = true; } });
 
 
