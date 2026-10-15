@@ -771,3 +771,17 @@ dialog[open],dialog[open]::backdrop{animation:fade-in .16s ease}
 #hp-main .hp-leg .mk.f{width:6px;height:6px;margin-top:8px;border-radius:50%;opacity:.6}
 #hp-main .hp-leg .mk.p{width:9px;height:9px;margin-top:6px;border-radius:50%;background:var(--on-accent)}
 
+/* finestra Info orizzontale: novità a sinistra, il resto a destra */
+#dlg-info{width:min(880px,calc(100vw - 32px))}
+#dlg-info .info-card{display:grid;grid-template-columns:minmax(0,290px) minmax(0,1fr);gap:0 28px;padding:24px 28px}
+#dlg-info .info-news{grid-column:1;border-right:1px solid var(--line);padding-right:24px}
+#dlg-info .info-news .lbl{display:block;font:500 10.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+#dlg-info .info-main{grid-column:2;min-width:0;padding-right:20px}
+#dlg-info .info-main>.info-head{margin-bottom:14px}
+.info-link{display:inline-block;margin-top:4px;font:500 11.5px var(--mono);letter-spacing:.02em;color:var(--accent);text-decoration:none;border-bottom:1px solid var(--accent)}
+.info-link:hover{background:var(--accent-weak)}
+@media (max-width:760px){
+  #dlg-info .info-card{display:flex;flex-direction:column;padding:20px 20px}
+  #dlg-info .info-main{order:-1;padding-right:0}
+  #dlg-info .info-news{border-right:0;padding-right:0;border-top:1px solid var(--line);margin-top:6px;padding-top:12px}
+}

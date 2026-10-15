@@ -2,7 +2,7 @@
 
 Modellatore 3D semplice che gira offline in un solo file HTML, pensato per creare e modificare oggetti da stampare in 3D: mollette, ganci, scatoline e simili. Interfaccia in italiano e inglese, scorciatoie alla Photoshop, piatti Bambu Lab, stile industriale con accento arancione.
 
-Versione 0.10.0 (beta). Sito: [filo.affogo.fyi](https://filo.affogo.fyi)
+Versione 0.10.0 (beta). Sito: [filo.affogo.fyi](https://filo.affogo.fyi). Codice: [github.com/Affoghiamoci/Filo](https://github.com/Affoghiamoci/Filo)
 
 ## Cosa fa
 
@@ -71,7 +71,7 @@ Il codice è in `src/`:
 | `i18n.js`, `help.js`, `helpimg.js`, `helpimg2.js` | Traduzioni IT/EN, Guida e immagini |
 | `tools/` | Generatore delle immagini della Guida (`guide-shots.py`, `guide-lessons.py`, `pack-help-images.mjs`) |
 
-Altri file utili: `DESIGN.md` (token, tipografia, spaziature e componenti da consultare prima di toccare l'interfaccia), `IDEE.md` (idee rimandate), `THIRD_PARTY_LICENSES.md` (generato dalla build).
+Altri file utili: `DESIGN.md` (token, tipografia, spaziature e componenti da consultare prima di toccare l'interfaccia), `IDEE.md` (idee rimandate), `THIRD_PARTY_LICENSES.md` (generato dalla build), `LICENSE` (MIT).
 
 I test in `tests/` sono script Playwright (Python) che aprono `dist/forma.html` in Chromium headless e pilotano l'app con l'API `window.forma`. Puntano a `/tmp/forma/dist/forma.html`: se il progetto sta altrove, cambia il percorso.
 
@@ -83,4 +83,4 @@ Sul sito ufficiale Filo conta solo le visite in forma anonima, nessun cookie. I 
 
 ## Licenza
 
-Da decidere. Le librerie incluse sono tutte open source (MIT, Apache-2.0, BSL-1.0, OFL-1.1), i testi sono in `THIRD_PARTY_LICENSES.md`.
+Filo è rilasciato con licenza MIT (vedi `LICENSE`). Le librerie incluse sono tutte open source (MIT, Apache-2.0, BSL-1.0, OFL-1.1), i testi sono in `THIRD_PARTY_LICENSES.md`.
