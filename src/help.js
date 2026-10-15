@@ -35,7 +35,8 @@ export const HELP = {
       {{img:riquadro|Riquadro: seleziona tutto ciò che si vede nell'area}}
       <p>${K('Q')} Riquadro e ${K('W')} Lazo selezionano trascinando. Prendono solo ciò che si vede davvero, non gli oggetti nascosti dietro.</p>
       {{img:lazo|Lazo: disegni una linea libera attorno agli oggetti}}
-      <ul><li>${K('⇧')} aggiunge alla selezione; ${K('⌘')} la toglie.</li><li>Un clic nel vuoto deseleziona.</li></ul>` },
+      <ul><li>${K('⇧')} aggiunge alla selezione; ${K('⌘')} la toglie.</li><li>Un clic nel vuoto deseleziona.</li></ul>
+      <div class="tip">Nella barra a sinistra gli strumenti con il triangolino nell'angolo hanno una seconda funzione (Riquadro e Lazo, Taglia e Allunga, Combina e Interseca). Per aprirla tieni premuto, fai clic destro o clicca il triangolino. Il pulsante ricorda l'ultimo strumento scelto, tranne Combina che resta sempre Combina. Le scorciatoie funzionano sempre in modo diretto.</div>` },
     { id: 'groups', g: 'select', t: 'Gruppi, livelli e cronologia', h: `
       <ul><li><b>Gruppo</b>: ${K('⌘G')} unisce più oggetti perché si muovano insieme; ${K('⇧⌘G')} li separa.</li><li><b>Livelli</b> (${K('F7')}): elenco degli oggetti, con blocco e nascondi. ${K('⇧')} + clic aggiunge, ${K('⌘')} + clic prende un intervallo.</li><li><b>Cronologia</b> (${K('F8')}): ogni passaggio con anteprima, per tornare indietro. ${K('⌘Z')} annulla, ${K('⇧⌘Z')} ripete. Dopo un annulla ritrovi anche gli spigoli e i lati che avevi selezionato, così puoi ritentare con un'altra misura.</li></ul>
       <p>Con due o più oggetti selezionati, clicca quello che vuoi come <b>chiave</b>: gli altri si allineano a lui.</p>` },
@@ -81,11 +82,12 @@ export const HELP = {
       <p>${K('K')}: scegli un asse e la posizione del piano, poi premi Taglia. Ottieni due oggetti separati.</p>
       {{img:taglia-fine|Le due metà dopo il taglio}}
       <ul><li>Trascina il piano, scrivi la posizione o clicca sull'oggetto.</li><li>Sui modelli grandi compare una barra di avanzamento.</li></ul>` },
-    { id: 'solids', g: 'solids', t: 'Fori e Combina', h: `
+    { id: 'solids', g: 'solids', t: 'Fori, Combina e Interseca', h: `
       <p>${K('X')} trasforma l'oggetto selezionato in foro (arancione trasparente), e viceversa.</p>
       {{img:foro|Un cilindro-foro dentro una scatola}}
       <p>${K('⌘E')} è Combina: unisce i solidi e sottrae i fori. Le parti che restano staccate diventano livelli separati.</p>
       {{img:foro-fine|Il foro scavato}}
+      <p>${K('⇧⌘E')} è Interseca: tiene solo la parte in comune tra i solidi selezionati (servono almeno due solidi). I fori, se ci sono, scavano il risultato. Se gli oggetti non si toccano compare un avviso e non cambia nulla. Utile per ricavare forme particolari, come una scatola arrotondata da una scatola e una sfera.</p>
       <div class="tip">Con tanti fori Combina può metterci qualche secondo, e compare una barra di caricamento. Il risultato è sempre un solido chiuso.</div>` },
     { id: 'repeat', g: 'solids', t: 'Ripeti', h: `
       {{img:ripeti|Griglia a nido d'ape di prismi esagonali}}
@@ -100,7 +102,7 @@ export const HELP = {
         <div><h3>Strumenti</h3><table>
           <tr><td>${K('V')}</td><td>Sposta</td></tr><tr><td>${K('Q')}</td><td>Riquadro</td></tr><tr><td>${K('W')}</td><td>Lazo</td></tr><tr><td>${K('R')}</td><td>Ruota</td></tr><tr><td>${K('L')}</td><td>Lato</td></tr><tr><td>${K('E')}</td><td>Spigolo</td></tr><tr><td>${K('U')}</td><td>Allunga</td></tr><tr><td>${K('K')}</td><td>Taglia</td></tr><tr><td>${K('D')}</td><td>Metro</td></tr></table></div>
         <div><h3>Forme</h3><table>
-          <tr><td>${K('B')}</td><td>Scatola</td></tr><tr><td>${K('C')}</td><td>Cilindro</td></tr><tr><td>${K('S')}</td><td>Sfera</td></tr><tr><td>${K('O')}</td><td>Cono</td></tr><tr><td>${K('P')}</td><td>Prisma</td></tr><tr><td>${K('T')}</td><td>Testo</td></tr><tr><td>${K('X')}</td><td>Foro / Solido</td></tr><tr><td>${K('⌘E')}</td><td>Combina</td></tr><tr><td>${K('⌘G')}</td><td>Raggruppa</td></tr></table></div>
+          <tr><td>${K('B')}</td><td>Scatola</td></tr><tr><td>${K('C')}</td><td>Cilindro</td></tr><tr><td>${K('S')}</td><td>Sfera</td></tr><tr><td>${K('O')}</td><td>Cono</td></tr><tr><td>${K('P')}</td><td>Prisma</td></tr><tr><td>${K('T')}</td><td>Testo</td></tr><tr><td>${K('X')}</td><td>Foro / Solido</td></tr><tr><td>${K('⌘E')}</td><td>Combina</td></tr><tr><td>${K('⇧⌘E')}</td><td>Interseca</td></tr><tr><td>${K('⌘G')}</td><td>Raggruppa</td></tr></table></div>
         <div><h3>Vista</h3><table>
           <tr><td>${K('Spazio')}</td><td>Sposta la vista</td></tr><tr><td>${K('⌘0')}</td><td>Adatta</td></tr><tr><td>${K('⌘+')} ${K('⌘-')}</td><td>Zoom</td></tr><tr><td>${K('M')}</td><td>Misure</td></tr><tr><td>${K('Z')}</td><td>Raggi X</td></tr><tr><td>${K('Tab')}</td><td>Riduci barra</td></tr><tr><td>${K('F7')}</td><td>Livelli</td></tr><tr><td>${K('F8')}</td><td>Cronologia</td></tr><tr><td>${K('?')}</td><td>Questa guida</td></tr></table></div>
         <div><h3>Modifica</h3><table>
@@ -143,7 +145,8 @@ export const HELP = {
       {{img:riquadro|Marquee: selects everything visible in the area}}
       <p>${K('Q')} Marquee and ${K('W')} Lasso select by dragging. They only take what is really visible, not objects hidden behind.</p>
       {{img:lazo|Lasso: draw a free line around the objects}}
-      <ul><li>${K('⇧')} adds to the selection; ${K('⌘')} removes.</li><li>A click in empty space deselects.</li></ul>` },
+      <ul><li>${K('⇧')} adds to the selection; ${K('⌘')} removes.</li><li>A click in empty space deselects.</li></ul>
+      <div class="tip">In the bar on the left, tools with a small triangle in the corner have a second function (Marquee and Lasso, Cut and Stretch, Combine and Intersect). To open it, hold the button, right-click or click the triangle. The button remembers the last tool you picked, except Combine, which always stays Combine. Shortcuts always work directly.</div>` },
     { id: 'groups', g: 'select', t: 'Groups, layers and history', h: `
       <ul><li><b>Group</b>: ${K('⌘G')} joins several objects so they move together; ${K('⇧⌘G')} ungroups.</li><li><b>Layers</b> (${K('F7')}): list of objects, with lock and hide. ${K('⇧')} + click adds, ${K('⌘')} + click picks a range.</li><li><b>History</b> (${K('F8')}): every step with a preview, to go back. ${K('⌘Z')} undoes, ${K('⇧⌘Z')} redoes. After an undo, the edges and faces you had selected are selected again, so you can retry with another value.</li></ul>
       <p>With two or more objects selected, click the one you want as the <b>key</b>: the others align to it.</p>` },
@@ -189,11 +192,12 @@ export const HELP = {
       <p>${K('K')}: pick an axis and the plane position, then press Cut. You get two separate objects.</p>
       {{img:taglia-fine|The two halves after the cut}}
       <ul><li>Drag the plane, type the position or click on the object.</li><li>On large models a progress bar appears.</li></ul>` },
-    { id: 'solids', g: 'solids', t: 'Holes and Combine', h: `
+    { id: 'solids', g: 'solids', t: 'Holes, Combine and Intersect', h: `
       <p>${K('X')} turns the selected object into a hole (translucent orange), and back.</p>
       {{img:foro|A cylinder-hole inside a box}}
       <p>${K('⌘E')} is Combine: it joins the solids and subtracts the holes. Parts that end up detached become separate layers.</p>
       {{img:foro-fine|The hole carved out}}
+      <p>${K('⇧⌘E')} is Intersect: it keeps only the part the selected solids have in common (you need at least two solids). Holes, if any, carve the result. If the objects do not touch, a notice appears and nothing changes. Handy for special shapes, like a rounded box from a box and a sphere.</p>
       <div class="tip">With many holes Combine can take a few seconds, and a loading bar appears. The result is always a closed solid.</div>` },
     { id: 'repeat', g: 'solids', t: 'Repeat', h: `
       {{img:ripeti|Honeycomb grid of hexagonal prisms}}
@@ -208,7 +212,7 @@ export const HELP = {
         <div><h3>Tools</h3><table>
           <tr><td>${K('V')}</td><td>Move</td></tr><tr><td>${K('Q')}</td><td>Marquee</td></tr><tr><td>${K('W')}</td><td>Lasso</td></tr><tr><td>${K('R')}</td><td>Rotate</td></tr><tr><td>${K('L')}</td><td>Face</td></tr><tr><td>${K('E')}</td><td>Edge</td></tr><tr><td>${K('U')}</td><td>Stretch</td></tr><tr><td>${K('K')}</td><td>Cut</td></tr><tr><td>${K('D')}</td><td>Tape measure</td></tr></table></div>
         <div><h3>Shapes</h3><table>
-          <tr><td>${K('B')}</td><td>Box</td></tr><tr><td>${K('C')}</td><td>Cylinder</td></tr><tr><td>${K('S')}</td><td>Sphere</td></tr><tr><td>${K('O')}</td><td>Cone</td></tr><tr><td>${K('P')}</td><td>Prism</td></tr><tr><td>${K('T')}</td><td>Text</td></tr><tr><td>${K('X')}</td><td>Hole / Solid</td></tr><tr><td>${K('⌘E')}</td><td>Combine</td></tr><tr><td>${K('⌘G')}</td><td>Group</td></tr></table></div>
+          <tr><td>${K('B')}</td><td>Box</td></tr><tr><td>${K('C')}</td><td>Cylinder</td></tr><tr><td>${K('S')}</td><td>Sphere</td></tr><tr><td>${K('O')}</td><td>Cone</td></tr><tr><td>${K('P')}</td><td>Prism</td></tr><tr><td>${K('T')}</td><td>Text</td></tr><tr><td>${K('X')}</td><td>Hole / Solid</td></tr><tr><td>${K('⌘E')}</td><td>Combine</td></tr><tr><td>${K('⇧⌘E')}</td><td>Intersect</td></tr><tr><td>${K('⌘G')}</td><td>Group</td></tr></table></div>
         <div><h3>View</h3><table>
           <tr><td>${K('Space')}</td><td>Pan the view</td></tr><tr><td>${K('⌘0')}</td><td>Fit</td></tr><tr><td>${K('⌘+')} ${K('⌘-')}</td><td>Zoom</td></tr><tr><td>${K('M')}</td><td>Dimensions</td></tr><tr><td>${K('Z')}</td><td>X-ray</td></tr><tr><td>${K('Tab')}</td><td>Collapse sidebar</td></tr><tr><td>${K('F7')}</td><td>Layers</td></tr><tr><td>${K('F8')}</td><td>History</td></tr><tr><td>${K('?')}</td><td>This guide</td></tr></table></div>
         <div><h3>Edit</h3><table>

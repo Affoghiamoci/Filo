@@ -690,12 +690,13 @@ const entryOf = m => ({
 function snapshot() {
   return { sel: selection.map(m => m.userData.id), list: objects.map(entryOf) };
 }
+let opHint = null;                                   // 'Intersecati' mentre Interseca registra il passaggio, così la cronologia non scrive "Combinati"
 // descrive in poche parole che cosa è cambiato rispetto al passaggio precedente
 function describeChange(prev, cur) {
   if (!prev) return 'Inizio';
   const P = new Map(prev.list.map(d => [d.id, d])), C = new Map(cur.list.map(d => [d.id, d]));
   const added = cur.list.filter(d => !P.has(d.id)), removed = prev.list.filter(d => !C.has(d.id));
-  if (added.length && removed.length) return removed.length > 1 ? `Combinati ${removed.length} oggetti` : 'Lato modificato';
+  if (added.length && removed.length) return removed.length > 1 ? `${opHint || 'Combinati'} ${removed.length} oggetti` : 'Lato modificato';
   if (added.length) return added.length === 1 ? `Aggiunto: ${added[0].name}` : `Aggiunti ${added.length} oggetti`;
   if (removed.length) return removed.length === 1 ? `Eliminato: ${removed[0].name}` : `Eliminati ${removed.length} oggetti`;
   const near = (a, b) => a.length === b.length && a.every((v, i) => Math.abs(v - b[i]) < 1e-6);
@@ -844,11 +845,12 @@ function bakeResult(res, name) {
   counters.merged++;
   return { geo: g, pos: [c.x, c.y, minZ], size: s, name: name || `${NAMES.merged} ${counters.merged}` };
 }
-function combineBrushes(solids, holes) {
+function combineBrushes(solids, holes, mode = 'union') {
   solids.forEach(m => m.updateMatrixWorld(true));
   holes.forEach(m => m.updateMatrixWorld(true));
   let acc = solids[0];
-  for (let i = 1; i < solids.length; i++) acc = evaluator.evaluate(acc, solids[i], ADDITION);
+  const OP = mode === 'intersect' ? INTERSECTION : ADDITION;      // Interseca: resta solo la parte comune a tutti i solidi, poi i fori scavano
+  for (let i = 1; i < solids.length; i++) acc = evaluator.evaluate(acc, solids[i], OP);
   if (holes.length > 1) {                              // prima i fori tra loro (pezzi piccoli e veloci), poi un solo taglio sul solido grande
     let hs = holes.slice();
     while (hs.length > 1) { const nx = []; for (let i = 0; i < hs.length; i += 2) nx.push(i + 1 < hs.length ? evaluator.evaluate(hs[i], hs[i + 1], ADDITION) : hs[i]); hs = nx; }
@@ -886,25 +888,30 @@ async function busyRun(label, fn) {                    // mostra la barra di lav
   try { return await fn(); } finally { if (--busyN <= 0) { busyN = 0; el.classList.add('hidden'); } }
 }
 const trisOf = list => list.reduce((a, m) => a + triCount(m.geometry), 0);
-async function combine() {
+async function combine(mode = 'union') {
   const heavy = selection.length > 12 || trisOf(selection) > 20000;
-  return heavy ? busyRun('Combino gli oggetti…', combineNow) : combineNow();
+  const run = () => combineNow(mode);
+  return heavy ? busyRun(mode === 'intersect' ? 'Interseco gli oggetti…' : 'Combino gli oggetti…', run) : run();
 }
-function combineNow() {
+const intersect = () => combine('intersect');
+function combineNow(mode = 'union') {
+  const isect = mode === 'intersect';
   const solids = selection.filter(m => !m.userData.hole);
   const holes = selection.filter(m => m.userData.hole);
-  if (selection.length < 2 || !solids.length) return toast('Seleziona almeno due oggetti, di cui un solido (⇧ + clic)');
+  if (isect ? solids.length < 2 : (selection.length < 2 || !solids.length)) return toast(isect ? 'Seleziona almeno due solidi da intersecare (⇧ + clic)' : 'Seleziona almeno due oggetti, di cui un solido (⇧ + clic)');
   if (heavyGuard(selection)) return;
   const first = selection.length, P0 = performance.now(), lg = (n) => { if (window.__prof) console.log('PROF', n, Math.round(performance.now() - P0)); };
-  const res = combineBrushes(solids, holes); lg('csg');
+  const res = combineBrushes(solids, holes, mode); lg('csg');
   const baked = bakeResult(res); lg('bake');
-  if (!baked) return toast('Il risultato è vuoto: i fori coprono tutto');
+  if (!baked) return toast(isect ? 'Gli oggetti non si sovrappongono: non c’è niente in comune' : 'Il risultato è vuoto: i fori coprono tutto');
   [...selection].forEach(removeMesh);
   const merged = addMerged(baked); lg('add');
   setSelection([merged]); lg('sel');
   const parts = separateSelection(true); lg('sep');              // se il risultato è fatto di parti staccate, ognuna diventa un livello
-  touch(); commit();
-  toast(parts > 1 ? `Combinati ${first} oggetti: il risultato è in ${parts} pezzi separati` : `Combinati ${first} oggetti`);
+  touch(); opHint = isect ? 'Intersecati' : null; try { commit(); } finally { opHint = null; }
+  toast(isect
+    ? (parts > 1 ? `Intersecati ${first} oggetti: il risultato è in ${parts} pezzi separati` : `Intersecati ${first} oggetti`)
+    : (parts > 1 ? `Combinati ${first} oggetti: il risultato è in ${parts} pezzi separati` : `Combinati ${first} oggetti`));
 }
 /* ------------------------------------------------------------ frecce su/giù nei campi numerici */
 function addSteppers() {
@@ -2426,6 +2433,7 @@ const I = {
   sphere: '<circle cx="12" cy="12" r="8.5"/><ellipse cx="12" cy="12" rx="8.5" ry="3.4"/>',
   hole: '<circle cx="12" cy="12" r="7.5" stroke-dasharray="3 3"/>',
   combine: '<rect x="3.5" y="3.5" width="11" height="11" rx="2.5"/><rect x="9.5" y="9.5" width="11" height="11" rx="2.5"/>',
+  intersect: '<rect x="3.5" y="3.5" width="11" height="11" rx="2.5"/><rect x="9.5" y="9.5" width="11" height="11" rx="2.5"/><path d="M12 9.5H14.5V12A2.5 2.5 0 0 1 12 14.5H9.5V12A2.5 2.5 0 0 1 12 9.5Z" fill="currentColor" stroke="none"/>',
   group: '<path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"/><rect x="8" y="8" width="8" height="8" rx="1.5"/>',
   dup: '<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8"/>',
   trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12h10l1-12M9 7V4h6v3"/>',
@@ -2442,27 +2450,28 @@ const I = {
 const TOOLS = [
   ['Strumenti', [
     { id: 'move', icon: 'move', name: 'Sposta', key: 'V', desc: 'Seleziona e muovi gli oggetti', run: () => setTool('move') },
-    { id: 'marquee', icon: 'marquee', name: 'Riquadro', key: 'Q', desc: 'Seleziona trascinando un riquadro', run: () => setTool('marquee') },
-    { id: 'lasso', icon: 'lasso', name: 'Lazo', key: 'W', desc: 'Seleziona disegnando una linea libera', run: () => setTool('lasso') },
+    { id: 'marquee', grp: 'sel', icon: 'marquee', name: 'Riquadro', key: 'Q', desc: 'Seleziona trascinando un riquadro', run: () => setTool('marquee') },
+    { id: 'lasso', grp: 'sel', icon: 'lasso', name: 'Lazo', key: 'W', desc: 'Seleziona disegnando una linea libera', run: () => setTool('lasso') },
     { id: 'rotate', icon: 'rotate', name: 'Ruota', key: 'R', desc: 'Ruota con scatto a 15°', run: () => setTool('rotate') },
     { id: 'face', icon: 'face', name: 'Lato', key: 'L', desc: 'Spingi o tira un lato piatto', run: () => setTool('face') },
     { id: 'edge', icon: 'edge', name: 'Spigolo', key: 'E', desc: 'Arrotonda o smussa uno spigolo', run: () => setTool('edge') },
-    { id: 'stretch', icon: 'stretch', name: 'Allunga', key: 'U', desc: 'Allunga o accorcia una parte, da un piano in poi', run: () => setTool('stretch') },
-    { id: 'cut', icon: 'cut', name: 'Taglia', key: 'K', desc: 'Taglia un oggetto con un piano', run: () => setTool('cut') },
+    { id: 'cut', grp: 'plane', icon: 'cut', name: 'Taglia', key: 'K', desc: 'Taglia un oggetto con un piano', run: () => setTool('cut') },
+    { id: 'stretch', grp: 'plane', icon: 'stretch', name: 'Allunga', key: 'U', desc: 'Allunga o accorcia una parte, da un piano in poi', run: () => setTool('stretch') },
     { id: 'ruler', icon: 'dist', name: 'Metro', key: 'D', desc: 'Misura tra due punti o lati', run: () => setTool('ruler') },
   ]],
   ['Forme', [
     { icon: 'box', name: 'Scatola', key: 'B', desc: 'Aggiunge un blocco', run: () => createObject('box') },
     { icon: 'cylinder', name: 'Cilindro', key: 'C', desc: 'Aggiunge un cilindro', run: () => createObject('cylinder') },
-    { icon: 'text', name: 'Testo', key: 'T', desc: 'Scrive testo 3D con font a scelta', run: () => addText() },
     { icon: 'sphere', name: 'Sfera', key: 'S', desc: 'Aggiunge una sfera', run: () => createObject('sphere') },
     { icon: 'cone', name: 'Cono', key: 'O', desc: 'Cono o tronco di cono', run: () => createObject('cone') },
     { icon: 'prism', name: 'Prisma', key: 'P', desc: 'Esagono, ottagono e altri poligoni', run: () => createObject('prism') },
     { icon: 'torus', name: 'Toro', key: '', desc: 'Anello per guarnizioni e maniglie', run: () => createObject('torus') },
+    { icon: 'text', name: 'Testo', key: 'T', desc: 'Scrive testo 3D con font a scelta', run: () => addText() },
   ]],
   ['Modifica', [
     { icon: 'hole', name: 'Foro / Solido', key: 'X', desc: 'Trasforma in foro per scavare', run: toggleHole },
-    { icon: 'combine', name: 'Combina', key: '⌘E', desc: 'Unisce i solidi, sottrae i fori', run: combine },
+    { id: 'combine', grp: 'comb', icon: 'combine', name: 'Combina', key: '⌘E', desc: 'Unisce i solidi, sottrae i fori', run: () => combine() },
+    { id: 'intersect', grp: 'comb', icon: 'intersect', name: 'Interseca', key: '⇧⌘E', desc: 'Tiene solo la parte in comune tra i solidi', run: () => intersect() },
     { icon: 'group', name: 'Raggruppa', key: '⌘G', desc: 'Muove più oggetti come uno', run: groupSelection },
     { icon: 'dup', name: 'Duplica', key: '⌘D', desc: 'Copia l’oggetto selezionato', run: () => duplicateSelection(true) },
     { icon: 'trash', name: 'Elimina', key: '⌫', desc: 'Rimuove la selezione', run: deleteSelection },
@@ -2472,16 +2481,107 @@ const TOOLS = [
   ]],
 ];
 const toolEls = {};
+/* Strumenti in seconda funzione (come Photoshop): un solo pulsante in barra, le varianti si aprono di lato.
+   sticky = il pulsante mostra l'ultima variante usata; Combina/Interseca no, il pulsante resta sempre Combina. */
+const TGROUPS = {
+  sel: { items: ['marquee', 'lasso'], sticky: true },
+  plane: { items: ['cut', 'stretch'], sticky: true },
+  comb: { items: ['combine', 'intersect'], sticky: false },
+};
+const TOOL_AT = {};                                             // id → [sezione, posizione] dentro TOOLS
+TOOLS.forEach(([, items], si) => items.forEach((t, ii) => { if (t.id) TOOL_AT[t.id] = [si, ii]; }));
+const toolOf = id => TOOLS[TOOL_AT[id][0]][1][TOOL_AT[id][1]];
+const groupOf = id => { const t = id && TOOL_AT[id] && toolOf(id); return t && t.grp || null; };
+const grpCur = {};                                              // gruppo → id della variante mostrata
+Object.entries(TGROUPS).forEach(([g, d]) => { grpCur[g] = d.items[0]; });
+try { const sv = JSON.parse(localStorage.getItem('forma.grp') || '{}'); Object.entries(sv).forEach(([g, id]) => { if (TGROUPS[g] && TGROUPS[g].sticky && TGROUPS[g].items.includes(id)) grpCur[g] = id; }); } catch (_) {}
+const toolInner = (t, grp) => `<span class="ico"><svg viewBox="0 0 24 24">${I[t.icon]}</svg>${grp ? '<i class="gtri"></i>' : ''}</span><span class="t"><b>${t.name}</b><small>${t.desc}</small></span>${t.key ? `<kbd>${t.key}</kbd>` : ''}`;
 $('#tools').innerHTML = TOOLS.map(([title, items], si) =>
-  `<h3>[${si + 1}] ${title}</h3>` + items.map((t, ii) =>
-    `<button class="tool" data-s="${si}" data-i="${ii}" aria-label="${t.name}"><span class="ico"><svg viewBox="0 0 24 24">${I[t.icon]}</svg></span><span class="t"><b>${t.name}</b><small>${t.desc}</small></span>${t.key ? `<kbd>${t.key}</kbd>` : ''}</button>`).join('')).join('');
+  `<h3>[${si + 1}] ${title}</h3>` + items.map((t, ii) => {
+    if (t.grp) {
+      if (TGROUPS[t.grp].items[0] !== t.id) return '';            // le altre varianti vivono solo nel menu laterale
+      const c = toolOf(grpCur[t.grp]), [cs, ci] = TOOL_AT[c.id];
+      return `<button class="tool grp" data-g="${t.grp}" data-s="${cs}" data-i="${ci}" aria-label="${c.name}" aria-haspopup="menu" aria-expanded="false">${toolInner(c, true)}</button>`;
+    }
+    return `<button class="tool" data-s="${si}" data-i="${ii}" aria-label="${t.name}">${toolInner(t)}</button>`;
+  }).join('')).join('');
+function paintGroup(g) {
+  const b = $(`#tools .grp[data-g="${g}"]`); if (!b) return;
+  const c = toolOf(grpCur[g]), [cs, ci] = TOOL_AT[c.id];
+  b.dataset.s = cs; b.dataset.i = ci; b.setAttribute('aria-label', c.name); b.innerHTML = toolInner(c, true);
+}
+function showMember(id) {                                       // uno strumento del gruppo è stato scelto: il pulsante lo mostra da ora in poi
+  const g = groupOf(id); if (!g || !TGROUPS[g].sticky || grpCur[g] === id) return;
+  grpCur[g] = id; paintGroup(g);
+  try { const sv = {}; Object.entries(TGROUPS).forEach(([k, d]) => { if (d.sticky) sv[k] = grpCur[k]; }); localStorage.setItem('forma.grp', JSON.stringify(sv)); } catch (_) {}
+}
+Object.keys(TGROUPS).forEach(g => TGROUPS[g].items.forEach(id => { toolEls[id] = $(`#tools .grp[data-g="${g}"]`); }));
+document.querySelectorAll('#tools .tool:not(.grp)').forEach(b => { const t = TOOLS[b.dataset.s][1][b.dataset.i]; if (t.id) toolEls[t.id] = b; });
+
+/* menu laterale delle varianti */
+const flyEl = document.createElement('div');
+flyEl.id = 'flyout'; flyEl.className = 'panel hidden'; flyEl.setAttribute('role', 'menu');
+document.body.appendChild(flyEl);
+let flyGrp = null;
+const flyOpen = () => !flyEl.classList.contains('hidden');
+function closeFlyout(back = false) {
+  if (!flyOpen()) return false;
+  flyEl.classList.add('hidden'); flyEl.innerHTML = '';
+  const b = flyGrp && $(`#tools .grp[data-g="${flyGrp}"]`); if (b) b.setAttribute('aria-expanded', 'false');
+  flyGrp = null; if (back) canvas.focus();
+  return true;
+}
+function openFlyout(b, focusFirst = false) {
+  const g = b.dataset.g; if (!g) return;
+  if (flyOpen() && flyGrp === g) return;
+  closeFlyout(); hideTip();
+  flyGrp = g;
+  flyEl.innerHTML = TGROUPS[g].items.map(id => {
+    const t = toolOf(id), [s, i] = TOOL_AT[id];
+    return `<button class="tool fly${id === state.tool ? ' active' : ''}" role="menuitem" data-s="${s}" data-i="${i}">${toolInner(t)}</button>`;
+  }).join('');
+  b.setAttribute('aria-expanded', 'true');
+  const sr = sideEl.getBoundingClientRect(), r = b.getBoundingClientRect();
+  flyEl.classList.remove('hidden');
+  const h = flyEl.offsetHeight;
+  flyEl.style.left = sr.right + 8 + 'px';
+  flyEl.style.top = Math.max(12, Math.min(r.top - 6, window.innerHeight - h - 12)) + 'px';
+  if (focusFirst) flyEl.querySelector('.tool').focus();
+}
+flyEl.addEventListener('click', e => {
+  const b = e.target.closest('.tool'); if (!b) return;
+  closeFlyout(true);
+  TOOLS[b.dataset.s][1][b.dataset.i].run();
+});
+flyEl.addEventListener('keydown', e => {
+  const items = [...flyEl.querySelectorAll('.tool')], i = items.indexOf(document.activeElement);
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus(); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); e.stopPropagation(); const g = flyGrp; closeFlyout(); const gb = $(`#tools .grp[data-g="${g}"]`); if (gb) gb.focus(); }
+});
+document.addEventListener('pointerdown', e => { if (flyOpen() && !e.target.closest('#flyout, #tools .grp')) closeFlyout(); });
+window.addEventListener('resize', () => closeFlyout());
+$('#tools').addEventListener('scroll', () => closeFlyout());
+let lpTimer = null, lpFired = false;
+$('#tools').addEventListener('pointerdown', e => {
+  const b = e.target.closest('.grp'); lpFired = false; clearTimeout(lpTimer);
+  if (!b || e.button !== 0 || e.target.closest('.gtri')) return;
+  lpTimer = setTimeout(() => { lpFired = true; openFlyout(b); }, 380);       // pressione lunga: apre le varianti
+});
+['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => $('#tools').addEventListener(ev, () => clearTimeout(lpTimer)));
+$('#tools').addEventListener('contextmenu', e => { const b = e.target.closest('.grp'); if (b) { e.preventDefault(); openFlyout(b); } });
+$('#tools').addEventListener('keydown', e => {
+  const b = e.target.closest && e.target.closest('.grp');
+  if (b && e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); openFlyout(b, true); }
+});
 $('#tools').addEventListener('click', e => {
   const b = e.target.closest('.tool');
   if (!b) return;
+  if (lpFired) { lpFired = false; return; }
+  const was = flyOpen() ? flyGrp : null; closeFlyout();
+  if (b.classList.contains('grp') && e.target.closest('.gtri')) { if (was !== b.dataset.g) openFlyout(b); return; }
   TOOLS[b.dataset.s][1][b.dataset.i].run();
   canvas.focus();
 });
-document.querySelectorAll('.tool').forEach(b => { const t = TOOLS[b.dataset.s][1][b.dataset.i]; if (t.id) toolEls[t.id] = b; });
 function setTool(t) {
   noStash = true; try { setToolInner(t); } finally { noStash = false; }
 }
@@ -2492,7 +2592,9 @@ function setToolInner(t) {
   if (t !== 'edge') clearEdges();
   if (t === 'ruler' || state.tool !== 'ruler') clearRuler();
   syncPanel();
-  Object.entries(toolEls).forEach(([id, el]) => el.classList.toggle('active', id === t));
+  showMember(t);
+  const actEl = toolEls[t];
+  new Set(Object.values(toolEls)).forEach(el => el.classList.toggle('active', el === actEl));
   updateCursor(false);
   updateHandles();
   updateFaceHandle();
@@ -2502,6 +2604,7 @@ function setToolInner(t) {
 /* ------------------------------------------- barra ridotta e suggerimenti */
 const sideEl = $('#side'), tipEl = $('#tip');
 function setMini(on, save = true) {
+  closeFlyout();
   sideEl.classList.toggle('mini', on);
   if (!on && save) { sideEl.classList.add('opening'); clearTimeout(setMini.t); setMini.t = setTimeout(() => sideEl.classList.remove('opening'), 320); }
   if (on && save) { sideEl.classList.add('closing'); clearTimeout(setMini.t2); setMini.t2 = setTimeout(() => sideEl.classList.remove('closing'), 320); }
@@ -2518,7 +2621,7 @@ let tipTimer = null, tipOn = false;
 function hideTip() { clearTimeout(tipTimer); tipOn = false; tipEl.classList.remove('show'); }
 function showTip(b) {
   const t = TOOLS[b.dataset.s][1][b.dataset.i];
-  tipEl.innerHTML = `<b>${t.name}</b>${t.key ? `<kbd>${t.key}</kbd>` : ''}<small>${t.desc}</small>`;
+  tipEl.innerHTML = `<b>${t.name}</b>${t.key ? `<kbd>${t.key}</kbd>` : ''}<small>${t.desc}</small>${b.classList.contains('grp') ? '<small class="alt">Tieni premuto per altre varianti</small>' : ''}`;
   const r = b.getBoundingClientRect();
   tipEl.classList.remove('up');
   tipEl.style.left = r.right + 16 + 'px';
@@ -2774,7 +2877,8 @@ document.addEventListener('focusin', e => { if (e.target.tagName === 'INPUT') fi
 function closeOpenMenus() {
   const open = [snapMenu, dotMenu, bedMenu].filter(m => !m.classList.contains('hidden'));
   const fontOpen = !tFontList.classList.contains('hidden');
-  if (!open.length && !fontOpen) return false;
+  const flyWas = closeFlyout(true);
+  if (!open.length && !fontOpen) return flyWas;
   open.forEach(m => m.classList.add('hidden')); closeFontList(); menuState();
   return true;
 }
@@ -2819,7 +2923,7 @@ window.addEventListener('keydown', e => {
     else if (k === 'x') { stop(); cutSelection(); }
     else if (k === 'v') { stop(); pasteClip(e.shiftKey); }
     else if (k === 'a') { stop(); setSelection([...objects]); }
-    else if (k === 'e') { stop(); combine(); }
+    else if (k === 'e') { stop(); e.shiftKey ? intersect() : combine(); }
     else if (k === 'g') { stop(); e.shiftKey ? ungroupSelection() : groupSelection(); }
     else if (k === '0') { stop(); fitView(); }
     else if (k === 's') { stop(); askExport(expFmt); }
@@ -4892,7 +4996,7 @@ $('#ew-resume').addEventListener('click', async e => {
 });
 offerResume();
 
-window.forma = { restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */

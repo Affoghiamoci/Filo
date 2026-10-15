@@ -284,6 +284,10 @@ const EN = {
   'Seleziona almeno due oggetti, di cui un solido (⇧ + clic)': 'Select at least two objects, one of them solid (⇧ + click)',
   'Il risultato è vuoto: i fori coprono tutto': 'The result is empty: the holes cover everything',
   'Il risultato è vuoto': 'The result is empty',
+  'Interseca': 'Intersect', 'Tiene solo la parte in comune tra i solidi': 'Keeps only the part the solids have in common', 'Interseco gli oggetti…': 'Intersecting objects…',
+  'Seleziona almeno due solidi da intersecare (⇧ + clic)': 'Select at least two solids to intersect (⇧ + click)',
+  'Gli oggetti non si sovrappongono: non c’è niente in comune': 'The objects do not overlap: nothing in common',
+  'Tieni premuto per altre varianti': 'Hold for more variants',
   'Proporzioni bloccate: le misure cambiano insieme': 'Proportions locked: sizes change together', 'Proporzioni libere': 'Proportions free',
   'Aggiungi una forma per vedere le misure': 'Add a shape to see its size',
   'Niente da esportare: aggiungi almeno un solido': 'Nothing to export: add at least one solid',
@@ -315,6 +319,7 @@ const EN = {
   'Riprendi l\'ultimo lavoro dalla schermata iniziale, con avviso prima di ricaricare la pagina': 'Resume your last work from the start screen, with a warning before reloading the page',
   'Export 3MF con le impostazioni di Bambu Studio e riparazione automatica delle crepe': '3MF export with Bambu Studio settings and automatic crack repair',
   'Esporta porta sempre tutto il piatto, Esc annulla le modifiche e chiude i menu, animazioni più morbide': 'Export always takes the whole plate, Esc cancels edits and closes menus, smoother animations',
+  'Nuovo comando Interseca (⇧⌘E) e strumenti in seconda funzione nella barra: Riquadro e Lazo, Taglia e Allunga, Combina e Interseca': 'New Intersect command (⇧⌘E) and tools with a second function in the bar: Marquee and Lasso, Cut and Stretch, Combine and Intersect',
 };
 const NAMEMAP = { Scatola: 'Box', Cilindro: 'Cylinder', Sfera: 'Sphere', Cono: 'Cone', Prisma: 'Prism', Toro: 'Torus', Pezzo: 'Part', Testo: 'Text' };
 const RULES = [
@@ -332,6 +337,8 @@ const RULES = [
   [/^Importato (.+): diviso in (\d+) pezzi separati$/, (m) => `Imported ${m[1]}: split into ${m[2]} separate pieces`],
   [/^Tagliati (\d+) oggetti$/, (m) => `Cut ${m[1]} objects`],
   [/^Selezionati (\d+) oggetti$/, (m) => `Selected ${m[1]} objects`],
+  [/^Intersecati (\d+) oggetti$/, (m) => `Intersected ${m[1]} objects`],
+  [/^Intersecati (\d+) oggetti: il risultato è in (\d+) pezzi separati$/, (m) => `Intersected ${m[1]} objects: the result is ${m[2]} separate pieces`],
   [/^Combinati (\d+) oggetti: il risultato è in (\d+) pezzi separati$/, (m) => `Combined ${m[1]} objects: the result is ${m[2]} separate pieces`],
   [/^Ora sono (\d+) pezzi separati: li trovi nei Livelli \(F7\)$/, (m) => `Now ${m[1]} separate pieces: find them in Layers (F7)`],
   [/^(Spostato|Ruotato|Ridimensionato|Rinominato|Colore|Raggruppato|Foro|Solido|Testo modificato): (.*)$/, (m) => `${{ Spostato: 'Moved', Ruotato: 'Rotated', Ridimensionato: 'Resized', Rinominato: 'Renamed', Colore: 'Color', Raggruppato: 'Grouped', Foro: 'Hole', Solido: 'Solid', 'Testo modificato': 'Text edited' }[m[1]]}: ${/^\d+ oggetti$/.test(m[2]) ? m[2].replace('oggetti', 'objects') : tn(m[2])}`],

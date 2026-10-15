@@ -744,3 +744,11 @@ dialog[open],dialog[open]::backdrop{animation:fade-in .16s ease}
 #side.mini #foot{justify-content:flex-start;padding-left:14px}
 #side.closing header .logo,#side.closing header .icon-btn,#side.closing #foot>*{animation:side-in .16s ease .1s backwards}
 #layers .lhead .icon-btn svg,#history .lhead .icon-btn svg,#perf-x svg{width:14px;height:14px}
+/* strumenti in seconda funzione: triangolino sull'icona e menu laterale con le varianti */
+.tool .ico{position:relative}
+.gtri{position:absolute;right:-4px;bottom:-4px;width:12px;height:12px}
+.gtri::after{content:'';position:absolute;right:2px;bottom:2px;width:6px;height:6px;background:currentColor;opacity:.5;clip-path:polygon(100% 0,100% 100%,0 100%);transition:opacity .12s ease}
+.tool:hover .gtri::after,.gtri:hover::after{opacity:1}
+#flyout{z-index:45;width:256px;padding:6px;display:flex;flex-direction:column;gap:2px;animation:fade-in .14s ease}
+#flyout .tool{justify-items:stretch}
+#tip small.alt{margin-top:6px;font:500 9.5px var(--mono);letter-spacing:.06em;text-transform:uppercase}

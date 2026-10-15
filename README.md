@@ -15,7 +15,8 @@ Versione 0.9.0 (beta). Sito: [filo.affogo.fyi](https://filo.affogo.fyi)
 - Sposta, ruota (con scatto a 15°), ridimensiona (anche gruppi e oggetti ruotati, con lucchetto delle proporzioni), allinea e distribuisci
 - Lato: spingi e tira un lato piatto. Spigolo: arrotonda e smussa, ogni spigolo ha il suo raggio e resta modificabile
 - Taglia con un piano, Allunga e accorcia una parte, Metro con larghezza, altezza e angoli sotto il mouse
-- Fori e Combina (unisce i solidi e sottrae i fori) con un motore booleano che dà solidi sempre chiusi
+- Fori, Combina (unisce i solidi e sottrae i fori) e Interseca (tiene solo la parte in comune) con un motore booleano che dà solidi sempre chiusi
+- Barra a sinistra con strumenti in seconda funzione (Riquadro e Lazo, Taglia e Allunga, Combina e Interseca): si aprono tenendo premuto, con il clic destro o dal triangolino
 - Gruppi, Livelli (blocca, nascondi, rinomina), Cronologia con anteprima, Annulla e Ripeti
 - Scatto da 0,1 mm a libero e calamita su angoli e lati degli altri oggetti
 
@@ -38,7 +39,7 @@ Versione 0.9.0 (beta). Sito: [filo.affogo.fyi](https://filo.affogo.fyi)
 | `V` | Sposta | `B` `C` `S` `O` `P` | Scatola, cilindro, sfera, cono, prisma |
 | `Q` `W` | Riquadro, Lazo | `T` | Testo |
 | `R` | Ruota | `X` | Foro o solido |
-| `L` | Lato | `⌘E` | Combina |
+| `L` | Lato | `⌘E` `⇧⌘E` | Combina, Interseca |
 | `E` | Spigolo | `⌘G` | Raggruppa |
 | `U` `K` | Allunga, Taglia | `⌘D` | Duplica |
 | `D` | Metro | `⌘Z` `⇧⌘Z` | Annulla, Ripeti |

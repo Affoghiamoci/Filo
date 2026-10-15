@@ -67,6 +67,7 @@ Scala: **2, 4, 6, 8, 10, 12, 14, 16, 20, 24** (il 2 solo per il padding interno 
 - **Slider**: traccia 2 px `--line`, cursore rettangolare 10×16 arancione.
 - **Tooltip**: sempre quello dell'app (`#tip`), non `title` nativo nelle barre.
 - **Icone**: tratto 1.6 px, estremità tonde, 18 px nei pulsanti (14 px nelle testate compatte di Livelli e Cronologia), 24 px viewBox.
+- **Strumenti in seconda funzione** (sidebar): un solo pulsante `.tool.grp` con un triangolino (6 px, `currentColor`, 50%) nell'angolo in basso a destra dell'icona. Le varianti si aprono in un menu `#flyout` (`.panel`, 256 px, padding 6) a destra della sidebar, con dissolvenza di sola opacità (.14 s); si apre con pressione lunga (380 ms), clic destro, clic sul triangolino o freccia destra da tastiera. Si chiude con Esc (stesso passo dei menu aperti), clic fuori, scorrimento, cambio di sidebar. Le scorciatoie restano dirette e non aprono il menu. I gruppi `sticky` (Riquadro/Lazo, Taglia/Allunga) mostrano l'ultima variante usata e la ricordano in `localStorage`; Combina/Interseca no, il pulsante resta Combina. Nel menu non si aggiungono voci diverse dalle varianti dello stesso gesto. Nuovi gruppi si dichiarano in `TGROUPS` (`src/main.js`) con il campo `grp` sugli strumenti.
 - **Pannello che scorre** (sidebar, proprietà): il riquadro resta intero (bordo, angoli, ombra) e scorre solo il contenuto interno, con sfumatura in fondo (e in alto se si è scesi) che segnala il resto. Mai far scorrere o sfumare il bordo.
 
 ## 6. Movimento
@@ -80,7 +81,7 @@ Transizioni **.12 to .22 s ease**, solo su colore, larghezza e opacità. Niente 
 Sidebar sinistra 12 px dai bordi; barra in alto a destra larga quanto il pannello proprietà e allineata; livelli e cronologia a sinistra delle proprietà; barra comandi in basso al centro; cubo in alto dopo la sidebar. Niente sovrapposizioni tra pannelli di default.
 
 ## 8. Tastiera: Esc
-Esc fa una cosa alla volta, nell'ordine: 1) in un campo numerico o nel nome annulla la modifica (torna al valore di partenza) ed esce dal campo; 2) chiude i menu aperti (piatto, scatto, punti, elenco font); 3) interrompe il righello o la selezione di un lato; 4) deseleziona. Tab (sidebar) e Spazio (trascinare la vista) restano riservati alla scena, come in Photoshop.
+Esc fa una cosa alla volta, nell'ordine: 1) in un campo numerico o nel nome annulla la modifica (torna al valore di partenza) ed esce dal campo; 2) chiude i menu aperti (varianti degli strumenti, piatto, scatto, punti, elenco font); 3) interrompe il righello o la selezione di un lato; 4) deseleziona. Tab (sidebar) e Spazio (trascinare la vista) restano riservati alla scena, come in Photoshop.
 
 ## 9. Controllo prima di consegnare
 1. Tutti i colori sono token? 2. Raggio 2 px? 3. Spaziature nella scala a 4? 4. Etichette mono maiuscole, frasi in sans? 5. Chiaro e scuro guardati entrambi? 6. Nessun elemento tagliato o sovrapposto a 1280 px di larghezza? 7. Testi IT e chiavi EN presenti?
