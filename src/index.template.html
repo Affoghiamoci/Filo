@@ -290,15 +290,17 @@
     <div class="chk-head" id="chk-drag" title="Trascina per spostare"><span class="chk-grip" aria-hidden="true"></span><span class="exp-title">Controlla stampa</span><button class="icon-btn" id="chk-x" aria-label="Chiudi"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="chk-wait" id="chk-wait">Sto analizzando…</div>
     <div id="chk-body" class="hidden">
-      <div class="chk-prev"><div class="chk-rd" id="chk-rd"></div><canvas id="chk-cv" width="680" height="440"></canvas></div>
-      <input type="range" id="chk-sl" min="0" max="100" value="0" aria-label="Strato">
-      <div class="chk-opts">
+      <section class="chk-sec chk-prev">
+        <div class="chk-view"><div class="chk-rd" id="chk-rd"></div><canvas id="chk-cv" width="680" height="320"></canvas></div>
+        <input type="range" id="chk-sl" min="0" max="100" value="0" aria-label="Strato">
+      </section>
+      <section class="chk-sec chk-opts">
         <div class="chk-f"><span>Strato</span><div class="chk-seg" id="chk-lh" data-v="0.2"><button type="button" data-v="0.12">0,12</button><button type="button" data-v="0.16">0,16</button><button type="button" data-v="0.2" class="on">0,20</button><button type="button" data-v="0.28">0,28</button></div></div>
         <div class="chk-f"><span>Parete minima</span><div class="chk-seg" id="chk-mw" data-v="0.8"><button type="button" data-v="0.4">0,4</button><button type="button" data-v="0.8" class="on">0,8</button><button type="button" data-v="1.2">1,2</button></div></div>
-      </div>
-      <ul id="chk-list"></ul>
-      <div class="chk-est" id="chk-est"></div>
-      <div class="chk-foot"><label class="chk-sw"><input type="checkbox" id="chk-ov" checked> Sbalzi in rosso nel modello</label><span class="hint">Stima indicativa: non sostituisce lo slicer.</span></div>
+      </section>
+      <section class="chk-sec"><ul id="chk-list"></ul></section>
+      <section class="chk-sec chk-est" id="chk-est"></section>
+      <footer class="chk-foot"><label class="exp-chk"><input type="checkbox" id="chk-ov" checked> Sbalzi in rosso nel modello</label><span class="hint">Stima indicativa: non sostituisce lo slicer.</span></footer>
     </div>
   </div>
 </dialog>

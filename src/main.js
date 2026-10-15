@@ -4709,7 +4709,8 @@ function chkShow() {
     if (R.over.area > 8) row(pc > 8 ? 'w' : '', 'Sbalzi oltre 45°', `${Math.round(R.over.area)} mm² (${pc.toFixed(1).replace('.', ',')} %): ${tr(pc > 8 ? 'servono probabilmente i supporti, o ruota il pezzo.' : 'pochi, di solito si stampano bene.')}`);
     else row('', 'Nessuno sbalzo critico', tr('Niente facce che sporgono troppo.'));
     const b = R.bb;
-    $('#chk-est').innerHTML = `<span><b>${R.layers}</b> ${tr('strati')}</span><span><b>${(b.max[2]).toFixed(1).replace('.', ',')}</b> mm ${tr('alto')}</span><span>≈ <b>${R.grams.toFixed(R.grams < 10 ? 1 : 0).replace('.', ',')}</b> g</span><span>≈ <b>${fmtMin(R.minutes)}</b></span>`;
+    const f1 = n => n.toFixed(1).replace('.', ',');
+    $('#chk-est').innerHTML = `<span><em>${tr('Strati')}</em>${R.layers}</span><span><em>${tr('Altezza')}</em>${f1(b.max[2])} mm</span><span><em>${tr('Peso')}</em>${R.grams.toFixed(R.grams < 10 ? 1 : 0).replace('.', ',')} g</span><span><em>${tr('Tempo')}</em>${fmtMin(R.minutes)}</span>`;
   } else $('#chk-est').innerHTML = '';
 }
 async function chkRun() {
@@ -4724,7 +4725,7 @@ async function chkRun() {
   if (R.err) { toast(R.err); chk.busy = false; return; }
   $('#chk-wait').classList.add('hidden'); $('#chk-body').classList.remove('hidden');
   const has = !!R.U;
-  $('.chk-prev').classList.toggle('hidden', !has); $('#chk-sl').classList.toggle('hidden', !has);
+  $('.chk-prev').classList.toggle('hidden', !has);
   if (has) {
     const sl = $('#chk-sl'); sl.max = R.layers - 1; if (!(+sl.value <= +sl.max)) sl.value = 0;
     if (R.over.pos.length) {
