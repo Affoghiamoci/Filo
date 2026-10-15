@@ -91,7 +91,7 @@ export const HELP = {
     { id: 'ruler', g: 'measure', t: 'Distanza e Misure', h: `
       {{img:distanza-alt|Con ${K('⌥')} premuto: larghezza e altezza del lato sotto il mouse}}
       <p>${K('D')}: clicca un punto o un lato, poi un secondo. Mostra la distanza e le differenze su X, Y, Z. Su due lati paralleli misura la distanza tra i piani. Il punto si aggancia ad angoli, metà lato e lati vicini; prima del clic vedi un'anteprima.</p>
-      <ul><li>Tieni premuto ${K('⌥')} e passa su un lato: si illumina e vedi larghezza e altezza (o profondità) in tempo reale. Anche su lati inclinati o ruotati.</li><li>${K('M')} (Misure in basso) mostra le dimensioni reali degli oggetti.</li></ul>` },
+      <ul><li>Tieni premuto ${K('⌥')} e passa su un lato: si illumina e vedi larghezza e altezza (o profondità) in tempo reale. Anche su lati inclinati o ruotati.</li><li>Con ${K('⌥')} premuto, su un angolo di un lato vedi l'angolo interno (per esempio 90° o 120°); su uno spigolo vedi l'angolo tra i due lati.</li><li>${K('M')} (Misure in basso) mostra le dimensioni reali degli oggetti.</li></ul>` },
     { id: 'shortcuts', g: 'ref', t: 'Scorciatoie', h: `
       <div class="sc-grid">
         <div><h3>Strumenti</h3><table>
@@ -191,7 +191,7 @@ export const HELP = {
     { id: 'ruler', g: 'measure', t: 'Distance and Dimensions', h: `
       {{img:distanza-alt|With ${K('⌥')} held: width and height of the face under the mouse}}
       <p>${K('D')}: click a point or an edge, then a second one. It shows the distance and the differences on X, Y, Z. On two parallel faces it measures the distance between planes. The point snaps to corners, edge midpoints and nearby edges; before you click you see a preview.</p>
-      <ul><li>Hold ${K('⌥')} and move over a face: it lights up and you see width and height (or depth) in real time. Also on tilted or rotated faces.</li><li>${K('M')} (Dimensions at the bottom) shows the real size of objects.</li></ul>` },
+      <ul><li>Hold ${K('⌥')} and move over a face: it lights up and you see width and height (or depth) in real time. Also on tilted or rotated faces.</li><li>With ${K('⌥')} held, over a face corner you see its inner angle (for example 90° or 120°); over an edge you see the angle between the two faces.</li><li>${K('M')} (Dimensions at the bottom) shows the real size of objects.</li></ul>` },
     { id: 'shortcuts', g: 'ref', t: 'Shortcuts', h: `
       <div class="sc-grid">
         <div><h3>Tools</h3><table>

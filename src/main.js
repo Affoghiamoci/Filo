@@ -3655,7 +3655,7 @@ function rulerCardText(lines) { rulerCard.innerHTML = lines.map((l, i) => `<div 
 function clearRuler() {
   ruler.a = ruler.b = ruler.foot = null; rulerLine.visible = false;
   rulerPts.forEach(e => (e.style.display = 'none')); rulerLabel.style.display = 'none'; dirty = true;
-  if (state.tool === 'ruler') rulerCardText([tr('Distanza'), tr('Clicca un punto o un lato, poi un secondo. Su due lati paralleli misura la distanza tra i piani.'), tr('Tieni premuto ⌥ per vedere larghezza e altezza del lato sotto il mouse.')]); else rulerCard.classList.add('hidden');
+  if (state.tool === 'ruler') rulerCardText([tr('Distanza'), tr('Clicca un punto o un lato, poi un secondo. Su due lati paralleli misura la distanza tra i piani.'), tr('Tieni premuto ⌥ per vedere larghezza e altezza del lato sotto il mouse, e gli angoli se passi su un angolo o uno spigolo.')]); else rulerCard.classList.add('hidden');
 }
 // punto cliccato sulla superficie; si aggancia a un vertice o a uno spigolo vicino
 function rulerPick(hit) {
@@ -3703,6 +3703,37 @@ function faceRect(fs) {                                    // rettangolo più pi
 const faceDim = document.createElement('div'); faceDim.className = 'dim-label'; faceDim.style.pointerEvents = 'none'; labelsEl.appendChild(faceDim);
 let rulerLastEv = null;
 function hideFaceDim() { faceDim.style.display = 'none'; if (hoverMesh) hideHover(); }
+
+/* ⌥ su un angolo: angolo interno del lato; ⌥ su uno spigolo: angolo tra i due lati */
+function angleAt(hit, e) {
+  const obj = hit.object, an = edgeAnalysis(obj), W = window.innerWidth, H = window.innerHeight;
+  const toS = p => { const v = p.clone().project(camera); return [(v.x * 0.5 + 0.5) * W, (-v.y * 0.5 + 0.5) * H]; };
+  const fn = hit.face.normal.clone().transformDirection(obj.matrixWorld);
+  let best = null, bd = 16;                                                       // angolo: vertice entro 16 px
+  for (const [vi, edges] of an.at) {
+    const p = an.vp(vi), s = toS(p), d = Math.hypot(s[0] - e.clientX, s[1] - e.clientY);
+    if (d >= bd) continue;
+    const dirs = [];
+    for (const ed of edges) {
+      const q = an.vp(ed.a === vi ? ed.b : ed.a).sub(p).normalize();
+      if (Math.abs(q.dot(fn)) < 0.02) dirs.push(q);                              // solo gli spigoli che stanno nel piano del lato
+    }
+    if (dirs.length < 2) continue;
+    const u = dirs[0].clone(), w = fn.clone().cross(u);
+    const ar = dirs.map(q => Math.atan2(q.dot(w), q.dot(u)));
+    const sorted = ar.map((a, i) => [(a + 2 * Math.PI) % (2 * Math.PI), i]).sort((a, b) => a[0] - b[0]);
+    const pd = hit.point.clone().sub(p), pa = (Math.atan2(pd.dot(w), pd.dot(u)) + 2 * Math.PI) % (2 * Math.PI);
+    let lo = sorted[sorted.length - 1], hi = sorted[0], wedge = 2 * Math.PI - lo[0] + hi[0];
+    for (let i = 0; i < sorted.length; i++) { const a = sorted[i], b = sorted[(i + 1) % sorted.length]; const span = (b[0] - a[0] + 2 * Math.PI) % (2 * Math.PI) || 2 * Math.PI; const rel = (pa - a[0] + 2 * Math.PI) % (2 * Math.PI); if (rel <= span) { lo = a; hi = b; wedge = span; break; } }
+    best = { kind: 'corner', deg: wedge * 180 / Math.PI, p }; bd = d;
+  }
+  if (best) return best;
+  const dist = camera.position.distanceTo(hit.point), tol = dist * 2 * Math.tan(camera.fov * D2R / 2) / H * 9;
+  const ed = nearestEdge(an, hit.point, tol);
+  if (!ed) return null;
+  const a = an.vp(ed.a), b = an.vp(ed.b), ab = b.clone().sub(a), t = Math.max(0, Math.min(1, hit.point.clone().sub(a).dot(ab) / ab.lengthSq()));
+  return { kind: 'edge', deg: 180 - Math.acos(Math.max(-1, Math.min(1, ed.n1.dot(ed.n2)))) * 180 / Math.PI, p: a.clone().addScaledVector(ab, t) };
+}
 function rulerHover(e) {                                  // anteprima del punto che verrebbe preso con un clic; con ⌥ misura il lato sotto il mouse
   rulerLastEv = e;
   const hit = pickHit(e);
@@ -3714,6 +3745,16 @@ function rulerHover(e) {                                  // anteprima del punto
       const fs = computeFace(hit.object, hit.faceIndex);
       if (!fs) return hideFaceDim();
       hoverFs = fs; hoverMesh = makeOverlay(fs, 0.22); scene.add(hoverMesh); dirty = true;
+    }
+    const ang = angleAt(hit, e);
+    if (ang) {
+      const v = ang.p.clone().project(camera);
+      rulerHov.className = 'ruler-hov ' + (ang.kind === 'corner' ? 'v' : 'e'); rulerHov.style.display = 'block';
+      rulerHov.style.transform = `translate(${(v.x * 0.5 + 0.5) * window.innerWidth}px, ${(-v.y * 0.5 + 0.5) * window.innerHeight}px) translate(-50%, -50%)`;
+      faceDim.textContent = `${fmt(ang.deg)}° · ${tr(ang.kind === 'corner' ? 'angolo del lato' : 'angolo tra i due lati')}`;
+      faceDim.style.display = 'block';
+      faceDim.style.transform = `translate(${e.clientX + 18}px, ${e.clientY + 18}px)`;
+      return;
     }
     const fs = hoverFs, flat = Math.abs(fs.n.z) > 0.9;
     let w1 = fs.W, h1 = fs.H;
