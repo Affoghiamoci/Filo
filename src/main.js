@@ -8,7 +8,7 @@ import { mergeVertices, mergeGeometries, toCreasedNormals } from 'three/addons/u
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { unzipSync, zipSync, strToU8 } from 'three/addons/libs/fflate.module.js';
 import { Brush, Evaluator, ADDITION, SUBTRACTION, INTERSECTION } from 'three-bvh-csg';
-import { initManifold, manifoldEvaluate, manifoldStretch, manifoldHalf, manifoldMod } from './mcsg.js';
+import { initManifold, manifoldEvaluate, manifoldStretch, manifoldHalf, manifoldMod, manifoldFilm } from './mcsg.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
@@ -4565,7 +4565,7 @@ function planeCutNow() {
   if (!list.length) return toast('Seleziona prima un oggetto');
   if (heavyGuard(list)) return;
   const ax = CUT.ax, pos = CUT.pos, made = [], BIG = 8000;
-  let cutN = 0;
+  let cutN = 0, film = null;
   const half = (m, side) => {                                  // tiene la metà dalla parte 'side' togliendo con un blocco enorme l'altra
     const c = new Brush(new THREE.BoxGeometry(BIG, BIG, BIG), M.solid);
     c.position[ax] = pos - side * BIG / 2; c.updateMatrixWorld(true);
@@ -4577,6 +4577,7 @@ function planeCutNow() {
   for (const m of list) {
     const b = worldBox(m);
     if (pos <= b.min[ax] + 1e-3 || pos >= b.max[ax] - 1e-3) { made.push(m); continue; }   // il piano non attraversa l'oggetto
+    if (!window.__noManifold) { m.updateMatrixWorld(true); const fl = manifoldFilm(m, ax, pos); if (fl) film = fl; }
     const lo = half(m, -1), hi = half(m, 1);
     if (!lo || !hi) { made.push(m); continue; }
     const ghost = { userData: { ...m.userData, kind: 'merged' } };
@@ -4586,7 +4587,7 @@ function planeCutNow() {
   }
   if (!cutN) return toast('Il piano non attraversa nessun oggetto selezionato');
   setSelection(made); touch(); commit(); cutReset();
-  toast(cutN === 1 ? 'Oggetto tagliato in due' : `Tagliati ${cutN} oggetti`);
+  toast(film ? `${tr('Il taglio chiude il foro con uno strato pieno di')} ${String(film.d).replace('.', ',')} mm. ${tr('Annulla e sposta il piano di')} ${String(Math.round((film.d + 0.1) * 10) / 10).replace('.', ',')} mm ${tr(film.dir > 0 ? 'verso l\'alto' : 'verso il basso')}` : cutN === 1 ? 'Oggetto tagliato in due' : `Tagliati ${cutN} oggetti`, film ? 6500 : undefined);
 }
 $('#cut-delta').addEventListener('input', () => { const v = parseFloat($('#cut-delta').value); if (isFinite(v)) CUT.delta = v; });
 $('#cut-delta').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') $('#cut-go').click(); });

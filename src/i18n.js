@@ -125,6 +125,8 @@ const EN = {
   "Riprendi l'ultimo lavoro dalla schermata iniziale e avviso prima di ricaricare la pagina": 'Resume your last work from the start screen and a warning before reloading the page',
   'Barra in alto con tre icone: Importa, Controlla, Esporta': 'Top bar with three icons: Import, Check, Export',
   'Strati': 'Layers', 'Peso': 'Weight', 'Tempo': 'Time',
+  'Il taglio chiude il foro con uno strato pieno di': 'The cut leaves a solid layer closing the hole, of', 'Annulla e sposta il piano di': 'Undo and move the plane by', "verso l'alto": 'upwards', 'verso il basso': 'downwards',
+  'Taglia avvisa se il piano lascia uno strato pieno che chiude un foro': 'Cut warns when the plane leaves a solid layer closing a hole',
   'Trascina per spostare': 'Drag to move',
   "Riprendi": "Resume",
   "Ultimo lavoro salvato in questo browser.": "Last work saved in this browser.",
