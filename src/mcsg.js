@@ -98,20 +98,3 @@ export function manifoldHalf(brush, ax, pos, side, material) {
   finally { for (const x of objs) { try { x.delete(); } catch (e) {} } }
 }
 
-// il piano passa sotto la punta di una cavità: resta una pellicola piena che chiude il foro. Ritorna lo spessore (mm) e il verso, oppure null
-export function manifoldFilm(brush, ax, pos, maxD = 2) {
-  if (!M) return null;
-  let objs = []; const keep = o => { objs.push(o); return o; };
-  try {
-    const m0 = toManifold(brush); if (!m0) return null; keep(m0);
-    const m = keep(m0.rotate(TO_Z[ax]));
-    const loops = h => { const cs = keep(m.slice(h)); return cs.isEmpty() ? -1 : cs.toPolygons().length; };
-    const n0 = loops(pos); if (n0 < 0) return null;
-    for (let d = 0.05; d <= maxD + 1e-9; d += 0.05) for (const s of [1, -1]) {
-      const n = loops(pos + s * d);
-      if (n > n0) return { d: Math.round(d * 100) / 100, dir: s };
-    }
-    return null;
-  } catch (e) { return null; }
-  finally { for (const x of objs) { try { x.delete(); } catch (e) {} } }
-}

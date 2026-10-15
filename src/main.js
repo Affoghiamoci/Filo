@@ -8,7 +8,7 @@ import { mergeVertices, mergeGeometries, toCreasedNormals } from 'three/addons/u
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { unzipSync, zipSync, strToU8 } from 'three/addons/libs/fflate.module.js';
 import { Brush, Evaluator, ADDITION, SUBTRACTION, INTERSECTION } from 'three-bvh-csg';
-import { initManifold, manifoldEvaluate, manifoldStretch, manifoldHalf, manifoldMod, manifoldFilm } from './mcsg.js';
+import { initManifold, manifoldEvaluate, manifoldStretch, manifoldHalf, manifoldMod } from './mcsg.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
@@ -4261,8 +4261,26 @@ function moveInfo() {                                   // spigoli scelti (non u
     } else if (Math.abs(d.z) > 0.98 && out.length() > 1e-3) n = out.normalize();      // spigolo verticale: verso l'esterno
   }
   const horiz = edgeSel.length === 1 && edgeSel[0].chain.pts.length === 2 && Math.abs(edgeSel[0].chain.pts[1].z - edgeSel[0].chain.pts[0].z) < 1e-3;
-  return { obj: edgeSel[0].obj, pts, c, par, n, horiz };
+  let rad = null, radRef = null;                         // più cerchi (anelli) selezionati: ⊥ allarga o stringe ogni cerchio attorno al suo centro
+  if (edgeSel.length >= 2 && edgeSel.every(x => x.chain.closed && x.chain.pts.length >= 6)) {
+    rad = new Map(); const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0); let bd = -Infinity;
+    for (const x of edgeSel) {
+      const P = x.chain.pts, cc = new THREE.Vector3(), nr = new THREE.Vector3();
+      P.forEach(p => cc.add(p)); cc.divideScalar(P.length);
+      for (let i = 0; i < P.length; i++) nr.add(P[i].clone().sub(cc).cross(P[(i + 1) % P.length].clone().sub(cc)));
+      if (nr.lengthSq() < 1e-9) { rad = null; break; }
+      nr.normalize();
+      for (const p of P) {
+        const d = p.clone().sub(cc); d.addScaledVector(nr, -d.dot(nr)); if (d.length() < 1e-6) continue; d.normalize();
+        rad.set(ekey(p.x, p.y, p.z), d);
+        const s = p.clone().sub(c).dot(right); if (s > bd) { bd = s; radRef = d.clone(); }
+      }
+    }
+    if (rad && !radRef) rad = null;
+  }
+  return { obj: edgeSel[0].obj, pts, c, par: rad ? null : par, n: rad ? radRef : n, horiz: rad ? false : horiz, rad };
 }
+const dvOf = (mi, ax, k) => ax === 'n' && mi.rad ? (mi.rad.get(k) || new THREE.Vector3()) : axV(mi, ax);
 const axV = (mi, ax) => ax === 'n' ? mi.n : WAX[ax];
 const EM = { ax: null, col: true };
 const xyKey = (x, y) => Math.round(x * 2000) + ',' + Math.round(y * 2000);
@@ -4272,7 +4290,7 @@ function moveEdgeBy(mi, ax, mm) {                       // sposta davvero: i ver
   const obj = mi.obj, arr = worldPositions(obj), keys = new Set(mi.pts.map(p => ekey(p.x, p.y, p.z))), hit = new Set(), dv = axV(mi, ax), col = useCol(mi, ax), xys = col ? new Set(mi.pts.map(p => xyKey(p.x, p.y))) : null;
   for (let i = 0; i < arr.length; i += 3) {
     const k = ekey(arr[i], arr[i + 1], arr[i + 2]);
-    if (keys.has(k) || (col && xys.has(xyKey(arr[i], arr[i + 1])))) { arr[i] += dv.x * mm; arr[i + 1] += dv.y * mm; arr[i + 2] += dv.z * mm; if (keys.has(k)) hit.add(k); }
+    if (keys.has(k) || (col && xys.has(xyKey(arr[i], arr[i + 1])))) { const d = keys.has(k) ? dvOf(mi, ax, k) : dv; arr[i] += d.x * mm; arr[i + 1] += d.y * mm; arr[i + 2] += d.z * mm; if (keys.has(k)) hit.add(k); }
   }
   if (hit.size < keys.size) { toast('Questo spigolo è arrotondato: per spostarlo togli prima l\'arrotondamento'); return false; }
   const baked = bakeResult(new THREE.Mesh(geometryFromPositions(arr)), obj.userData.name);
@@ -4285,21 +4303,25 @@ function moveEdgeBy(mi, ax, mm) {                       // sposta davvero: i ver
 }
 function startEdgeMove(e) {
   const mi = moveInfo(); if (!mi) return null;
-  const obj = mi.obj, pos = obj.geometry.attributes.position, keys = new Set(mi.pts.map(p => ekey(p.x, p.y, p.z))), v = new THREE.Vector3(), idx = [], idxCol = [], hit = new Set(), xys = new Set(mi.pts.map(p => xyKey(p.x, p.y)));
+  const obj = mi.obj, pos = obj.geometry.attributes.position, keys = new Set(mi.pts.map(p => ekey(p.x, p.y, p.z))), v = new THREE.Vector3(), idx = [], idxCol = [], rd = new Map(), hit = new Set(), xys = new Set(mi.pts.map(p => xyKey(p.x, p.y)));
   obj.updateMatrixWorld(true);
-  for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(obj.matrixWorld); const k = ekey(v.x, v.y, v.z); if (keys.has(k)) { idx.push(i); idxCol.push(i); hit.add(k); } else if (xys.has(xyKey(v.x, v.y))) idxCol.push(i); }
+  for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(obj.matrixWorld); const k = ekey(v.x, v.y, v.z); if (keys.has(k)) { idx.push(i); idxCol.push(i); hit.add(k); if (mi.rad) rd.set(i, mi.rad.get(k)); } else if (xys.has(xyKey(v.x, v.y))) idxCol.push(i); }
   if (hit.size < keys.size) { toast('Questo spigolo è arrotondato: per spostarlo togli prima l\'arrotondamento'); return null; }
   const sc = new THREE.Vector2(), proj = p => { const q = p.clone().project(camera); return new THREE.Vector2((q.x * 0.5 + 0.5) * window.innerWidth, (-q.y * 0.5 + 0.5) * window.innerHeight); };
   const c0 = proj(mi.c), dirs = {};
   for (const a of (mi.n ? 'xyzn' : 'xyz')) if (a !== mi.par) { const d = proj(mi.c.clone().addScaledVector(axV(mi, a), 10)).sub(c0); dirs[a] = d; }
-  return { mi, idx, idxCol, orig: pos.array.slice(), origN: obj.geometry.attributes.normal ? obj.geometry.attributes.normal.array.slice() : null, sx: e.clientX, sy: e.clientY, dirs, ax: null, mm: 0, inv: new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().copy(obj.matrixWorld).invert()) };
+  return { mi, idx, idxCol, rd, orig: pos.array.slice(), origN: obj.geometry.attributes.normal ? obj.geometry.attributes.normal.array.slice() : null, sx: e.clientX, sy: e.clientY, dirs, ax: null, mm: 0, inv: new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().copy(obj.matrixWorld).invert()) };
 }
 function setEdgeMovePreview(em, mm) {
   const { mi } = em, idx = useCol(mi, em.ax) ? em.idxCol : em.idx, pos = mi.obj.geometry.attributes.position, dl = axV(mi, em.ax).clone().multiplyScalar(mm).applyMatrix3(em.inv);
-  for (const i of idx) pos.setXYZ(i, em.orig[i * 3] + dl.x, em.orig[i * 3 + 1] + dl.y, em.orig[i * 3 + 2] + dl.z);
+  const radial = mi.rad && em.ax === 'n';
+  for (const i of idx) {
+    let d = dl; if (radial) { const r = em.rd.get(i); d = r ? r.clone().multiplyScalar(mm).applyMatrix3(em.inv) : new THREE.Vector3(); }
+    pos.setXYZ(i, em.orig[i * 3] + d.x, em.orig[i * 3 + 1] + d.y, em.orig[i * 3 + 2] + d.z);
+  }
   pos.needsUpdate = true; mi.obj.geometry.computeVertexNormals(); mi.obj.geometry.computeBoundingSphere(); mi.obj.geometry.computeBoundingBox();
   const sh = axV(mi, em.ax).clone().multiplyScalar(mm);
-  dropLines(edgeLines); edgeLines = makeLines(edgeSel.map(x => ({ ...x.chain, pts: x.chain.pts.map(p => p.clone().add(sh)) })), edgeMat);
+  dropLines(edgeLines); edgeLines = makeLines(edgeSel.map(x => ({ ...x.chain, pts: x.chain.pts.map(p => p.clone().addScaledVector(dvOf(mi, em.ax, ekey(p.x, p.y, p.z)), mm)) })), edgeMat);
   moveHandle.position.copy(mi.c.clone().add(sh));
   dirty = true;
 }
@@ -4565,7 +4587,7 @@ function planeCutNow() {
   if (!list.length) return toast('Seleziona prima un oggetto');
   if (heavyGuard(list)) return;
   const ax = CUT.ax, pos = CUT.pos, made = [], BIG = 8000;
-  let cutN = 0, film = null;
+  let cutN = 0;
   const half = (m, side) => {                                  // tiene la metà dalla parte 'side' togliendo con un blocco enorme l'altra
     const c = new Brush(new THREE.BoxGeometry(BIG, BIG, BIG), M.solid);
     c.position[ax] = pos - side * BIG / 2; c.updateMatrixWorld(true);
@@ -4577,7 +4599,6 @@ function planeCutNow() {
   for (const m of list) {
     const b = worldBox(m);
     if (pos <= b.min[ax] + 1e-3 || pos >= b.max[ax] - 1e-3) { made.push(m); continue; }   // il piano non attraversa l'oggetto
-    if (!window.__noManifold) { m.updateMatrixWorld(true); const fl = manifoldFilm(m, ax, pos); if (fl) film = fl; }
     const lo = half(m, -1), hi = half(m, 1);
     if (!lo || !hi) { made.push(m); continue; }
     const ghost = { userData: { ...m.userData, kind: 'merged' } };
@@ -4587,7 +4608,7 @@ function planeCutNow() {
   }
   if (!cutN) return toast('Il piano non attraversa nessun oggetto selezionato');
   setSelection(made); touch(); commit(); cutReset();
-  toast(film ? `${tr('Il taglio chiude il foro con uno strato pieno di')} ${String(film.d).replace('.', ',')} mm. ${tr('Annulla e sposta il piano di')} ${String(Math.round((film.d + 0.1) * 10) / 10).replace('.', ',')} mm ${tr(film.dir > 0 ? 'verso l\'alto' : 'verso il basso')}` : cutN === 1 ? 'Oggetto tagliato in due' : `Tagliati ${cutN} oggetti`, film ? 6500 : undefined);
+  toast(cutN === 1 ? 'Oggetto tagliato in due' : `Tagliati ${cutN} oggetti`);
 }
 $('#cut-delta').addEventListener('input', () => { const v = parseFloat($('#cut-delta').value); if (isFinite(v)) CUT.delta = v; });
 $('#cut-delta').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') $('#cut-go').click(); });
