@@ -48,7 +48,7 @@ const EN = {
   // barra laterale
   'Strumenti': 'Tools', 'Forme': 'Shapes', 'Modifica': 'Edit', 'Modelli': 'Templates',
   '[1] Strumenti': '[1] Tools', '[2] Forme': '[2] Shapes', '[3] Modifica': '[3] Edit', '[4] Modelli': '[4] Templates',
-  'Sposta': 'Move', 'Riquadro': 'Marquee', 'Seleziona trascinando un riquadro': 'Select by dragging a box', 'Lazo': 'Lasso', 'Seleziona disegnando una linea libera': 'Select by drawing a free line', 'Il file ha più parti staccate': 'The file has several detached parts', 'Tieni unito': 'Keep together', 'Dividi in livelli': 'Split into layers', 'Mano': 'Hand', 'Ruota': 'Rotate', 'Lato': 'Face',
+  'Riquadro': 'Marquee', 'Seleziona trascinando un riquadro': 'Select by dragging a box', 'Lazo': 'Lasso', 'Seleziona disegnando una linea libera': 'Select by drawing a free line', 'Il file ha più parti staccate': 'The file has several detached parts', 'Tieni unito': 'Keep together', 'Dividi in livelli': 'Split into layers', 'Mano': 'Hand', 'Ruota': 'Rotate', 'Lato': 'Face',
   'Spigolo': 'Edge', 'Arrotonda o smussa uno spigolo': 'Round or chamfer an edge', 'Arrotondato': 'Rounded', 'Smussato': 'Chamfered', 'Smusso': 'Chamfer', 'Tipo': 'Type', 'Misura': 'Size', 'spigolo': 'edge', 'spigoli': 'edges', 'Clicca uno spigolo del pezzo. Maiusc + clic: aggiungi o togli spigoli.': 'Click an edge of the part. Shift + click: add or remove edges.', 'Scegli il tipo e la misura, poi Applica.': 'Pick the type and size, then Apply.', 'Arrotondato: spigolo tondo. Smussato: taglio a 45°.': 'Rounded: round edge. Chamfered: 45° cut.', 'Scrivi una misura in mm': 'Enter a size in mm', 'Questo spigolo è troppo particolare per un raccordo': 'This edge is too unusual for a fillet', 'Il risultato è vuoto: la misura è troppo grande': 'The result is empty: the size is too large', 'Scatola': 'Box', 'Cilindro': 'Cylinder', 'Sfera': 'Sphere', 'Cono': 'Cone', 'Prisma': 'Prism', 'Toro': 'Torus', 'Cima %': 'Top %', 'Lati': 'Sides', 'Spessore %': 'Thickness %', 'Forma': 'Shape', 'Cono o tronco di cono': 'Cone or truncated cone', 'Esagono, ottagono e altri poligoni': 'Hexagon, octagon and other polygons', 'Anello per guarnizioni e maniglie': 'Ring for gaskets and handles',
   'Foro / Solido': 'Hole / Solid', 'Combina': 'Combine', 'Separa': 'Separate', 'Divide le parti staccate in livelli distinti': 'Splits detached parts into separate layers', 'È già un pezzo unico: non ci sono parti da separare': 'Already a single piece: nothing to separate', 'Parti separate: le trovi nei Livelli (F7)': 'Parts separated: find them in Layers (F7)', 'Raggruppa': 'Group', 'Duplica': 'Duplicate', 'Elimina': 'Delete',
   'Scatolina con coperchio': 'Box with lid',
@@ -80,14 +80,13 @@ const EN = {
   'WOFF2 non è supportato: usa TTF, OTF o WOFF': 'WOFF2 is not supported: use TTF, OTF or WOFF',
   'Nome del file': 'File name', 'Esporta': 'Export', '3MF · consigliato': '3MF · recommended',
   'Seleziona e muovi gli oggetti': 'Select and move objects', 'Ruota con scatto a 15°': 'Rotate in 15° steps', 'Spingi o tira un lato piatto': 'Push or pull a flat face', 'Aggiunge un blocco': 'Adds a block', 'Aggiunge un cilindro': 'Adds a cylinder', 'Scrive testo 3D con font a scelta': '3D text in the font you choose', 'Aggiunge una sfera': 'Adds a sphere', 'Trasforma in foro per scavare': 'Turns into a hole to cut', 'Unisce i solidi, sottrae i fori': 'Merges solids, subtracts holes', 'Muove più oggetti come uno': 'Moves several objects as one', 'Copia l’oggetto selezionato': 'Copies the selected object', 'Rimuove la selezione': 'Removes the selection', 'Corpo e coperchio su misura': 'Custom body and lid',
-  'Aiuto': 'Help',
   'Nuova guida: finestra grande con categorie, spiegazioni, screenshot e GIF (tasto ? o F1)': 'New guide: large window with categories, explanations, screenshots and GIFs (? or F1)',
   'Strumenti, scorciatoie e consigli per la stampa, con immagini e GIF.': 'Tools, shortcuts and printing tips, with images and GIFs.', 'Apri guida': 'Open guide',
   'Combina, Taglia, Allunga e spigoli ora usano Manifold: solidi sempre chiusi e fino a decine di volte più veloci': 'Combine, Cut, Stretch and edges now use Manifold: always-closed solids and up to tens of times faster',
   'Dall\'alto': 'Top view', 'Sezione: corpo e coperchio': 'Section: body and lid', 'Spessore delle pareti, a passi di 0,4 mm (una linea dell\'ugello)': 'Wall thickness, in 0.4 mm steps (one nozzle line)', 'Spazio tra coperchio e corpo: 0,3 mm per un incastro che scorre': 'Space between lid and body: 0.3 mm for a sliding fit', 'Raggio degli angoli verticali. 0 = spigoli vivi': 'Radius of the vertical corners. 0 = sharp edges',
   'angolo del lato': 'face angle', 'angolo tra i due lati': 'angle between the two faces',
   'Metro con ⌥ misura anche gli angoli (su un angolo di un lato, o tra i due lati di uno spigolo) e la lunghezza dei bordi, con una etichetta più chiara': 'Tape measure with ⌥ also measures angles (at a face corner, or between the two faces of an edge) and edge lengths, with a clearer label',
-  'Lunghezza': 'Length', 'Lati': 'Sides',
+  'Lunghezza': 'Length',
   'Lo strumento Distanza si chiama ora Metro (tasto D)': 'The Distance tool is now called Tape measure (key D)',
   'Allunga e Accorcia con Manifold: la sezione viene estrusa esatta, anche sulle pareti inclinate; la taglierina si trascina senza vibrare; Ruota con tacche, alone e spicchio dell\'angolo': 'Stretch and Shorten with Manifold: the section is extruded exactly, even on slanted walls; the cutting plane drags without jitter; Rotate with ticks, halo and angle wedge',
   'In alternativa usa lo strumento Ruota (R). Gli anelli scattano ogni 15°.': 'Or use the Rotate tool (R). The rings snap every 15°.',
@@ -104,28 +103,28 @@ const EN = {
   'Direzione': 'Direction',
   'uguale all\'altro anello': 'same as the other ring',
   'Ridimensiona un anello con la calamita: si aggancia a 100 % e al raggio dell\'altro anello (da cono tronco a cilindro)': 'Resize a ring with the magnet: it snaps to 100 % and to the radius of the other ring (truncated cone back to cylinder)',
-  'Nuova guida: finestra grande con categorie, immagini e GIF (tasto ? o F1)': 'New guide: a large window with categories, images and GIFs (? or F1 key)',
-  'Nuovo motore per Combina, Taglia, Allunga e spigoli: solidi sempre chiusi e molto più veloci': 'New engine for Combine, Cut, Stretch and edges: always-closed solids and much faster',
-  'Spigoli singoli su scatola e prisma, modificabili quando vuoi; bordi di cilindro e cono sempre modificabili': 'Single edges on box and prism, editable any time; cylinder and cone edges stay editable too',
+  
+  
+  
   'Spigolo: sposta uno spigolo (anche in perpendicolare sui lati storti, come l\'esagono) o ridimensiona un anello, con calamita': 'Edge: move an edge (also perpendicular on slanted sides, like a hexagon) or resize a ring, with magnet',
-  'SVG importati più puliti: i fori con loghi non lasciano più crepe': 'Cleaner SVG imports: holes made with logos no longer leave cracks',
+  
   'Controlla': 'Check', 'Controlla se il pezzo è pronto da stampare': 'Check if the piece is ready to print', 'Controlla stampa': 'Print check', 'Sto analizzando…': 'Analyzing…', 'Strato': 'Layer', 'Parete minima': 'Minimum wall', 'Sbalzi in rosso nel modello': 'Overhangs in red on the model', 'Stima indicativa: non sostituisce lo slicer.': 'Approximate estimate: it does not replace the slicer.',
   'Solido non chiuso': 'Solid not closed', 'ha crepe o facce sovrapposte, lo slicer potrebbe sbagliare. Rifai l\'ultima operazione o ricostruisci il pezzo.': 'has cracks or overlapping faces, the slicer may get it wrong. Redo the last operation or rebuild the piece.', 'Solido chiuso': 'Closed solid', 'Nessuna crepa: lo slicer lo legge come un oggetto pieno.': 'No cracks: the slicer reads it as a full object.',
-  'Pezzo sospeso': 'Floating piece', 'parte non tocca il piatto': 'part does not touch the bed', 'parti non toccano il piatto': 'parts do not touch the bed', 'più in basso': 'lowest', 'Senza supporti non si stampa.': 'It cannot be printed without supports.', 'Parti separate ma tutte sul piatto': 'Separate parts, all on the bed', 'Appoggia sul piatto': 'Sits on the bed', 'Base a contatto': 'Contact base',
+  'Pezzo sospeso': 'Floating piece', 'parte non tocca il piatto': 'part does not touch the bed', 'parti non toccano il piatto': 'parts do not touch the bed', 'più in basso': 'lowest', 'Senza supporti non si stampa.': 'It cannot be printed without supports.', 'Parti separate ma tutte sul piatto': 'Separate parts, all on the bed', 'Poggia sul piatto': 'Sits on the bed', 'Base a contatto': 'Contact base',
   'Base molto piccola': 'Very small base', 'Poca superficie a contatto: il pezzo potrebbe staccarsi. Valuta un brim o un appoggio più largo.': 'Little contact area: the piece may come off. Consider a brim or a wider base.', 'Pareti sottili': 'Thin walls', 'In': 'In', 'strati controllati su': 'layers checked out of', 'ci sono parti sotto': 'there are parts below', 'prima a': 'first at', 'Scorri lo strato: sono in rosso.': 'Scroll the layer: they are in red.', 'Pareti abbastanza spesse': 'Walls thick enough', 'Niente sotto': 'Nothing below',
   'Sbalzi oltre 45°': 'Overhangs past 45°', 'servono probabilmente i supporti, o ruota il pezzo.': 'supports are probably needed, or rotate the piece.', 'pochi, di solito si stampano bene.': 'few, they usually print fine.', 'Nessuno sbalzo critico': 'No critical overhangs', 'Niente facce che sporgono troppo.': 'No faces that stick out too much.', 'strati': 'layers', 'alto': 'tall', 'parete sottile': 'thin wall',
   'Parete dritta (sposta anche sopra e sotto)': 'Straight wall (also moves above and below)',
   'Niente da controllare: aggiungi almeno un solido': 'Nothing to check: add at least one solid', 'Il motore non è pronto: riprova tra un attimo': 'The engine is not ready: try again in a moment', 'Non sono riuscito ad analizzare il pezzo': 'I could not analyze the piece',
   'Spigolo spostato di': 'Edge moved by',
-  "Controlla stampa: pannello con anteprima a strati, pareti sottili, sbalzi in rosso, pezzi sospesi e stima di peso e tempo": "Print check: a panel with layer preview, thin walls, overhangs in red, floating pieces and weight and time estimate",
-  "Spigolo: sposta uno spigolo con la direzione ⊥ e la parete dritta (l'esagono si allunga senza storcersi), anche i verticali del prisma; ridimensiona gli anelli, con calamita": "Edge: move an edge with the ⊥ direction and straight wall (the hexagon lengthens without skewing), also the prism's vertical edges; resize rings, with magnet",
-  "Annulla riporta anche spigoli e lati selezionati": "Undo also brings back the selected edges and faces",
-  "Raggi X: contorno delle pareti di cilindri e coni, anche dietro altri pezzi": "X-ray: outline of cylinder and cone walls, also behind other pieces",
-  "Guida con nuove immagini e GIF (Ruota, Spigolo, Controlla)": "Guide with new images and GIFs (Rotate, Edge, Check)",
-  "Riprendi l'ultimo lavoro dalla schermata iniziale e avviso prima di ricaricare la pagina": 'Resume your last work from the start screen and a warning before reloading the page',
-  'Barra in alto con tre icone: Importa, Controlla, Esporta': 'Top bar with three icons: Import, Check, Export',
+  
+  
+  
+  
+  
+  
+  
   'Strati': 'Layers', 'Peso': 'Weight', 'Tempo': 'Time',
-  'Spigolo: più cerchi selezionati si allargano o si stringono insieme (⊥), senza traslare': 'Edge: several selected circles grow or shrink together (⊥), without shifting',
+  
   'Trascina per spostare': 'Drag to move',
   "Riprendi": "Resume",
   "Ultimo lavoro salvato in questo browser.": "Last work saved in this browser.",
@@ -140,12 +139,12 @@ const EN = {
   "Lavoro salvato eliminato": "Saved work deleted",
   "Ripreso l'ultimo lavoro": "Last work resumed",
   'Perpendicolare allo spigolo, verso l\'esterno': 'Perpendicular to the edge, outwards',
-  'Taglia e Allunga: il piano si trascina con il mouse; Allunga è più preciso': 'Cut and Stretch: drag the plane with the mouse; Stretch is more accurate',
-  'Metro (prima Distanza): con ⌥ vedi larghezza, altezza, angoli e lunghezze sotto il mouse': 'Tape measure (was Distance): hold ⌥ to see width, height, angles and lengths under the mouse',
-  'Ruota con tacche, alone e spicchio dell\'angolo; Distribuisci per avere spazi uguali': 'Rotate with ticks, halo and angle wedge; Distribute for equal gaps',
-  'Ripeti con Spazio tra le copie; Scatto con 0,1 mm e Libero; calamita su angoli e lati degli altri oggetti': 'Repeat with Space between copies; Step with 0.1 mm and Free; magnet on corners and sides of other objects',
-  'Barra in basso a sezioni, pop up al passaggio del mouse, Scatolina con anteprima': 'Bottom bar in sections, hover pop ups, small box with preview',
-  'Export 3MF con le impostazioni di Bambu Studio; riparazione automatica delle crepe': '3MF export keeps Bambu Studio settings; automatic repair of cracks',
+  
+  
+  
+  
+  
+  
   'Strumento Spigolo (arrotonda e smussa), nuove forme (cono, prisma, toro)': 'Edge tool (round and chamfer), new shapes (cone, prism, torus)',
   'Tema chiaro, scuro o automatico, vista Raggi X, Ripeti in griglia, nido d\'ape e cerchio': 'Light, dark or automatic theme, X-ray view, Repeat in grid, honeycomb and circle',
   'Viste senza prospettiva, copia e incolla, esportazione 3MF riparata': 'Views without perspective, copy and paste, repaired 3MF export',
@@ -171,7 +170,7 @@ const EN = {
   'Allinea davanti': 'Align front', 'Allinea dietro': 'Align back', 'Centra su Y': 'Center on Y',
   'Allinea alla base': 'Align to base', 'Allinea in alto': 'Align to top', 'Centra in altezza': 'Center vertically',
   'Allineo alla selezione. Per scegliere un oggetto chiave, clicca uno degli oggetti selezionati.': 'Aligning to the selection. To pick a key object, click one of the selected objects.',
-  'Spingi / tira': 'Push / pull', 'Di': 'By', 'Applica': 'Apply',
+  'Spingi / tira': 'Push / pull', 'Di': 'By',
   'Trascina il quadratino arancione sul lato (si aggancia ai piani vicini) o scrivi i mm. Positivo: tira fuori. Negativo: spingi dentro.': 'Drag the orange square on the face (it snaps to nearby planes) or type the mm. Positive: pull out. Negative: push in.',
   '⇧ + clic: aggiungi o togli lati': '⇧ + click: add or remove faces',
   'Texture': 'Texture', 'Tubi': 'Tubes', 'Esagoni': 'Hexagons', 'Pallini': 'Dots',
@@ -298,8 +297,26 @@ const EN = {
   'Impossibile creare la texture': 'Could not create the texture',
   'Impossibile spostare questo lato': 'Could not move this face',
   'Nessuna forma trovata nel file': 'No shape found in the file',
+  'Vista': 'View', 'Mostra': 'Show', 'Piano di lavoro': 'Workspace', 'Pannelli': 'Panels',
+  'Angoli e bordi': 'Corners and edges', 'Dimensione (mm)': 'Size (mm)', 'Spessore (mm)': 'Thickness (mm)', 'Spaziatura tra le lettere': 'Letter spacing',
+  'Spigoli verticali': 'Vertical corners', 'Bordo superiore': 'Top edge', 'Bordo inferiore': 'Bottom edge',
+  'Aumenta': 'Increase', 'Diminuisci': 'Decrease', 'Orientamento': 'Orientation', 'Calamita': 'Magnet',
+  'Strumenti, scorciatoie e consigli per la stampa.': 'Tools, shortcuts and printing tips.',
+  'Dentro il file ci sono': 'The file contains',
+  'parti non collegate tra loro. Puoi dividerle in livelli separati, così le muovi e le elimini una alla volta, oppure tenerle come un solo oggetto.': 'parts that are not connected to each other. You can split them into separate layers, so you can move and delete them one at a time, or keep them as one object.',
+  'Creata 1 copia': 'Created 1 copy', 'Massimo 600 copie in tutto': 'Maximum 600 copies in total',
+  'Scrivi una misura in mm (0 per togliere)': 'Type a size in mm (0 to remove)',
+  'La misura è troppo grande per questa scatola': 'The size is too big for this box', 'La misura è troppo grande per questo pezzo': 'The size is too big for this piece',
+  'Controlla stampa: anteprima a strati, pareti sottili, sbalzi, pezzi sospesi e stima di peso e tempo': 'Check print: layer preview, thin walls, overhangs, floating pieces and weight and time estimate',
+  'Spigolo: ogni spigolo ha il suo raggio e resta modificabile; gli anelli si ridimensionano con la calamita': 'Edge: each edge has its own radius and stays editable; rings resize with the magnet',
+  'Nuovo motore per Combina, Taglia e Allunga: solidi sempre chiusi e più veloci': 'New engine for Combine, Cut and Stretch: always closed solids, and faster',
+  'Nuova guida: finestra grande con immagini e GIF (tasto ? o F1)': 'New guide: large window with images and GIFs (? key or F1)',
+  'Metro, Ruota, Distribuisci e Ripeti più completi; Scatto da 0,1 mm e Libero': 'Tape measure, Rotate, Distribute and Repeat improved; 0.1 mm Step and Free',
+  'Riprendi l\'ultimo lavoro dalla schermata iniziale, con avviso prima di ricaricare la pagina': 'Resume your last work from the start screen, with a warning before reloading the page',
+  'Export 3MF con le impostazioni di Bambu Studio e riparazione automatica delle crepe': '3MF export with Bambu Studio settings and automatic crack repair',
+  'Esporta porta sempre tutto il piatto, Esc annulla le modifiche e chiude i menu, animazioni più morbide': 'Export always takes the whole plate, Esc cancels edits and closes menus, smoother animations',
 };
-const NAMEMAP = { Scatola: 'Box', Cilindro: 'Cylinder', Sfera: 'Sphere', Cono: 'Cone', Prisma: 'Prism', Toro: 'Torus', Pezzo: 'Part' };
+const NAMEMAP = { Scatola: 'Box', Cilindro: 'Cylinder', Sfera: 'Sphere', Cono: 'Cone', Prisma: 'Prism', Toro: 'Torus', Pezzo: 'Part', Testo: 'Text' };
 const RULES = [
   [/^Spigolo spostato di (.+) mm su ([XYZ])$/, (m) => `Edge moved by ${m[1]} mm on ${m[2]}`],
   [/^Distribuiti con (.+) mm tra uno e l'altro$/, (m) => `Distributed with ${m[1]} mm between each`],
@@ -325,7 +342,18 @@ const RULES = [
   [/^Raggruppati (\d+) oggetti: .*$/, (m) => `Grouped ${m[1]} objects: ⇧⌘G to ungroup`],
   [/^Combinati (\d+) oggetti$/, (m) => `Combined ${m[1]} objects`],
   [/^Oggetto chiave: (.*)$/, (m) => `Key object: ${tn(m[1])}`],
-  [/^Esportato (.*)\.(stl|3mf) \((\d+) (?:pezzo|pezzi)\)$/, (m) => `Exported ${m[1]}.${m[2]} (${m[3]} ${m[3] === '1' ? 'piece' : 'pieces'})`],
+  [/^Esportato (.*)\.(stl|3mf) \((\d+) (?:pezzo|pezzi)\)( con le impostazioni di stampa)?(?:, senza (\d+) frammenti vuoti)?$/, (m) => `Exported ${m[1]}.${m[2]} (${m[3]} ${m[3] === '1' ? 'piece' : 'pieces'})${m[4] ? ' with print settings' : ''}${m[5] ? `, without ${m[5]} empty fragments` : ''}`],
+  [/^Create (\d+) copie$/, (m) => `Created ${m[1]} copies`],
+  [/^Massimo (\d+)$/, (m) => `Maximum ${m[1]}`],
+  [/^La misura è troppo grande per questo pezzo: massimo (.+) mm$/, (m) => `The size is too big for this piece: maximum ${m[1]} mm`],
+  [/^Si può accorciare al massimo fino a (.+) mm$/, (m) => `It can be shortened by at most ${m[1]} mm`],
+  [/^Font aggiunto: (.*)$/, (m) => `Font added: ${m[1]}`],
+  [/^Impossibile leggere il font (.*)$/, (m) => `Could not read the font ${m[1]}`],
+  [/^Tolto da (\d+) (spigolo|spigoli)$/, (m) => `Removed from ${m[1]} ${m[1] === '1' ? 'edge' : 'edges'}`],
+  [/^(Arrotondamento|Smusso) di (.+) mm su (\d+) (spigolo|spigoli): resta modificabile$/, (m) => `${m[1] === 'Arrotondamento' ? 'Rounding' : 'Chamfer'} of ${m[2]} mm on ${m[3]} ${m[3] === '1' ? 'edge' : 'edges'}: still editable`],
+  [/^Spigolo spostato di (.+) mm in perpendicolare$/, (m) => `Edge moved by ${m[1]} mm perpendicular`],
+  [/^Importato (.+): spessore 1 mm, lato maggiore 60 mm(?: · (\d+) pezzi raggruppati)?$/, (m) => `Imported ${m[1]}: thickness 1 mm, longest side 60 mm${m[2] ? ` · ${m[2]} pieces grouped` : ''}`],
+  [/^Strato (\d+) \/ (\d+) · (.*)$/, (m) => `Layer ${m[1]} / ${m[2]} · ${m[3]}`],
   [/^Attenzione: i pezzi superano il piatto da (.*) mm$/, (m) => `Warning: the parts exceed the ${m[1]} mm plate`],
   [/^Griglia: (.*) mm$/, (m) => `Grid: ${m[1].replace(',', '.')} mm`],
   [/^Impostazioni di stampa dimenticate$/, () => 'Print settings forgotten'],
@@ -347,7 +375,7 @@ const RULES = [
   [/^≈ (\d+) elementi( \(ultimo lato\))?$/, (m) => `≈ ${m[1]} elements${m[2] ? ' (last face)' : ''}`],
   [/^· (\d+) lati selezionati$/, (m) => `· ${m[1]} faces selected`],
   [/^(.*) mm · (irregolare|curvo)$/, (m) => `${m[1]} mm · ${m[2] === 'curvo' ? 'curved' : 'irregular'}`],
-  [/^(Scatola|Cilindro|Sfera|Cono|Prisma|Toro|Pezzo)( \d+)?( copia( \d+)?)?$/, (m) => `${NAMEMAP[m[1]]}${m[2] || ''}${m[3] ? ' copy' + (m[4] || '') : ''}`],
+  [/^(Scatola|Cilindro|Sfera|Cono|Prisma|Toro|Pezzo|Testo)( \d+)?( copia( \d+)?)?$/, (m) => `${NAMEMAP[m[1]]}${m[2] || ''}${m[3] ? ' copy' + (m[4] || '') : ''}`],
 ];
 function tn(s) { for (const [re, f] of RULES.slice(-1)) { const m = s.match(re); if (m) return f(m); } return s; }
 let lang = 'it';

@@ -1005,6 +1005,21 @@ $('#rp-go').addEventListener('click', () => {
   repeatSelection({ mode: RP.mode, nx: v('rp-nx') || 1, ny: v('rp-ny') || 1, px: isNaN(v('rp-px')) ? 2 : v('rp-px'), py: isNaN(v('rp-py')) ? 2 : v('rp-py'), n: v('rp-n') || 6, arc: v('rp-arc') || 360, cx: v('rp-cx') || 0, cy: v('rp-cy') || 0 });
 });
 $('#rp-px').addEventListener('input', () => { if (RP.mode === 'honey') honeyGapY(); });
+// i campi non superano mai i limiti: ogni campo resta nel suo min/max e il totale delle copie nuove non va oltre 600
+function limitRepeatField(el) {
+  let v = Math.round(parseFloat(el.value));
+  if (!Number.isFinite(v)) return;
+  const k = Math.max(1, selection.length), room = Math.floor(600 / k) + 1;   // copie totali per oggetto, originale compreso
+  let top = +el.max, why = '';
+  if (el.id === 'rp-nx' || el.id === 'rp-ny') {
+    const other = Math.max(1, Math.round(parseFloat($(el.id === 'rp-nx' ? '#rp-ny' : '#rp-nx').value)) || 1);
+    if (Math.floor(room / other) < top) { top = Math.max(1, Math.floor(room / other)); why = 'total'; }
+  } else if (el.id === 'rp-n' && room < top) { top = room; why = 'total'; }
+  const nv = clamp(v, +el.min || 1, top);
+  if (nv !== v || String(nv) !== el.value) el.value = nv;
+  if (nv !== v && v > top) toast(why ? 'Massimo 600 copie in tutto' : `Massimo ${top}`);
+}
+['rp-nx', 'rp-ny', 'rp-n', 'rp-arc'].forEach(id => $('#' + id).addEventListener('change', e => limitRepeatField(e.target)));
 $('#p-repeat').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') $('#rp-go').click(); });
 
 function duplicateSelection(offset = true) {
@@ -1228,7 +1243,7 @@ function applyScale(st, S, A) {
   for (const it of st.items) {
     const fl = [1, 1, 1];
     W.forEach((ax, a) => { fl[it.loc[a]] = S[ax]; });
-    KEYS.forEach((k, i) => { if (fl[i] !== 1) setSize(it.m, k, Math.max(0.1, it.s0[k] * fl[i])); });
+    KEYS.forEach((k, i) => { if (fl[i] !== 1 || Math.abs(sizeOf(it.m)[k] - it.s0[k]) > 1e-6) setSize(it.m, k, Math.max(0.1, it.s0[k] * fl[i])); });   // con fattore 1 va comunque riportata la misura se prima era cambiata
     W.forEach(ax => { it.m.position[ax] = A[ax] + (it.p0[ax] - A[ax]) * S[ax]; });
     it.m.updateMatrixWorld(true);
   }
@@ -1964,7 +1979,7 @@ function syncPanel() {
   syncColor(); syncTextPanel();
   const nameEl = $('#p-name');
   if (m) {
-    if (document.activeElement !== nameEl) nameEl.value = m.userData.name;
+    if (document.activeElement !== nameEl) nameEl.value = tr(m.userData.name);
     nameEl.disabled = false;
     const s = sizeOf(m), v = { x: m.position.x, y: m.position.y, z: m.position.z, w: s.w, d: s.d, h: s.h, r: m.userData.p.r ?? 0, ft: m.userData.p.ft ?? 0, fb: m.userData.p.fb ?? 0, t: m.userData.p.t ?? 100, q: m.userData.p.q ?? 0, ...eulerDeg(m) };
     ids.forEach(i => { if (document.activeElement !== F[i]) F[i].value = fmt(v[i]); });
@@ -1980,7 +1995,7 @@ function syncPanel() {
     [['w', 'x'], ['d', 'y'], ['h', 'z']].forEach(([id, ax]) => { const el = $('#g-' + id); if (document.activeElement !== el) el.value = fmt(gs[ax]); });
     const gc = gb.getCenter(new THREE.Vector3());
     [['x', gc.x], ['y', gc.y], ['z', gb.min.z]].forEach(([ax, v]) => { const el = $('#g-' + ax); if (document.activeElement !== el) el.value = fmt(v); });
-    nameEl.value = isOneGroup() ? `Gruppo · ${selection.length} oggetti` : `${selection.length} oggetti`;
+    nameEl.value = tr(isOneGroup() ? `Gruppo · ${selection.length} oggetti` : `${selection.length} oggetti`);
     nameEl.disabled = true;
   }
   const nUnits = new Set(selection.map(o => o.userData.gid ?? o)).size;
@@ -2080,8 +2095,9 @@ $('#p-ground').addEventListener('click', () => {
   const m = single();
   if (m) { m.position.z -= worldBox(m).min.z; m.updateMatrixWorld(true); touch(); syncPanel(); updateHandles(); commit(); }
 });
-$('#p-name').addEventListener('input', e => { const m = single(); if (m) m.userData.name = e.target.value; });
+$('#p-name').addEventListener('input', e => { const m = single(); if (m) { m.userData.name = e.target.value; scheduleLayers(); } });
 $('#p-name').addEventListener('change', commit);
+document.addEventListener('click', e => { if (e.target.closest('[data-lang]')) setTimeout(syncPanel, 0); });   // il nome nel pannello segue la lingua
 $('#p-name').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
 $('#p-type').addEventListener('click', e => {
   const b = e.target.closest('button');
@@ -2149,11 +2165,13 @@ function setDims(on) {
 }
 
 /* ---------------------------------------------------------------- export */
-function exportList() {
+// l'export porta sempre tutto il piatto (solidi visibili); Controlla invece guarda la selezione se c'è
+function exportList() { return objects.filter(m => !m.userData.hole && !m.userData.hidden); }
+function checkList() {
   const sel = selection.filter(m => !m.userData.hole);
-  return sel.length ? sel : objects.filter(m => !m.userData.hole && !m.userData.hidden);
+  return sel.length ? sel : exportList();
 }
-const exportName = list => (list.length === 1 ? list[0].userData.name : 'filo').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'filo';
+const exportName = list => (list.length === 1 ? tr(list[0].userData.name) : 'filo').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'filo';
 function download(data, type, filename) {
   unsaved = false;
   const a = document.createElement('a');
@@ -2486,6 +2504,7 @@ const sideEl = $('#side'), tipEl = $('#tip');
 function setMini(on, save = true) {
   sideEl.classList.toggle('mini', on);
   if (!on && save) { sideEl.classList.add('opening'); clearTimeout(setMini.t); setMini.t = setTimeout(() => sideEl.classList.remove('opening'), 320); }
+  if (on && save) { sideEl.classList.add('closing'); clearTimeout(setMini.t2); setMini.t2 = setTimeout(() => sideEl.classList.remove('closing'), 320); }
   document.documentElement.style.setProperty('--sw', on ? '72px' : '312px');
   hideTip();
   document.querySelectorAll('#tools .tool').forEach(b => {      // barra stretta: c'è già il nostro pop up, quindi niente tooltip del browser (si sovrapporrebbero)
@@ -2748,6 +2767,35 @@ function toast(msg, ms = 2400) {
   clearTimeout(toastT);
   toastT = setTimeout(() => t.classList.remove('show'), ms);
 }
+
+/* Esc: 1) annulla la modifica di un campo numerico o del nome e ne esce, 2) chiude i menu aperti, 3) poi deseleziona (gestore sotto) */
+const fieldStart = new WeakMap();
+document.addEventListener('focusin', e => { if (e.target.tagName === 'INPUT') fieldStart.set(e.target, e.target.value); });
+function closeOpenMenus() {
+  const open = [snapMenu, dotMenu, bedMenu].filter(m => !m.classList.contains('hidden'));
+  const fontOpen = !tFontList.classList.contains('hidden');
+  if (!open.length && !fontOpen) return false;
+  open.forEach(m => m.classList.add('hidden')); closeFontList(); menuState();
+  return true;
+}
+window.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || e.isComposing) return;
+  const t = e.target;
+  if (t.tagName === 'INPUT' && (t.type === 'number' || t.id === 'p-name') && !t.closest('dialog, #hpop') && fieldStart.has(t)) {
+    e.preventDefault(); e.stopPropagation();
+    const v0 = fieldStart.get(t);
+    if (t.value !== v0) {
+      t.value = v0;
+      t.dispatchEvent(new Event('input', { bubbles: true })); // riporta il modello al valore di partenza
+      const m = single(); if (m) { delete m.userData.lockS; delete m.userData.lockC; }
+      gScale = null; syncPanel();
+    }
+    t.blur();
+    return;
+  }
+  if (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || dlg.open || document.querySelector('dialog[open]:not(#dlg-check)')) return;
+  if (closeOpenMenus()) { e.preventDefault(); e.stopPropagation(); }
+}, true);
 
 /* ------------------------------------------------------------ tastiera */
 window.addEventListener('keydown', e => {
@@ -4691,7 +4739,7 @@ function scrollFade(el) {
   new MutationObserver(upd).observe(el, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden'] });
   window.addEventListener('resize', upd); upd();
 }
-scrollFade($('#tools')); scrollFade($('#props'));
+scrollFade($('#tools')); scrollFade($('#p-scroll'));
 
 
 /* ---------------------------------------------------------- controlla stampa */
@@ -4725,7 +4773,7 @@ function chkShow() {
   else row('', 'Solido chiuso', tr('Nessuna crepa: lo slicer lo legge come un oggetto pieno.'));
   if (R.U) {
     if (R.floating.length) row('b', 'Pezzo sospeso', `${R.floating.length} ${tr(R.floating.length === 1 ? 'parte non tocca il piatto' : 'parti non toccano il piatto')} (${tr('più in basso')}: ${R.floating[0].z.toFixed(1).replace('.', ',')} mm). ${tr('Senza supporti non si stampa.')}`);
-    else row('', R.parts > 1 ? 'Parti separate ma tutte sul piatto' : 'Appoggia sul piatto', `${tr('Base a contatto')}: ${Math.round(R.first)} mm².`);
+    else row('', R.parts > 1 ? 'Parti separate ma tutte sul piatto' : 'Poggia sul piatto', `${tr('Base a contatto')}: ${Math.round(R.first)} mm².`);
     if (R.first < 20 && !R.floating.length) row('w', 'Base molto piccola', tr('Poca superficie a contatto: il pezzo potrebbe staccarsi. Valuta un brim o un appoggio più largo.'));
     if (R.thin.layers) row('w', 'Pareti sottili', `${tr('In')} ${R.thin.layers} ${tr('strati controllati su')} ${R.thin.scanned} ${tr('ci sono parti sotto')} ${String(R.minWall).replace('.', ',')} mm (${tr('prima a')} ${R.thin.first.toFixed(1).replace('.', ',')} mm). ${tr('Scorri lo strato: sono in rosso.')}`);
     else row('', 'Pareti abbastanza spesse', `${tr('Niente sotto')} ${String(R.minWall).replace('.', ',')} mm.`);
@@ -4742,7 +4790,7 @@ async function chkRun() {
   $('#chk-wait').classList.remove('hidden'); $('#chk-body').classList.add('hidden');
   await new Promise(r => setTimeout(r, 30));
   chkClear();
-  const list = exportList();
+  const list = checkList();
   if (!list.length) { toast('Niente da controllare: aggiungi almeno un solido'); chk.busy = false; dlgChk.close(); return; }
   try { chk.R = buildCheck(list, { layer: parseFloat($('#chk-lh').dataset.v), minWall: parseFloat($('#chk-mw').dataset.v) }); } catch (e) { console.warn(e); chk.R = { err: 'Non sono riuscito ad analizzare il pezzo', open: [] }; }
   const R = chk.R;
@@ -4932,7 +4980,7 @@ layersList.addEventListener('dblclick', e => {
   const m = objects.find(o => o.userData.id === +r.dataset.id);
   if (!m) return;
   const span = r.querySelector('.ln'), inp = document.createElement('input');
-  inp.value = m.userData.name; inp.className = 'lren'; inp.spellcheck = false;
+  inp.value = tr(m.userData.name); inp.className = 'lren'; inp.spellcheck = false;
   span.replaceWith(inp); inp.focus(); inp.select();
   let fin = false;
   const done = ok => { if (fin) return; fin = true; if (ok && inp.value.trim()) { m.userData.name = inp.value.trim(); commit(); } inp.removeEventListener('blur', onBlur); if (inp.isConnected) inp.remove(); renderLayers(); syncPanel(); };

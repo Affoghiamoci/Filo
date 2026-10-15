@@ -109,7 +109,7 @@ export const HELP = {
       <p class="sc-note">Mentre trascini: ${K('⇧')} blocca un asse e spegne l'aggancio · ${K('⌘')} spegne la calamita (o sposta in verticale se premuto prima) · ${K('⌥')} duplica.</p>` },
     { id: 'check', g: 'ref', t: 'Controlla stampa', h: `
       {{img:controlla|Il pannello Controlla stampa con l'anteprima a strati}}
-      <p>Il pulsante <b>Controlla</b> (in alto, vicino a Esporta) apre un pannello a destra che resta aperto mentre guardi il modello. Analizza ciò che esporteresti: i pezzi selezionati, oppure tutto il visibile.</p>
+      <p>Il pulsante <b>Controlla</b> (in alto, vicino a Esporta) apre un pannello a destra che resta aperto mentre guardi il modello. Analizza i pezzi selezionati, oppure tutto il visibile se non c'è nulla di selezionato. L'esportazione invece porta sempre tutto il piatto.</p>
       <ul><li><b>Solido chiuso</b>: se ci sono crepe o facce sovrapposte, lo slicer può sbagliare. Ti dice quali pezzi.</li><li><b>Anteprima a strati</b>: scorri lo slider e vedi la sezione a ogni altezza. Nel modello compare un piano arancione alla stessa altezza.</li><li><b>Pareti sottili</b>: le zone sotto lo spessore minimo (0,8 mm di default) diventano rosse nell'anteprima.</li><li><b>Pezzi sospesi</b> e base a contatto con il piatto.</li><li><b>Sbalzi oltre 45°</b>: in rosso nel modello, per capire dove servirebbero i supporti.</li><li>Una stima di strati, grammi di PLA e tempo.</li></ul>
       <div class="tip">È un controllo veloce, non uno slicer: la stima è indicativa e il G-code lo fa sempre Bambu Studio. Se modifichi il pezzo mentre il pannello è aperto, si aggiorna da solo.</div>` },
     { id: 'print', g: 'ref', t: 'Consigli per la stampa', h: `
@@ -217,7 +217,7 @@ export const HELP = {
       <p class="sc-note">While dragging: ${K('⇧')} locks an axis and switches off snapping · ${K('⌘')} switches off the magnet (or moves vertically if held before) · ${K('⌥')} duplicates.</p>` },
     { id: 'check', g: 'ref', t: 'Print check', h: `
       {{img:controlla|The Print check panel with the layer preview}}
-      <p>The <b>Check</b> button (top, next to Export) opens a panel on the right that stays open while you look at the model. It analyzes what you would export: the selected pieces, or everything visible.</p>
+      <p>The <b>Check</b> button (top, next to Export) opens a panel on the right that stays open while you look at the model. It analyzes the selected pieces, or everything visible if nothing is selected. Export, instead, always takes the whole plate.</p>
       <ul><li><b>Closed solid</b>: with cracks or overlapping faces the slicer can get it wrong. It tells you which pieces.</li><li><b>Layer preview</b>: drag the slider to see the section at every height. An orange plane shows the same height in the model.</li><li><b>Thin walls</b>: areas below the minimum thickness (0.8 mm by default) turn red in the preview.</li><li><b>Floating pieces</b> and the base touching the bed.</li><li><b>Overhangs past 45°</b>: red in the model, to see where supports would be needed.</li><li>An estimate of layers, grams of PLA and time.</li></ul>
       <div class="tip">It is a quick check, not a slicer: the estimate is approximate and the G-code is always made by Bambu Studio. If you edit the piece while the panel is open, it updates by itself.</div>` },
     { id: 'print', g: 'ref', t: 'Printing tips', h: `

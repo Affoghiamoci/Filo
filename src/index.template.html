@@ -18,7 +18,7 @@
     <button id="side-toggle" class="icon-btn" title="Riduci o espandi la barra (Tab)" aria-label="Riduci o espandi la barra laterale"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M9.5 4.5v15"/></svg></button>
   </header>
   <div id="tools"></div>
-  <button id="help-open" title="Guida (F1)"><span>Aiuto</span><kbd>?</kbd></button>
+  <button id="help-open" title="Guida (F1)"><span>Guida</span><kbd>?</kbd></button>
   <div id="foot">
     <div class="ctl"><div id="lang" role="group" aria-label="Language"><button data-lang="it">IT</button><button data-lang="en">EN</button></div>
     <div id="theme" role="group" aria-label="Tema">
@@ -31,6 +31,7 @@
 </aside>
 
 <aside id="props" class="panel hidden">
+<div id="p-scroll">
 <div id="p-obj">
   <input id="p-name" spellcheck="false" autocomplete="off">
   <div class="seg" id="p-type"><button data-v="solid">Solido</button><button data-v="hole">Foro</button></div>
@@ -151,6 +152,7 @@
     <div class="row2"><label class="f">Scala<input id="e-scale" type="number" step="5" min="1" placeholder="100"><em>%</em></label><button class="btn primary" id="e-scale-go">Applica</button></div>
   </div>
 </div>
+</div>
 </aside>
 
 <div id="ruler-card" class="panel hidden"></div>
@@ -172,13 +174,13 @@
 </div>
 
 <aside id="layers" class="panel hidden">
-  <div class="lhead"><h4>Livelli</h4><button id="layers-close" class="icon-btn" aria-label="Chiudi">×</button></div>
+  <div class="lhead"><h4>Livelli</h4><button id="layers-close" class="icon-btn" aria-label="Chiudi"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div id="layers-list"></div>
   <p class="lfoot">⇧ aggiunge · ⌘ seleziona un intervallo</p>
 </aside>
 
 <aside id="history" class="panel hidden">
-  <div class="lhead"><h4>Cronologia</h4><button id="history-close" class="icon-btn" aria-label="Chiudi">×</button></div>
+  <div class="lhead"><h4>Cronologia</h4><button id="history-close" class="icon-btn" aria-label="Chiudi"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div id="history-list"></div>
 </aside>
 
@@ -260,7 +262,7 @@
 <div id="hpop" class="panel hidden"><span id="hpop-chip" class="chip">X+</span><span class="lbl">allunga di</span><input id="hpop-val" type="number" step="1" placeholder="0" title="Valore negativo per accorciare. Invio per applicare"><span class="lbl">mm</span></div>
 <div id="dropin"><div class="di-box"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg><b>Rilascia per importare</b><span>File 3MF, STL o SVG</span></div></div>
 <div id="toast"></div>
-<div id="perf-note" class="panel hidden"><span>Modello complesso: per tenerlo fluido ho ridotto risoluzione, ombre e bordi. Per modificarlo conviene semplificarlo prima (Bambu Studio: tasto destro, Semplifica modello).</span><button id="perf-x" class="icon-btn" aria-label="Chiudi">×</button></div>
+<div id="perf-note" class="panel hidden"><span>Modello complesso: per tenerlo fluido ho ridotto risoluzione, ombre e bordi. Per modificarlo conviene semplificarlo prima (Bambu Studio: tasto destro, Semplifica modello).</span><button id="perf-x" class="icon-btn" aria-label="Chiudi"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
 <div id="tip"></div>
 
 <dialog id="dlg-exp">
@@ -322,12 +324,12 @@
   </div>
 </dialog>
 <dialog id="dlg-help">
-  <div class="hp-top"><b>Guida</b><span class="hp-sub">Strumenti, scorciatoie e trucchi</span><button id="hp-close" class="icon-btn" aria-label="Chiudi">×</button></div>
+  <div class="hp-top"><b>Guida</b><span class="hp-sub">Strumenti, scorciatoie e trucchi</span><button id="hp-close" class="icon-btn" aria-label="Chiudi"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="hp-body"><nav id="hp-nav"></nav><article id="hp-main"></article></div>
 </dialog>
 <dialog id="dlg-info">
   <div class="info-card">
-    <button id="info-close" class="icon-btn" aria-label="Chiudi">×</button>
+    <button id="info-close" class="icon-btn" aria-label="Chiudi"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     <div class="info-head">
       <svg class="logo" viewBox="0 0 9 9" shape-rendering="crispEdges" fill="#ff6a00" aria-hidden="true"><rect x="0" y="0" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="0" y="8" width="1" height="1"/><rect x="1" y="1" width="1" height="1"/><rect x="1" y="4" width="1" height="1"/><rect x="1" y="7" width="1" height="1"/><rect x="2" y="2" width="1" height="1"/><rect x="2" y="4" width="1" height="1"/><rect x="2" y="6" width="1" height="1"/><rect x="3" y="3" width="1" height="1"/><rect x="3" y="4" width="1" height="1"/><rect x="3" y="5" width="1" height="1"/><rect x="4" y="0" width="1" height="1"/><rect x="4" y="1" width="1" height="1"/><rect x="4" y="2" width="1" height="1"/><rect x="4" y="3" width="1" height="1"/><rect x="4" y="4" width="1" height="1"/><rect x="4" y="5" width="1" height="1"/><rect x="4" y="6" width="1" height="1"/><rect x="4" y="7" width="1" height="1"/><rect x="4" y="8" width="1" height="1"/><rect x="5" y="3" width="1" height="1"/><rect x="5" y="4" width="1" height="1"/><rect x="5" y="5" width="1" height="1"/><rect x="6" y="2" width="1" height="1"/><rect x="6" y="4" width="1" height="1"/><rect x="6" y="6" width="1" height="1"/><rect x="7" y="1" width="1" height="1"/><rect x="7" y="4" width="1" height="1"/><rect x="7" y="7" width="1" height="1"/><rect x="8" y="0" width="1" height="1"/><rect x="8" y="4" width="1" height="1"/><rect x="8" y="8" width="1" height="1"/></svg>
       <b class="word">Filo</b>
@@ -337,7 +339,7 @@
     <p>Questa app è stata generata con l’ausilio dell’intelligenza artificiale.</p>
     <div class="info-row"><span class="lbl">Novità</span><div class="cl">
       <b>0.9.0</b>
-      <ul><li>Controlla stampa: pannello con anteprima a strati, pareti sottili, sbalzi in rosso, pezzi sospesi e stima di peso e tempo</li><li>Spigolo: sposta uno spigolo con la direzione ⊥ e la parete dritta (l'esagono si allunga senza storcersi), anche i verticali del prisma; ridimensiona gli anelli, con calamita</li><li>Annulla riporta anche spigoli e lati selezionati</li><li>Riprendi l'ultimo lavoro dalla schermata iniziale e avviso prima di ricaricare la pagina</li><li>Barra in alto con tre icone: Importa, Controlla, Esporta</li><li>Spigolo: più cerchi selezionati si allargano o si stringono insieme (⊥), senza traslare</li><li>Raggi X: contorno delle pareti di cilindri e coni, anche dietro altri pezzi</li><li>Guida con nuove immagini e GIF (Ruota, Spigolo, Controlla)</li><li>Nuova guida: finestra grande con categorie, immagini e GIF (tasto ? o F1)</li><li>Nuovo motore per Combina, Taglia, Allunga e spigoli: solidi sempre chiusi e molto più veloci</li><li>Spigoli singoli su scatola e prisma, modificabili quando vuoi; bordi di cilindro e cono sempre modificabili</li><li>SVG importati più puliti: i fori con loghi non lasciano più crepe</li><li>Taglia e Allunga: il piano si trascina con il mouse; Allunga è più preciso</li><li>Metro (prima Distanza): con ⌥ vedi larghezza, altezza, angoli e lunghezze sotto il mouse</li><li>Ruota con tacche, alone e spicchio dell'angolo; Distribuisci per avere spazi uguali</li><li>Ripeti con Spazio tra le copie; Scatto con 0,1 mm e Libero; calamita su angoli e lati degli altri oggetti</li><li>Barra in basso a sezioni, pop up al passaggio del mouse, Scatolina con anteprima</li><li>Export 3MF con le impostazioni di Bambu Studio; riparazione automatica delle crepe</li></ul>
+      <ul><li>Controlla stampa: anteprima a strati, pareti sottili, sbalzi, pezzi sospesi e stima di peso e tempo</li><li>Spigolo: ogni spigolo ha il suo raggio e resta modificabile; gli anelli si ridimensionano con la calamita</li><li>Nuovo motore per Combina, Taglia e Allunga: solidi sempre chiusi e più veloci</li><li>Nuova guida: finestra grande con immagini e GIF (tasto ? o F1)</li><li>Metro, Ruota, Distribuisci e Ripeti più completi; Scatto da 0,1 mm e Libero</li><li>Riprendi l'ultimo lavoro dalla schermata iniziale, con avviso prima di ricaricare la pagina</li><li>Export 3MF con le impostazioni di Bambu Studio e riparazione automatica delle crepe</li><li>Esporta porta sempre tutto il piatto, Esc annulla le modifiche e chiude i menu, animazioni più morbide</li></ul>
       <details><summary>Versioni precedenti</summary>
         <b>0.7.9</b>
         <ul><li>Strumento Spigolo (arrotonda e smussa), nuove forme (cono, prisma, toro)</li><li>Tema chiaro, scuro o automatico, vista Raggi X, Ripeti in griglia, nido d'ape e cerchio</li><li>Viste senza prospettiva, copia e incolla, esportazione 3MF riparata</li><li>Modelli pesanti più fluidi e import 3MF di Bambu e Orca corretto</li></ul>
@@ -359,9 +361,9 @@
 </dialog>
 
 <dialog id="dlg-box">
-  <form method="dialog" id="box-form">
-    <h2>Scatolina con coperchio</h2>
-    <p>Corpo e coperchio vengono affiancati, pronti da stampare sul piatto.</p>
+  <form method="dialog" id="box-form" class="exp-card">
+    <div class="exp-title">Scatolina con coperchio</div>
+    <p class="hint">Corpo e coperchio vengono affiancati, pronti da stampare sul piatto.</p>
     <div id="bx-prev"></div>
     <div class="rows">
       <label class="f">Larghezza<input name="w" type="number" value="60" step="1" min="10"></label>
@@ -371,7 +373,7 @@
       <label class="f" title="Spazio tra coperchio e corpo: 0,3 mm per un incastro che scorre">Gioco<input name="g" type="number" value="0.3" step="0.05" min="0.1" max="0.6"></label>
       <label class="f" title="Raggio degli angoli verticali. 0 = spigoli vivi">Angoli<input name="r" type="number" value="4" step="1" min="0"></label>
     </div>
-    <div class="actions">
+    <div class="exp-actions">
       <button type="button" class="btn" id="box-cancel">Annulla</button>
       <button class="btn primary" value="ok">Crea</button>
     </div>

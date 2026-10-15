@@ -38,6 +38,9 @@ Stati (fissi): verde `#2fa866` ok, ambra `#e0a100` attenzione, rosso `#e5484d` e
 | Pulsante, segmento | mono 500 11px, tracking .05em, maiuscolo |
 | Valore in campo | mono 500 12.5px |
 | Tasto (kbd) | mono 500 10.5px su `--field` |
+| Micro: didascalie della barra, titoli dei menu, tasti sulle righe, badge | mono 500 9.5px, tracking .04 to .1em, maiuscolo |
+| Glifi piccoli: "?" dei suggerimenti 8px, etichette del cubo 7.5px | mono 500, sono simboli più che testo da leggere |
+| Badge versione (sidebar e Info) | pillola tonda, bordo 1px accento, fondo accento 12%, mono 500 9.5px |
 | Voce di elenco, titolo riga | sans 600 13px |
 | Testo descrittivo | sans 12px, line-height 1.45, `--muted` |
 | Nota (hint) | sans 11.5 to 12px, `--muted` |
@@ -48,12 +51,12 @@ Scala a 4: **4, 6, 8, 10, 12, 14, 20**. Usa solo questi.
 - Spazio tra campi in griglia: **6 px**. Tra gruppi in una sezione: **10 to 12 px**.
 - Altezze: campo `label.f` **30 px**, icon-btn **30 px** (22 px nelle testate di lista), segmento interno **26 px** dentro un contenitore con padding 2, pulsante barra **34 px**.
 - Divisori: **1 px** `--line`; fra sezioni di un pannello, bordo inferiore di ogni sezione.
-- Larghezze: pannello proprietà 264, livelli e cronologia 232, finestre di dialogo 380 to 420.
+- Larghezze: pannello proprietà 264, livelli e cronologia 232, finestre di dialogo 380 to 420 (Guida e Info fanno eccezione).
 - Distanza dai bordi finestra: **12 px**. Barra in basso 16 px.
 
 ## 5. Componenti
 - **Pannello flottante** (`.panel`): `--panel`, bordo 1 px `--line`, raggio 2, `--shadow`. Testata con titolo mono + icon-btn chiudi. Sezioni da 14 px divise da una linea.
-- **Finestra** (`dialog`): come il pannello, ombra `0 12px 0 rgba(0,0,0,.08)`, sfondo sfocato dietro se modale. Un pannello che resta aperto mentre si lavora (Controlla, Livelli) è **non modale**.
+- **Finestra** (`dialog`): come il pannello, ombra `0 12px 0 rgba(0,0,0,.08)`, sfondo sfocato dietro se modale. Contenuto in `.exp-card` (padding 20×22), titolo `.exp-title` (mono 600 12px, mai h2 più grandi), azioni `.exp-actions` a destra. Chiusura con icon-btn con la X in svg (come Controlla), mai il carattere ×. Un pannello che resta aperto mentre si lavora (Controlla, Livelli) è **non modale**.
 - **Finestra spostabile**: testata alta 44 px, maniglia di 5 puntini centrata in alto, cursore grab, sta sempre nello schermo.
 - **Segmento** (`.seg`, `.chk-seg`): contenitore `--field`, padding 2, gap 2; voce attiva `--ink` con sottolineatura `inset 0 -2px 0 --accent`. Per scelte da 2 a 5 valori. Mai tendine native.
 - **Campo** (`label.f`): `--field`, 30 px, etichetta mono a sinistra in `--muted`, valore a destra; focus anello 1.5 px `--accent`.
@@ -63,13 +66,21 @@ Scala a 4: **4, 6, 8, 10, 12, 14, 20**. Usa solo questi.
 - **Indicatore di stato**: quadratino 8 px raggio 1, verde/ambra/rosso, davanti a titolo e descrizione.
 - **Slider**: traccia 2 px `--line`, cursore rettangolare 10×16 arancione.
 - **Tooltip**: sempre quello dell'app (`#tip`), non `title` nativo nelle barre.
-- **Icone**: tratto 1.8 px, `stroke-linecap:square`, 18 px nei pulsanti, 24 px viewBox.
+- **Icone**: tratto 1.6 px, estremità tonde, 18 px nei pulsanti (14 px nelle testate compatte di Livelli e Cronologia), 24 px viewBox.
+- **Pannello che scorre** (sidebar, proprietà): il riquadro resta intero (bordo, angoli, ombra) e scorre solo il contenuto interno, con sfumatura in fondo (e in alto se si è scesi) che segnala il resto. Mai far scorrere o sfumare il bordo.
 
 ## 6. Movimento
 Transizioni **.12 to .22 s ease**, solo su colore, larghezza e opacità. Niente rimbalzi. Quando un blocco si apre, i contenuti non devono cambiare posizione alla fine dell'animazione.
+- **Hover e stato attivo**: pulsanti, strumenti, righe e segmenti cambiano colore in .12 s.
+- **Menu, pannelli e finestre** compaiono con dissolvenza di sola opacità (.14 s, .16 s per le finestre e il fondo). Alla chiusura spariscono subito.
+- **Sidebar**: larghezza .22 s. La variabile `--sw` (larghezza della sidebar) è registrata e anima con lo stesso tempo, così barra in basso, avvisi, cubo, righello e Taglia scorrono insieme (unica eccezione, `left`, per seguire la sidebar). In versione stretta le icone restano ancorate a sinistra e non saltano; solo logo, pulsante e piede compaiono con una breve dissolvenza a fine chiusura.
+- Nessun adattamento per `prefers-reduced-motion` per ora.
 
 ## 7. Posizioni
 Sidebar sinistra 12 px dai bordi; barra in alto a destra larga quanto il pannello proprietà e allineata; livelli e cronologia a sinistra delle proprietà; barra comandi in basso al centro; cubo in alto dopo la sidebar. Niente sovrapposizioni tra pannelli di default.
 
-## 8. Controllo prima di consegnare
+## 8. Tastiera: Esc
+Esc fa una cosa alla volta, nell'ordine: 1) in un campo numerico o nel nome annulla la modifica (torna al valore di partenza) ed esce dal campo; 2) chiude i menu aperti (piatto, scatto, punti, elenco font); 3) interrompe il righello o la selezione di un lato; 4) deseleziona. Tab (sidebar) e Spazio (trascinare la vista) restano riservati alla scena, come in Photoshop.
+
+## 9. Controllo prima di consegnare
 1. Tutti i colori sono token? 2. Raggio 2 px? 3. Spaziature nella scala a 4? 4. Etichette mono maiuscole, frasi in sans? 5. Chiaro e scuro guardati entrambi? 6. Nessun elemento tagliato o sovrapposto a 1280 px di larghezza? 7. Testi IT e chiavi EN presenti?

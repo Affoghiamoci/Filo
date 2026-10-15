@@ -79,7 +79,7 @@ function shapesFromCommands(cmds, dy = 0) {
 
 function extrude(shapes, depth) {
   const g = new THREE.ExtrudeGeometry(shapes, { depth, bevelEnabled: false, curveSegments: 6 });
-  const ng = g.toNonIndexed();
+  const ng = g.index ? g.toNonIndexed() : g;       // ExtrudeGeometry è già senza indici
   g.dispose();
   return ng.attributes.position.array;
 }
