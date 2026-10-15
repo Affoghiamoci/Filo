@@ -9,13 +9,13 @@ const K = (...k) => k.map(x => `<kbd>${x}</kbd>`).join(' ');
 export const HELP = {
   it: [
     { id: 'start', g: 'start', t: 'Benvenuto', h: `
-      <p>Filo è un modellatore 3D semplice per oggetti da stampare: scatole, ganci, supporti, scatoline. Si compone con forme di base, si scavano i fori e si unisce tutto. Funziona offline e il lavoro resta sul tuo computer.</p>
+      <p>Filo è un modellatore 3D semplice per oggetti da stampare, come scatole, ganci e supporti. Parti da forme di base, fai i fori e unisci tutto. Funziona offline e i file restano sul tuo computer.</p>
       <ol><li>Aggiungi una forma dalla barra a sinistra (o con un tasto: ${K('B')} scatola, ${K('C')} cilindro).</li><li>Cambia misure e posizione dal pannello a destra, oppure trascina le maniglie colorate.</li><li>Per fare un foro, selezionalo e premi ${K('X')}: diventa arancione trasparente. Poi ${K('⌘E')} (Combina) lo sottrae dai solidi.</li><li>Esporta in 3MF (consigliato) o STL e apri il file nello slicer.</li></ol>
       <div class="tip"><b>Piatto di stampa.</b> In basso, in "Piano di lavoro", scegli la tua stampante (A1 mini, X1C, H2D…) o una misura libera. Z = 0 è il piatto.</div>
-      <p>Usa il menu a sinistra per leggere come funziona ogni strumento. Con <kbd>?</kbd> riapri questa guida in qualsiasi momento.</p>` },
+      <p>Usa il menu a sinistra per leggere come funziona ogni strumento. Con <kbd>?</kbd> riapri questa guida quando vuoi.</p>` },
     { id: 'view', g: 'start', t: 'Muovere la vista', h: `
       <ul><li><b>Ruotare</b>: trascina nel vuoto o con il tasto destro.</li><li><b>Spostare</b>: ${K('Spazio')} + trascina.</li><li><b>Zoom</b>: rotella o pizzico sul trackpad; ${K('⌥')} + scorrimento funziona con qualsiasi dispositivo.</li><li><b>Adatta alla vista</b>: ${K('⌘0')}; doppio clic su un oggetto per centrarlo.</li></ul>
-      <p>Il cubo in alto a sinistra mostra l'orientamento. Nella barra in basso, "Vista" porta subito Davanti, Sopra, Destra o 3D. Le viste Davanti, Sopra e Destra sono senza prospettiva, ideali per allineare con precisione.</p>
+      <p>Il cubo in alto a sinistra mostra l'orientamento. Nella barra in basso, "Vista" porta subito Davanti, Sopra, Destra o 3D. Davanti, Sopra e Destra sono senza prospettiva, comode per allineare.</p>
       <ul><li>${K('M')} mostra le <b>Misure</b> reali degli oggetti.</li><li>${K('Z')} attiva i <b>Raggi X</b>: i contorni delle parti coperte.</li><li>${K('Tab')} riduce la barra laterale.</li></ul>` },
     { id: 'shapes', g: 'create', t: 'Forme', h: `
       {{img:forme|Scatola, cilindro, sfera, cono, prisma e toro}}
@@ -26,7 +26,7 @@ export const HELP = {
       <p>${K('T')} scrive testo 3D. Scegli il font (Inter, Bebas Neue, Lora, VT323) oppure carica un tuo font con "+ Carica font…". Regoli dimensione, spessore e spaziatura. Il testo è un oggetto come gli altri: puoi renderlo un foro per inciderlo in una scatola.</p>` },
     { id: 'io', g: 'create', t: 'Importare ed esportare', h: `
       <ul><li><b>Importa</b>: ${K('⌘O')} oppure trascina il file sulla finestra. Accetta 3MF e STL.</li><li>Se un file ha più parti staccate, Filo chiede se tenerle unite o dividerle in livelli.</li><li><b>Esporta</b>: ${K('⌘S')}. Il <b>3MF</b> è consigliato (tiene i nomi e i colori); l'STL è un solo corpo.</li></ul>
-      <div class="tip"><b>Controllo prima dell'export.</b> 3MF e STL ripuliscono i vertici doppi e riparano le piccole fessure lasciate da Combina e Taglia. Restano a volte minuscoli difetti: gli slicer di solito li sistemano da soli.</div>` },
+      <div class="tip">Prima di esportare, Filo toglie i vertici doppi e ripara le fessure più piccole. I pezzi fatti con Combina e Taglia escono già chiusi.</div>` },
     { id: 'move', g: 'select', t: 'Sposta e duplica', h: `
       <p>${K('V')}: seleziona e trascina gli oggetti sul piatto.</p>
       <ul><li>${K('⇧')} mentre trascini: blocca un asse (e spegne l'aggancio).</li><li>${K('⌘')} premuto prima di trascinare: sposta su e giù.</li><li>${K('⌥')} + trascina: duplica.</li><li>Frecce: spostano di uno scatto (con ${K('⇧')}, di dieci). ${K('[')} ${K(']')}: giù e su.</li><li>${K('⌘D')} duplica, ${K('⌘C')} ${K('⌘X')} ${K('⌘V')} copia, taglia, incolla; ${K('⌘⇧V')} incolla sul posto.</li><li>${K('Canc')} elimina, ${K('Esc')} deseleziona.</li></ul>
@@ -51,47 +51,47 @@ export const HELP = {
       {{img:calamita|Un oggetto trascinato si aggancia a contatto con l'altro}}
       <ul><li>${K('⌘')} premuto mentre trascini spegne la calamita solo per quel movimento.</li><li>${K('⇧')} blocca un asse e spegne anche lo scatto.</li><li>La calamita agisce anche sul trascinamento degli spigoli (vedi Spigolo).</li></ul>` },
     { id: 'rotate', g: 'transform', t: 'Ruota', h: `
-      <p>${K('R')} mostra tre anelli, uno per asse. Trascina un anello per ruotare con scatto di 15°; ${K('⇧')} dà scatti di 5°, ${K('⌥')} rotazione libera.</p>
-      <p>Nel pannello, i pulsanti X, Y, Z ruotano di 90° (con ${K('⇧')} nel verso opposto), e i campi Rotazione danno l'angolo esatto.</p>` },
+      <p>${K('R')} mostra tre anelli, uno per asse. Trascina un anello per ruotare: di default scatta ogni 15°, con ${K('⇧')} ogni 5°, con ${K('⌥')} è libero.</p>
+      <p>Passando sopra un anello si illumina, e mentre ruoti vedi uno spicchio arancione con l'angolo fatto. Nel pannello a destra i pulsanti X, Y, Z ruotano di 90° (con ${K('⇧')} nel verso opposto) e i campi Rotazione accettano un angolo preciso.</p>` },
     { id: 'face', g: 'model', t: 'Lato', h: `
       {{img:lato|Un lato selezionato con la sua maniglia}}
       <p>${K('L')}: clicca un lato piatto e tira o spingi la maniglia per spostarlo. La forma si allunga o si accorcia da quella parte.</p>
       <ul><li>${K('⇧')} + clic aggiunge altri lati.</li><li>Un lato a filo con altri dello stesso gruppo si muove insieme.</li><li>Sui cilindri il lato curvo è un pezzo unico.</li></ul>` },
     { id: 'edge', g: 'model', t: 'Spigolo', h: `
-      <p>${K('E')}: clicca uno spigolo (${K('⇧')} per aggiungerne altri) e scegli cosa farne.</p>
+      <p>${K('E')}: clicca uno spigolo (con ${K('⇧')} ne scegli altri) e decidi cosa farne.</p>
       <h3>Arrotonda o smussa</h3>
       {{img:spigolo|Due spigoli arrotondati su una scatola}}
-      <p>Scrivi la misura e premi Applica. Su <b>scatola e prisma</b> ogni spigolo ha il suo raggio e <b>resta modificabile</b>: riseleziona lo spigolo per cambiarlo, con 0 lo togli. Su <b>cilindro e cono</b> il bordo alto e basso si arrotonda dal pannello a destra (Bordo alto, Bordo basso) e resta modificabile; con lo strumento Spigolo l'operazione è definitiva. Lo stesso vale per sfera, toro e pezzi uniti o importati (si può sempre annullare).</p>
+      <p>Scrivi la misura e premi Applica. Su scatola e prisma ogni spigolo ha il suo raggio, e puoi cambiarlo dopo: riseleziona lo spigolo, con 0 lo togli. Su cilindro e cono vale per il bordo alto e per quello basso: si possono modificare anche dal pannello a destra (Bordo alto, Bordo basso). Gli altri pezzi (pezzi uniti o importati) vengono modificati in modo definitivo, ma puoi sempre annullare. Sfera e toro non hanno spigoli.</p>
       <h3>Sposta lo spigolo</h3>
       {{img:spigolo-sposta|Trascinando lo spigolo il cubo diventa un trapezio}}
-      <p>Su uno spigolo compare un quadratino: trascinalo, oppure scegli X, Y o Z e scrivi i mm. La faccia si inclina o si allunga. Il pezzo diventa libero (non più parametrico).</p>
-      <ul><li>La <b>calamita</b> aiuta: torna "come prima", si allinea ai vertici paralleli del pezzo e agli altri oggetti, e lo dice accanto al valore.</li><li>Lo scatto vale se la calamita non aggancia nulla.</li><li>Su uno spigolo arrotondato, togli prima l'arrotondamento.</li></ul>
+      <p>Su uno spigolo compare un quadratino. Trascinalo, oppure scegli X, Y o Z e scrivi i mm. La faccia si inclina o si allunga, e da un cubo puoi ottenere un trapezio. Dopo questa modifica il pezzo non è più parametrico.</p>
+      <ul><li>La calamita ti aiuta a tornare com'era, ad allinearti ai vertici paralleli e agli altri oggetti. Lo scatto vale quando la calamita non aggancia nulla.</li><li>Se lo spigolo è arrotondato, togli prima l'arrotondamento.</li></ul>
       <h3>Ridimensiona un anello</h3>
-      <p>Su un cerchio o sui quattro spigoli di una faccia, la maniglia o il campo Scala (%) li ingrandisce o li riduce: un cilindro diventa un cono tronco.</p>` },
+      <p>Su un cerchio, o sugli spigoli di una faccia, trascina la maniglia o scrivi la scala in %. Con 50 % sul bordo alto, un cilindro diventa un cono tronco.</p>` },
     { id: 'stretch', g: 'model', t: 'Allunga', h: `
-      <p>${K('U')}: scegli un asse e una posizione, poi di quanti mm spostare tutto ciò che sta oltre il piano. Positivo allunga, negativo accorcia.</p>
+      <p>${K('U')}: scegli un asse e una posizione, poi di quanti mm spostare tutto ciò che sta oltre il piano. Un numero positivo allunga, uno negativo accorcia.</p>
       {{img:allunga|Piano di Allunga su una barra}}
       {{img:allunga-fine|Dopo aver applicato +14 mm}}
-      <ul><li>Trascina il piano con il mouse, oppure clicca sull'oggetto per metterlo lì.</li><li>Va meglio su parti con la sezione costante, come un manico. Dove la sezione cambia o ci sono fori che attraversano il piano, il risultato può deformarsi.</li><li>Accorciare toglie la fetta tra il piano e il piano meno la distanza.</li></ul>` },
+      <ul><li>Trascina il piano con il mouse, oppure clicca sull'oggetto per metterlo lì.</li><li>Il pezzo viene tagliato sul piano e lo spazio si riempie con la stessa sezione: i fori e le pareti inclinate restano come sono.</li><li>Accorciando, la fetta tra il piano e il piano meno la distanza viene tolta.</li></ul>` },
     { id: 'cut', g: 'model', t: 'Taglia', h: `
       {{img:taglia|Il piano di taglio si trascina con il mouse}}
-      <p>${K('K')}: scegli un asse e la posizione del piano, poi Taglia. Il risultato sono <b>due oggetti separati</b>.</p>
+      <p>${K('K')}: scegli un asse e la posizione del piano, poi premi Taglia. Ottieni due oggetti separati.</p>
       {{img:taglia-fine|Le due metà dopo il taglio}}
-      <ul><li>Trascina il piano, scrivi la posizione oppure clicca sull'oggetto.</li><li>Sui modelli grandi compare una barra di avanzamento.</li></ul>` },
+      <ul><li>Trascina il piano, scrivi la posizione o clicca sull'oggetto.</li><li>Sui modelli grandi compare una barra di avanzamento.</li></ul>` },
     { id: 'solids', g: 'solids', t: 'Fori e Combina', h: `
-      <p>${K('X')} trasforma l'oggetto selezionato in <b>foro</b> (arancione trasparente) e viceversa.</p>
+      <p>${K('X')} trasforma l'oggetto selezionato in foro (arancione trasparente), e viceversa.</p>
       {{img:foro|Un cilindro-foro dentro una scatola}}
-      <p>${K('⌘E')} <b>Combina</b>: unisce i solidi e sottrae i fori. Le parti che restano staccate diventano livelli separati.</p>
+      <p>${K('⌘E')} è Combina: unisce i solidi e sottrae i fori. Le parti che restano staccate diventano livelli separati.</p>
       {{img:foro-fine|Il foro scavato}}
-      <div class="tip"><b>Se Combina è lento.</b> Con tanti fori ci vuole qualche secondo e compare una barra di caricamento. Fori che si toccano o si sovrappongono rendono il calcolo molto più lungo: tienili separati quando puoi.</div>` },
+      <div class="tip">Con tanti fori Combina può metterci qualche secondo, e compare una barra di caricamento. Il risultato è sempre un solido chiuso.</div>` },
     { id: 'repeat', g: 'solids', t: 'Ripeti', h: `
       {{img:ripeti|Griglia a nido d'ape di prismi esagonali}}
-      <p>Copia la selezione in <b>griglia</b>, <b>nido d'ape</b> o <b>cerchio</b>. Righe e colonne, e lo <b>spazio</b> tra le copie: la distanza vera è l'ingombro dell'oggetto più lo spazio, quindi con 0 le copie si toccano.</p>
-      <ul><li>Nido d'ape: le righe dispari sono spostate di mezzo passo; lo Spazio Y parte dal valore che dà righe a 0,866 del passo e si può cambiare.</li><li>Cerchio: numero di copie, angolo e centro.</li><li>Usalo con un foro per fare griglie di fori, poi Combina.</li></ul>` },
+      <p>Copia la selezione in griglia, a nido d'ape o in cerchio. Scegli righe, colonne e lo spazio tra le copie: la distanza è l'ingombro dell'oggetto più lo spazio, quindi con 0 le copie si toccano.</p>
+      <ul><li>Nido d'ape: le righe dispari sono spostate di mezzo passo. Lo Spazio Y parte da un valore che tiene le righe vicine, ma puoi cambiarlo.</li><li>Cerchio: numero di copie, angolo e centro.</li><li>Se copi un foro puoi fare una griglia di fori, poi premi Combina.</li></ul>` },
     { id: 'ruler', g: 'measure', t: 'Metro e Misure', h: `
       {{img:distanza-alt|Con ${K('⌥')} premuto: larghezza e altezza del lato sotto il mouse}}
-      <p>${K('D')}: clicca un punto o un lato, poi un secondo. Mostra la distanza e le differenze su X, Y, Z. Su due lati paralleli misura la distanza tra i piani. Il punto si aggancia ad angoli, metà lato e lati vicini; prima del clic vedi un'anteprima.</p>
-      <ul><li>Tieni premuto ${K('⌥')} e passa su un lato: si illumina e vedi larghezza e altezza (o profondità) in tempo reale. Anche su lati inclinati o ruotati.</li><li>Con ${K('⌥')} premuto, su un angolo di un lato vedi l'angolo interno (per esempio 90° o 120°); su uno spigolo vedi l'angolo tra i due lati.</li><li>${K('M')} (Misure in basso) mostra le dimensioni reali degli oggetti.</li></ul>` },
+      <p>${K('D')}: clicca un punto o un lato, poi un secondo. Vedi la distanza e le differenze su X, Y e Z. Tra due lati paralleli misura la distanza tra i piani. Il punto si aggancia ad angoli, metà dei lati e lati vicini, e prima del clic vedi dove cadrà.</p>
+      <ul><li>Tieni premuto ${K('⌥')} e passa su un lato: si illumina e vedi larghezza e altezza (o profondità), anche se il lato è inclinato.</li><li>Sempre con ${K('⌥')}, su un angolo vedi l'angolo del lato e la lunghezza dei due bordi; su uno spigolo vedi l'angolo tra i due lati e la sua lunghezza.</li><li>${K('M')} mostra le dimensioni reali degli oggetti.</li></ul>` },
     { id: 'shortcuts', g: 'ref', t: 'Scorciatoie', h: `
       <div class="sc-grid">
         <div><h3>Strumenti</h3><table>
@@ -105,17 +105,17 @@ export const HELP = {
       </div>
       <p class="sc-note">Mentre trascini: ${K('⇧')} blocca un asse e spegne l'aggancio · ${K('⌘')} spegne la calamita (o sposta in verticale se premuto prima) · ${K('⌥')} duplica.</p>` },
     { id: 'print', g: 'ref', t: 'Consigli per la stampa', h: `
-      <ul><li><b>Appoggia sul piatto</b>: Z = 0, altrimenti lo slicer vede il pezzo in aria.</li><li><b>Tolleranze</b>: per incastri lascia 0,2-0,4 mm di gioco; con Ripeti lo Spazio serve proprio a questo.</li><li><b>Fori</b>: i fori piccoli vengono più stretti del previsto; prova con un campione.</li><li><b>Esporta 3MF</b> se vuoi tenere nomi e colori degli oggetti.</li><li><b>Crepe quasi invisibili</b> dopo molte operazioni: Filo le ripara in parte, ma controlla l'anteprima dello slicer.</li></ul>` },
+      <ul><li><b>Appoggia sul piatto.</b> Con Z = 0 lo slicer non vede il pezzo in aria.</li><li><b>Tolleranze.</b> Per gli incastri lascia 0,2-0,4 mm di gioco. Con Ripeti lo Spazio serve a questo.</li><li><b>Fori piccoli.</b> Vengono più stretti del previsto, quindi prova prima con un campione.</li><li><b>Esporta in 3MF</b> se vuoi tenere nomi e colori.</li><li><b>Prima di stampare</b> dai un'occhiata all'anteprima dello slicer.</li></ul>` },
   ],
   en: [
     { id: 'start', g: 'start', t: 'Welcome', h: `
-      <p>Filo is a simple 3D modeler for printable objects: boxes, hooks, holders, small cases. You build with basic shapes, cut holes and join everything. It works offline and your work stays on your computer.</p>
+      <p>Filo is a simple 3D modeler for printable objects, like boxes, hooks and holders. Start from basic shapes, make the holes and join everything. It works offline and your files stay on your computer.</p>
       <ol><li>Add a shape from the bar on the left (or with a key: ${K('B')} box, ${K('C')} cylinder).</li><li>Change size and position in the right panel, or drag the colored handles.</li><li>To make a hole, select it and press ${K('X')}: it turns translucent orange. Then ${K('⌘E')} (Combine) subtracts it from the solids.</li><li>Export as 3MF (recommended) or STL and open the file in your slicer.</li></ol>
       <div class="tip"><b>Print bed.</b> At the bottom, in "Work plane", pick your printer (A1 mini, X1C, H2D…) or a custom size. Z = 0 is the bed.</div>
-      <p>Use the menu on the left to read how each tool works. Press <kbd>?</kbd> any time to reopen this guide.</p>` },
+      <p>Use the menu on the left to read how each tool works. Press <kbd>?</kbd> to reopen this guide whenever you want.</p>` },
     { id: 'view', g: 'start', t: 'Moving the view', h: `
       <ul><li><b>Orbit</b>: drag in empty space or with the right button.</li><li><b>Pan</b>: ${K('Space')} + drag.</li><li><b>Zoom</b>: wheel or pinch on the trackpad; ${K('⌥')} + scroll works with any device.</li><li><b>Fit to view</b>: ${K('⌘0')}; double click an object to center it.</li></ul>
-      <p>The cube at the top left shows the orientation. In the bottom bar, "View" jumps to Front, Top, Right or 3D. Front, Top and Right have no perspective, ideal for precise alignment.</p>
+      <p>The cube at the top left shows the orientation. In the bottom bar, "View" jumps to Front, Top, Right or 3D. Front, Top and Right have no perspective, handy for aligning.</p>
       <ul><li>${K('M')} shows the real <b>Dimensions</b> of objects.</li><li>${K('Z')} toggles <b>X-ray</b>: outlines of hidden parts.</li><li>${K('Tab')} collapses the sidebar.</li></ul>` },
     { id: 'shapes', g: 'create', t: 'Shapes', h: `
       {{img:forme|Box, cylinder, sphere, cone, prism and torus}}
@@ -126,7 +126,7 @@ export const HELP = {
       <p>${K('T')} writes 3D text. Pick a font (Inter, Bebas Neue, Lora, VT323) or load your own with "+ Load font…". Adjust size, depth and letter spacing. Text is an object like any other: make it a hole to engrave it into a box.</p>` },
     { id: 'io', g: 'create', t: 'Import and export', h: `
       <ul><li><b>Import</b>: ${K('⌘O')} or drag the file onto the window. Accepts 3MF and STL.</li><li>If a file has several detached parts, Filo asks whether to keep them together or split them into layers.</li><li><b>Export</b>: ${K('⌘S')}. <b>3MF</b> is recommended (keeps names and colors); STL is a single body.</li></ul>
-      <div class="tip"><b>Check before export.</b> 3MF and STL clean duplicate vertices and repair the small gaps left by Combine and Cut. Tiny defects may remain: slicers usually fix them on their own.</div>` },
+      <div class="tip">Before exporting, Filo removes duplicate vertices and repairs the smallest gaps. Pieces made with Combine and Cut already come out closed.</div>` },
     { id: 'move', g: 'select', t: 'Move and duplicate', h: `
       <p>${K('V')}: select and drag objects on the bed.</p>
       <ul><li>${K('⇧')} while dragging: lock an axis (and switch off snapping).</li><li>${K('⌘')} held before dragging: move up and down.</li><li>${K('⌥')} + drag: duplicate.</li><li>Arrows: move one step (with ${K('⇧')}, ten). ${K('[')} ${K(']')}: down and up.</li><li>${K('⌘D')} duplicates, ${K('⌘C')} ${K('⌘X')} ${K('⌘V')} copy, cut, paste; ${K('⌘⇧V')} pastes in place.</li><li>${K('Del')} deletes, ${K('Esc')} deselects.</li></ul>
@@ -151,47 +151,47 @@ export const HELP = {
       {{img:calamita|A dragged object snaps into contact with the other}}
       <ul><li>${K('⌘')} held while dragging switches the magnet off for that move only.</li><li>${K('⇧')} locks an axis and switches off the step as well.</li><li>The magnet also acts when dragging edges (see Edge).</li></ul>` },
     { id: 'rotate', g: 'transform', t: 'Rotate', h: `
-      <p>${K('R')} shows three rings, one per axis. Drag a ring to rotate in 15° steps; ${K('⇧')} gives 5° steps, ${K('⌥')} free rotation.</p>
-      <p>In the panel, the X, Y, Z buttons rotate 90° (with ${K('⇧')} the other way), and the Rotation fields give the exact angle.</p>` },
+      <p>${K('R')} shows three rings, one per axis. Drag a ring to rotate: it snaps every 15° by default, every 5° with ${K('⇧')}, and is free with ${K('⌥')}.</p>
+      <p>A ring lights up when you hover it, and while you rotate you see an orange wedge with the angle done so far. In the right panel the X, Y, Z buttons rotate by 90° (the other way with ${K('⇧')}) and the Rotation fields take an exact angle.</p>` },
     { id: 'face', g: 'model', t: 'Face', h: `
       {{img:lato|A selected face with its handle}}
       <p>${K('L')}: click a flat face and pull or push its handle to move it. The shape grows or shrinks on that side.</p>
       <ul><li>${K('⇧')} + click adds more faces.</li><li>A face flush with others in the same group moves together.</li><li>On cylinders the curved side is a single piece.</li></ul>` },
     { id: 'edge', g: 'model', t: 'Edge', h: `
-      <p>${K('E')}: click an edge (${K('⇧')} to add more) and choose what to do.</p>
+      <p>${K('E')}: click an edge (hold ${K('⇧')} to pick more) and decide what to do with it.</p>
       <h3>Round or chamfer</h3>
       {{img:spigolo|Two rounded edges on a box}}
-      <p>Type the size and press Apply. On <b>box and prism</b> each edge has its own radius and <b>stays editable</b>: reselect the edge to change it, use 0 to remove it. On <b>cylinder and cone</b> the top and bottom edges are rounded from the panel on the right (Top edge, Bottom edge) and stay editable; with the Edge tool the operation is final. The same goes for sphere, torus and merged or imported pieces (you can always undo).</p>
+      <p>Type the size and press Apply. On box and prism each edge has its own radius, and you can change it later: reselect the edge, use 0 to remove it. On cylinder and cone this works on the top and bottom edge, and you can also edit them from the right panel (Top edge, Bottom edge). Other pieces (merged or imported) are changed for good, but you can always undo. Sphere and torus have no edges.</p>
       <h3>Move the edge</h3>
       {{img:spigolo-sposta|Dragging the edge turns the cube into a trapezoid}}
-      <p>A small square appears on an edge: drag it, or pick X, Y or Z and type the mm. The face tilts or lengthens. The piece becomes free (no longer parametric).</p>
-      <ul><li>The <b>magnet</b> helps: back to "as before", aligns to parallel vertices of the piece and to other objects, and says so next to the value.</li><li>Step applies when the magnet snaps to nothing.</li><li>On a rounded edge, remove the rounding first.</li></ul>
+      <p>A small square appears on the edge. Drag it, or pick X, Y or Z and type the mm. The face tilts or stretches, and a cube can become a trapezoid. After this the piece is no longer parametric.</p>
+      <ul><li>The magnet helps you go back to how it was, line up with parallel vertices and with other objects. Snap step applies when the magnet finds nothing.</li><li>If the edge is rounded, remove the rounding first.</li></ul>
       <h3>Resize a ring</h3>
-      <p>On a circle or the four edges of a face, the handle or the Scale (%) field enlarges or reduces them: a cylinder becomes a truncated cone.</p>` },
+      <p>On a circle, or on the edges of a face, drag the handle or type the scale in %. With 50 % on the top edge, a cylinder becomes a truncated cone.</p>` },
     { id: 'stretch', g: 'model', t: 'Stretch', h: `
-      <p>${K('U')}: pick an axis and a position, then how many mm to move everything beyond the plane. Positive lengthens, negative shortens.</p>
+      <p>${K('U')}: pick an axis and a position, then how many mm to move everything beyond the plane. A positive number stretches, a negative one shortens.</p>
       {{img:allunga|Stretch plane on a bar}}
       {{img:allunga-fine|After applying +14 mm}}
-      <ul><li>Drag the plane with the mouse, or click the object to put it there.</li><li>Works best on parts with a constant cross-section, like a handle. Where the section changes or holes cross the plane, the result may deform.</li><li>Shortening removes the slice between the plane and the plane minus the distance.</li></ul>` },
+      <ul><li>Drag the plane with the mouse, or click on the object to put it there.</li><li>The piece is cut on the plane and the gap is filled with the same section: holes and slanted walls stay as they are.</li><li>When shortening, the slice between the plane and the plane minus the distance is removed.</li></ul>` },
     { id: 'cut', g: 'model', t: 'Cut', h: `
       {{img:taglia|The cutting plane can be dragged with the mouse}}
-      <p>${K('K')}: pick an axis and the plane position, then Cut. The result is <b>two separate objects</b>.</p>
+      <p>${K('K')}: pick an axis and the plane position, then press Cut. You get two separate objects.</p>
       {{img:taglia-fine|The two halves after the cut}}
-      <ul><li>Drag the plane, type the position or click the object.</li><li>On large models a progress bar appears.</li></ul>` },
+      <ul><li>Drag the plane, type the position or click on the object.</li><li>On large models a progress bar appears.</li></ul>` },
     { id: 'solids', g: 'solids', t: 'Holes and Combine', h: `
-      <p>${K('X')} turns the selected object into a <b>hole</b> (translucent orange) and back.</p>
-      {{img:foro|A hole cylinder inside a box}}
-      <p>${K('⌘E')} <b>Combine</b>: joins the solids and subtracts the holes. Parts that stay detached become separate layers.</p>
-      {{img:foro-fine|The carved hole}}
-      <div class="tip"><b>If Combine is slow.</b> With many holes it takes a few seconds and a loading bar appears. Holes that touch or overlap make the calculation much longer: keep them apart when you can.</div>` },
+      <p>${K('X')} turns the selected object into a hole (translucent orange), and back.</p>
+      {{img:foro|A cylinder-hole inside a box}}
+      <p>${K('⌘E')} is Combine: it joins the solids and subtracts the holes. Parts that end up detached become separate layers.</p>
+      {{img:foro-fine|The hole carved out}}
+      <div class="tip">With many holes Combine can take a few seconds, and a loading bar appears. The result is always a closed solid.</div>` },
     { id: 'repeat', g: 'solids', t: 'Repeat', h: `
       {{img:ripeti|Honeycomb grid of hexagonal prisms}}
-      <p>Copies the selection in a <b>grid</b>, <b>honeycomb</b> or <b>circle</b>. Rows and columns, and the <b>gap</b> between copies: the real distance is the object's size plus the gap, so with 0 the copies touch.</p>
-      <ul><li>Honeycomb: odd rows are shifted by half a step; Gap Y starts at the value that gives rows at 0.866 of the pitch and can be changed.</li><li>Circle: number of copies, angle and center.</li><li>Use it with a hole to make grids of holes, then Combine.</li></ul>` },
+      <p>Copies the selection in a grid, honeycomb or circle. Pick rows, columns and the space between copies: the distance is the object's size plus the space, so with 0 the copies touch.</p>
+      <ul><li>Honeycomb: odd rows are shifted by half a step. Space Y starts from a value that keeps rows close, but you can change it.</li><li>Circle: number of copies, angle and center.</li><li>If you copy a hole you can make a grid of holes, then press Combine.</li></ul>` },
     { id: 'ruler', g: 'measure', t: 'Tape measure and Dimensions', h: `
       {{img:distanza-alt|With ${K('⌥')} held: width and height of the face under the mouse}}
-      <p>${K('D')}: click a point or an edge, then a second one. It shows the distance and the differences on X, Y, Z. On two parallel faces it measures the distance between planes. The point snaps to corners, edge midpoints and nearby edges; before you click you see a preview.</p>
-      <ul><li>Hold ${K('⌥')} and move over a face: it lights up and you see width and height (or depth) in real time. Also on tilted or rotated faces.</li><li>With ${K('⌥')} held, over a face corner you see its inner angle (for example 90° or 120°); over an edge you see the angle between the two faces.</li><li>${K('M')} (Dimensions at the bottom) shows the real size of objects.</li></ul>` },
+      <p>${K('D')}: click a point or a face, then a second one. You see the distance and the differences on X, Y and Z. Between two parallel faces it measures the distance between the planes. The point snaps to corners, edge midpoints and nearby edges, and before the click you see where it will land.</p>
+      <ul><li>Hold ${K('⌥')} and move over a face: it lights up and you see width and height (or depth), even if the face is tilted.</li><li>Still with ${K('⌥')}, over a corner you see the face angle and the length of the two edges; over an edge you see the angle between the two faces and its length.</li><li>${K('M')} shows the real size of the objects.</li></ul>` },
     { id: 'shortcuts', g: 'ref', t: 'Shortcuts', h: `
       <div class="sc-grid">
         <div><h3>Tools</h3><table>
@@ -205,6 +205,6 @@ export const HELP = {
       </div>
       <p class="sc-note">While dragging: ${K('⇧')} locks an axis and switches off snapping · ${K('⌘')} switches off the magnet (or moves vertically if held before) · ${K('⌥')} duplicates.</p>` },
     { id: 'print', g: 'ref', t: 'Printing tips', h: `
-      <ul><li><b>Rest on the bed</b>: Z = 0, otherwise the slicer sees the piece in mid-air.</li><li><b>Tolerances</b>: for fits leave 0.2-0.4 mm of clearance; in Repeat the Gap is for exactly this.</li><li><b>Holes</b>: small holes come out tighter than expected; test with a sample.</li><li><b>Export 3MF</b> if you want to keep object names and colors.</li><li><b>Almost invisible cracks</b> after many operations: Filo repairs them in part, but check the slicer preview.</li></ul>` },
+      <ul><li><b>Rest on the bed.</b> With Z = 0 the slicer does not see the piece floating.</li><li><b>Tolerances.</b> For fits leave 0.2-0.4 mm of clearance. In Repeat, Space is for this.</li><li><b>Small holes.</b> They come out narrower than expected, so try a sample first.</li><li><b>Export as 3MF</b> if you want to keep names and colors.</li><li><b>Before printing</b> take a look at the slicer preview.</li></ul>` },
   ],
 };

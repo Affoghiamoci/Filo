@@ -103,12 +103,11 @@
     <p class="hint" id="p-key"></p>
   </section>
   <section id="p-rotq">
-    <h4>Ruota di 90°</h4>
+    <h4 data-help="In alternativa usa lo strumento Ruota (R). Gli anelli scattano ogni 15°.">Ruota di 90°<i class="inf" aria-hidden="true">?</i></h4>
     <div class="grid3 rq"><button class="btn" data-rq="x" title="Ruota di 90° attorno a X (⇧ per il verso opposto)">X</button><button class="btn" data-rq="y" title="Ruota di 90° attorno a Y (⇧ per il verso opposto)">Y</button><button class="btn" data-rq="z" title="Ruota di 90° attorno a Z (⇧ per il verso opposto)">Z</button></div>
-    <p class="hint">Oppure usa lo strumento Ruota (R): gli anelli scattano ogni 15°.</p>
   </section>
   <section id="p-repeat">
-    <h4>Ripeti</h4>
+    <h4 data-help="Copia la selezione in griglia, a nido d'ape o in cerchio. Con un foro puoi fare una griglia di fori e poi usare Combina.">Ripeti<i class="inf" aria-hidden="true">?</i></h4>
     <div class="seg seg3" id="rp-mode"><button data-v="grid" class="on">Griglia</button><button data-v="honey" title="Le righe dispari sono spostate di mezzo passo">Nido d'ape</button><button data-v="polar">Cerchio</button></div>
     <div class="grid2" id="rp-grid">
       <label class="f">Colonne<input id="rp-nx" type="number" step="1" min="1" max="60" value="3"></label>
@@ -123,36 +122,30 @@
       <label class="f">Centro Y<input id="rp-cy" type="number" step="0.5" value="0"></label>
     </div>
     <button class="btn primary" id="rp-go" style="width:100%;margin-top:8px">Ripeti</button>
-    <p class="hint" id="rp-hint">Copia la selezione in righe e colonne, a nido d'ape o in cerchio. Usala con un foro per fare griglie di fori, poi Combina.</p>
   </section>
 </div>
 <div id="p-face" class="hidden">
   <div class="p-title">Lato <span id="f-info"></span></div>
-  <p class="hint">⇧ + clic: aggiungi o togli lati</p>
-  <h4>Spingi / tira</h4>
+  <h4 data-help="Trascina il quadratino arancione sul lato (si aggancia ai piani vicini) oppure scrivi i mm. Positivo tira fuori, negativo spinge dentro. Maiusc + clic per scegliere più lati.">Spingi / tira<i class="inf" aria-hidden="true">?</i></h4>
   <div class="row2"><label class="f">Di<input id="f-push" type="number" step="0.5" placeholder="0"><em>mm</em></label><button class="btn primary" id="f-push-go">Applica</button></div>
-  <p class="hint" id="f-push-hint"></p>
 </div>
 <div id="p-edge" class="hidden">
   <div class="p-title">Spigolo <span id="e-info"></span></div>
   <p class="hint" id="e-hint"></p>
   <div id="e-fillet-box">
-  <h4>Tipo</h4>
+  <h4 data-help="Arrotondato fa uno spigolo tondo. Smussato lo taglia in diagonale a 45°.">Tipo<i class="inf" aria-hidden="true">?</i></h4>
   <div class="seg" id="e-type"><button data-v="fillet" class="on">Arrotondato</button><button data-v="chamfer">Smussato</button></div>
   <h4>Misura</h4>
   <div class="row2"><label class="f">Di<input id="e-size" type="number" step="0.5" min="0.1" placeholder="2"><em>mm</em></label><button class="btn primary" id="e-go">Applica</button></div>
-  <p class="hint">Arrotondato: spigolo tondo. Smussato: taglio a 45°.</p>
   </div>
   <div id="e-move-box">
-    <h4>Sposta lo spigolo</h4>
-    <div class="seg seg3" id="e-mv-ax"><button data-v="x">X</button><button data-v="y">Y</button><button data-v="z">Z</button></div>
-    <div class="row2"><label class="f">Di<input id="e-mv" type="number" step="0.5" placeholder="5"><em>mm</em></label><button class="btn primary" id="e-mv-go">Sposta</button></div>
-    <p class="hint">Trascina il quadratino sullo spigolo oppure scrivi di quanto spostarlo (negativo per l'altro verso). La faccia si inclina o si allunga: da un cubo si ottiene un trapezio. Il pezzo diventa libero, non più parametrico.</p>
+    <h4 data-help="Trascina il quadratino sullo spigolo, oppure scrivi di quanto spostarlo (un numero negativo lo sposta dall'altra parte). Con un cubo puoi ottenere un trapezio. Dopo la modifica il pezzo non è più parametrico.">Sposta lo spigolo<i class="inf" aria-hidden="true">?</i></h4>
+    <div class="ax-row"><span>Direzione</span><div class="seg seg3" id="e-mv-ax"><button data-v="x">X</button><button data-v="y">Y</button><button data-v="z">Z</button></div></div>
+    <div class="row2"><label class="f">Di<input id="e-mv" type="number" step="0.5" placeholder="5"><em>mm</em></label><button class="btn primary" id="e-mv-go">Applica</button></div>
   </div>
   <div id="e-scale-box">
-    <h4>Ridimensiona</h4>
-    <div class="row2"><label class="f">Scala<input id="e-scale" type="number" step="5" min="1" placeholder="100"><em>%</em></label><button class="btn primary" id="e-scale-go">Scala</button></div>
-    <p class="hint">Trascina il quadratino arancione sull'anello oppure scrivi la scala. Funziona su un cerchio o su tutti gli spigoli di una faccia (Maiusc + clic). Sul bordo superiore di un cilindro, 50 % lo trasforma in un cono tronco.</p>
+    <h4 data-help="Trascina il quadratino arancione sull'anello oppure scrivi la scala in percentuale. Va bene su un cerchio o su tutti gli spigoli di una faccia (Maiusc + clic per sceglierli). Su un cilindro, 50 % sul bordo alto lo trasforma in un cono tronco.">Ridimensiona<i class="inf" aria-hidden="true">?</i></h4>
+    <div class="row2"><label class="f">Scala<input id="e-scale" type="number" step="5" min="1" placeholder="100"><em>%</em></label><button class="btn primary" id="e-scale-go">Applica</button></div>
   </div>
 </div>
 </aside>
@@ -160,13 +153,11 @@
 <div id="ruler-card" class="panel hidden"></div>
 <div id="busy" class="panel hidden" role="status" aria-live="polite"><div class="b-t"></div><div class="b-bar"><i></i></div></div>
 <div id="cut-card" class="panel hidden">
-  <div class="rc-main" id="cut-title">Taglia</div>
+  <div class="rc-main" id="cut-title" data-help="">Taglia<i class="inf" aria-hidden="true">?</i></div>
   <div class="seg seg3" id="cut-ax"><button data-v="x">X</button><button data-v="y">Y</button><button data-v="z" class="on">Z</button></div>
   <label class="f">Posizione (mm)<input id="cut-pos" type="number" step="0.5" value="0"></label>
   <label class="f hidden" id="cut-delta-wrap">Sposta di (mm)<input id="cut-delta" type="number" step="1" value="10"></label>
   <button class="btn primary" id="cut-go">Taglia</button>
-  <p class="hint" id="cut-hint-cut">Scegli l'asse e la posizione del piano, trascinalo con il mouse oppure clicca sull'oggetto per metterlo lì. Il risultato sono due oggetti separati.</p>
-  <p class="hint hidden" id="cut-hint-str">Trascina il piano per scegliere da dove. Tutto ciò che sta oltre il piano si sposta: positivo allunga, negativo accorcia. Va meglio su parti con sezione costante, come un manico.</p>
 </div>
 <svg id="mq" class="hidden" aria-hidden="true"><rect id="mq-r"/><polygon id="mq-p"/></svg>
 

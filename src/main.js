@@ -2447,6 +2447,10 @@ function setMini(on, save = true) {
   sideEl.classList.toggle('mini', on);
   document.documentElement.style.setProperty('--sw', on ? '72px' : '312px');
   hideTip();
+  document.querySelectorAll('#tools .tool').forEach(b => {      // barra stretta: c'è già il nostro pop up, quindi niente tooltip del browser (si sovrapporrebbero)
+    if (on) { if (b.hasAttribute('title')) { b.dataset.title = b.getAttribute('title'); b.removeAttribute('title'); } b.setAttribute('aria-label', b.querySelector('b')?.textContent || ''); }
+    else if (b.dataset.title) { b.setAttribute('title', b.dataset.title); delete b.dataset.title; }
+  });
   if (save) { try { localStorage.setItem('forma.mini', on ? '1' : '0'); } catch (_) {} }
 }
 $('#side-toggle').addEventListener('click', () => { setMini(!sideEl.classList.contains('mini')); canvas.focus(); });
@@ -2472,6 +2476,27 @@ $('#tools').addEventListener('pointerleave', hideTip);
 $('#tools').addEventListener('pointerdown', hideTip);
 $('#tools').addEventListener('scroll', hideTip);
 try { if (localStorage.getItem('forma.mini') === '1') setMini(true, false); } catch (_) {}
+/* spiegazioni al passaggio del mouse sul titolo di un pannello (data-help) */
+let helpTimer = null;
+function showHelp(el) {
+  const txt = tr(el.dataset.help || ''); if (!txt) return;
+  const title = (el.firstChild && el.firstChild.nodeType === 3 ? el.firstChild.textContent : el.textContent).replace(/\?$/, '').trim();
+  tipEl.innerHTML = `<b>${esc(tr(title))}</b><small class="hl">${esc(txt)}</small>`;
+  tipEl.classList.add('help'); tipEl.classList.remove('up', 'left'); tipEl.style.maxWidth = '290px';
+  const r = el.getBoundingClientRect(), left = r.left > window.innerWidth * 0.5;
+  tipEl.classList.toggle('left', left);
+  tipEl.style.left = (left ? r.left - 14 : r.right + 14) + 'px';
+  tipEl.style.top = Math.min(Math.max(r.top + r.height / 2, 60), window.innerHeight - 90) + 'px';
+  tipEl.classList.add('show'); tipOn = true;
+}
+document.addEventListener('pointerover', e => {
+  const el = e.target.closest && e.target.closest('[data-help]');
+  if (!el) return;
+  clearTimeout(helpTimer); helpTimer = setTimeout(() => showHelp(el), 450);
+});
+document.addEventListener('pointerout', e => { const el = e.target.closest && e.target.closest('[data-help]'); if (el) { clearTimeout(helpTimer); tipEl.classList.remove('help', 'left'); tipEl.style.maxWidth = ''; hideTip(); } });
+document.addEventListener('pointerdown', () => { clearTimeout(helpTimer); tipEl.classList.remove('help', 'left'); tipEl.style.maxWidth = ''; hideTip(); });
+
 
 /* ----------------------------------------------------------- barra bassa */
 $('#viewcube').addEventListener('click', e => {
@@ -3548,7 +3573,6 @@ function moveFaceDrag(e, fd) {
 function updateFacePanel() {
   const fs = faceSel;
   $('#f-info').textContent = faceSet.length > 1 ? `· ${faceSet.length} lati selezionati` : `${fmt(fs.W)} × ${fmt(fs.H)} mm${fs.curved ? ' · curvo' : fs.rect ? '' : ' · irregolare'}`;
-  $('#f-push-hint').textContent = 'Trascina il quadratino arancione sul lato (si aggancia ai piani vicini) o scrivi i mm. Positivo: tira fuori. Negativo: spingi dentro.';
 }
 $('#f-push-go').addEventListener('click', () => applyPush());
 TF.push.addEventListener('keydown', e => { if (e.key === 'Enter') applyPush(); });
@@ -3958,7 +3982,7 @@ const EF = { size: $('#e-size'), go: $('#e-go'), info: $('#e-info'), hint: $('#e
 function updateEdgePanel() {
   const n = edgeSel.length;
   EF.info.textContent = n ? `· ${n} ${n === 1 ? 'spigolo' : 'spigoli'}` : tr('· nessuno selezionato');
-  EF.hint.textContent = n ? (edgeSel.every(x => x.chain.vkey) ? 'Scegli il tipo e la misura, poi Applica. Resta modificabile: riseleziona lo spigolo per cambiarlo, con 0 lo togli.' : 'Scegli il tipo e la misura, poi Applica.') : 'Clicca uno spigolo del pezzo. Maiusc + clic: aggiungi o togli spigoli.';
+  EF.hint.textContent = n ? (edgeSel.every(x => x.chain.vkey) ? 'Scegli tipo e misura, poi Applica. Per cambiarlo dopo, riseleziona lo spigolo (con 0 lo togli).' : 'Scegli tipo e misura, poi Applica.') : 'Clicca uno spigolo. Con Maiusc ne scegli più di uno.';
   EF.go.disabled = !n;
   const lp = !!selectedLoop();
   $('#e-fillet-box').classList.toggle('dim', !n); $('#e-scale-box').classList.toggle('dim', !lp);
@@ -4264,6 +4288,23 @@ function applyEdges() {
       }
     }
   }
+  // bordo alto o basso di un cilindro o di un cono (anello a Z = altezza o Z = 0): resta parametrico, come per la scatola
+  if (['cylinder', 'cone'].includes(obj.userData.kind) && !obj.userData.p.ed) {
+    const loop = selectedLoop(), u = obj.userData;
+    if (loop && loop.length >= 8) {
+      obj.updateMatrixWorld(true);
+      const L = loop.map(p => obj.worldToLocal(p.clone()));
+      const top = L.every(v => Math.abs(v.z - u.p.h) < 0.01), bot = L.every(v => Math.abs(v.z) < 0.01);
+      if (top || bot) {
+        const R = Math.max(...L.map(v => Math.hypot(v.x, v.y)));
+        if (size >= R || size >= u.p.h) return toast('La misura è troppo grande per questo pezzo');
+        u.p[top ? 'ft' : 'fb'] = size; u.p.rm = edgeMode.v === 'chamfer' ? 'chamfer' : null;
+        obj.geometry.dispose(); obj.geometry = buildGeometry(u.kind, u.p); refreshEdges(obj); obj.updateMatrixWorld(true);
+        clearEdges(); setSelection([obj]); touch(); commit(); EF.size.value = '';
+        return toast(edgeMode.v === 'fillet' ? 'Arrotondamento applicato: resta modificabile dal pannello' : 'Smusso applicato: resta modificabile dal pannello');
+      }
+    }
+  }
   const cutters = edgeSel.map(x => cutter(x.chain, edgeMode.v, size));
   if (cutters.some(g => !g)) return toast('Questo spigolo è troppo particolare per arrotondarlo');
   obj.updateMatrixWorld(true);
@@ -4348,8 +4389,8 @@ function cutToolChanged() {
   $('#cut-card').classList.toggle('hidden', !planeTool());
   if (planeTool()) {
     const st = state.tool === 'stretch';
-    $('#cut-title').textContent = tr(st ? 'Allunga' : 'Taglia'); $('#cut-go').textContent = tr(st ? 'Applica' : 'Taglia');
-    $('#cut-delta-wrap').classList.toggle('hidden', !st); $('#cut-hint-cut').classList.toggle('hidden', st); $('#cut-hint-str').classList.toggle('hidden', !st);
+    $('#cut-title').innerHTML = tr(st ? 'Allunga' : 'Taglia') + '<i class="inf" aria-hidden="true">?</i>'; $('#cut-go').textContent = tr(st ? 'Applica' : 'Taglia');
+    $('#cut-delta-wrap').classList.toggle('hidden', !st); $('#cut-title').dataset.help = st ? 'Trascina il piano per scegliere da dove allungare. Tutto quello che sta oltre il piano si sposta: un numero positivo allunga, uno negativo accorcia.' : 'Scegli l\'asse e la posizione del piano. Puoi trascinare il piano o cliccare sull\'oggetto. Alla fine hai due oggetti separati.';
     cutReset(); if (!selection.length) toast(st ? 'Seleziona l\'oggetto da allungare, poi scegli il piano' : 'Seleziona l\'oggetto da tagliare, poi scegli il piano');
   } else cutRefresh();
 }

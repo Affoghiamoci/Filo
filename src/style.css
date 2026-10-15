@@ -648,3 +648,15 @@ label.f.has-stp{position:relative;padding-right:3px}
 .alt-tip .r{display:flex;justify-content:space-between;gap:16px;margin-top:5px;padding-top:5px;border-top:1px dotted var(--line);font:500 11.5px var(--mono)}
 .alt-tip .r span{color:var(--muted)}
 .alt-tip .r em{font-style:normal;font-weight:600}
+
+/* pannello Spigolo: direzione e azione ben distinte */
+.ax-row{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:10px;margin:8px 0 8px}
+.ax-row>span{font:500 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ax-row .seg{margin-top:0}
+#p-edge .seg button.on{background:var(--accent-weak);color:var(--text);box-shadow:inset 0 0 0 1px var(--accent)}
+#p-edge .row2 .btn.primary{min-width:84px;justify-content:center}
+.inf{display:inline-grid;place-items:center;width:13px;height:13px;margin-left:7px;border:1px solid var(--line);border-radius:50%;font:500 8px/1 var(--mono);letter-spacing:0;color:var(--muted);vertical-align:1px;font-style:normal;text-transform:none}
+[data-help]:hover .inf{color:var(--accent);border-color:var(--accent)}
+#tip.help{transform:translateY(-50%)}
+#tip.help.left{transform:translate(-100%,-50%)}
+#tip small.hl{font-size:12px;line-height:1.5;color:var(--text);opacity:.85;margin-top:4px}
