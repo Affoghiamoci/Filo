@@ -1,4 +1,4 @@
-# Forma · idee future
+# Filo · idee future
 
 ## Accantonato (deciso il 13/10/2026: "per ora è già oltre")
 ### 1. Perni e fori di giunzione (da fare per primo)

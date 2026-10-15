@@ -24,7 +24,7 @@ Da consultare prima di creare o cambiare qualsiasi interfaccia. Ricavato dal CSS
 | `--accent` | #ff6a00 | #ff6a00 | accento |
 | `--accent-weak` | 14% | 22% | selezione morbida |
 
-Stati (fissi): verde `#2fa866` ok, ambra `#e0a100` attenzione, rosso `#e5484d` errore. Assi: X `#e5484d`, Y `#30a46c`, Z `#3e63dd`. Colore oggetti: palette del selettore colore.
+Stati e assi hanno un token fisso, uguale nei due temi: `--ok` verde `#2fa866`, `--warn` ambra `#e0a100`, `--err` rosso `#e5484d`; assi `--ax-x` `#e5484d`, `--ax-y` `#30a46c`, `--ax-z` `#3e63dd`. Altri token fissi: `--on-accent` (testo bianco sull'accento), `--key` (viola dell'oggetto chiave), `--swatch` (grigio del colore predefinito). Nel CSS non vanno scritti colori a mano, solo token (`color-mix` con `--accent` per sfumature intermedie). Colore oggetti: palette del selettore colore.
 
 ## 3. Tipografia
 - **Mono** (`--mono`, SF Mono): titoli, etichette, valori numerici, tasti, pulsanti. Sempre maiuscolo con tracking.
@@ -46,7 +46,7 @@ Stati (fissi): verde `#2fa866` ok, ambra `#e0a100` attenzione, rosso `#e5484d` e
 | Nota (hint) | sans 11.5 to 12px, `--muted` |
 
 ## 4. Spaziatura e misure
-Scala a 4: **4, 6, 8, 10, 12, 14, 20**. Usa solo questi.
+Scala: **2, 4, 6, 8, 10, 12, 14, 16, 20, 24** (il 2 solo per il padding interno dei segmenti, 16 e 24 per margini grandi). Per padding, margini e gap usa solo questi. Misure di layout grandi (benvenuto, anteprime) sono fuori scala.
 - Margine interno pannelli: **14 px** (pannello proprietà), liste compatte 8 px.
 - Spazio tra campi in griglia: **6 px**. Tra gruppi in una sezione: **10 to 12 px**.
 - Altezze: campo `label.f` **30 px**, icon-btn **30 px** (22 px nelle testate di lista), segmento interno **26 px** dentro un contenitore con padding 2, pulsante barra **34 px**.
