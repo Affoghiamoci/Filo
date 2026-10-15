@@ -320,7 +320,7 @@ const EN = {
   'Il codice di Filo è aperto e rilasciato con licenza MIT: puoi leggerlo, usarlo e proporre modifiche su GitHub.': 'The code of Filo is open and released under the MIT licence: you can read it, use it and suggest changes on GitHub.',
   'Spigolo: anche i verticali del prisma e il bordo di cilindro e cono restano modificabili, e un raggio grande si riseleziona cliccando sulla curva': 'Edge: the prism\'s vertical edges and the rim of cylinder and cone stay editable too, and a large radius can be reselected by clicking the curve',
   'Metro: tenendo premuto ⌥ su un lato compaiono due linee sottili che si incrociano nel puntatore e seguono la superficie fino ai bordi del lato, così si vede quali punti sono presi in esame': 'Ruler: holding ⌥ over a face shows two thin lines crossing at the pointer and following the surface up to the edges of the face, so you can see which points are being measured',
-  'Cerca nella Guida': 'Search the Guide', 'Nessun risultato': 'No results', 'risultato': 'result', 'risultati': 'results',
+  'Lato intero': 'Whole face', 'Cerca nella Guida': 'Search the Guide', 'Nessun risultato': 'No results', 'risultato': 'result', 'risultati': 'results',
   'Guida: barra di ricerca in tempo reale, mostra dove viene citata la parola e la evidenzia nella pagina (/ per cercare)': 'Guide: live search bar, shows where the word is mentioned and highlights it on the page (/ to search)',
   'Nuovo motore per Combina, Taglia e Allunga: solidi sempre chiusi e più veloci': 'New engine for Combine, Cut and Stretch: always closed solids, and faster',
   'Nuova guida: finestra grande con immagini e GIF (tasto ? o F1)': 'New guide: large window with images and GIFs (? key or F1)',

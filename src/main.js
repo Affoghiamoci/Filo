@@ -4175,6 +4175,8 @@ function faceRect(fs) {                                    // rettangolo più pi
     const A = (u1 - u0) * (v1 - v0);
     if (!best || A < best.A - 1e-9) best = { A, a: u1 - u0, b: v1 - v0, ang };
   }
+  let hA = 0; for (let i = 0; i < hull.length; i++) { const p = hull[i], q = hull[(i + 1) % hull.length]; hA += p[0] * q[1] - q[0] * p[1]; }
+  best.hullA = Math.abs(hA) / 2;                                                    // area del contorno convesso: dice se il lato è quasi un rettangolo
   return best;
 }
 const faceDim = document.createElement('div'); faceDim.className = 'alt-tip'; faceDim.style.pointerEvents = 'none'; labelsEl.appendChild(faceDim);
@@ -4184,9 +4186,11 @@ function hideFaceDim() { faceDim.style.display = 'none'; if (crossData) { crossD
 /* ⌥ su un lato: croce che passa dal puntatore e arriva agli estremi misurati (larghezza e altezza), con un trattino a ogni estremo */
 const faceCross = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
 faceCross.setAttribute('class', 'face-cross');
-faceCross.innerHTML = '<path class="h"/><path class="l"/><circle r="3.5"/>';
+faceCross.innerHTML = '<circle r="3.5"/>';
 labelsEl.appendChild(faceCross);
-const faceCrossPaths = faceCross.querySelectorAll('path'), faceCrossDot = faceCross.querySelector('circle');
+const faceCrossDot = faceCross.querySelector('circle');
+const crossHaloMat = new LineMaterial({ color: 0xffffff, linewidth: 3, transparent: true, opacity: 0.7, depthTest: false }), crossMat = new LineMaterial({ color: 0x111113, linewidth: 1, transparent: true, depthTest: false });
+const crossLines = [crossHaloMat, crossMat].map((m, i) => { const l = new LineSegments2(new LineSegmentsGeometry(), m); l.renderOrder = 997 + i; l.frustumCulled = false; l.raycast = () => {}; l.visible = false; scene.add(l); return l; });
 let crossData = null;
 function setFaceCross(fs, hp, ang) {
   const c = Math.cos(ang), s = Math.sin(ang), T = fs.tri2d, Wd = fs.world, nT = T.length / 6;
@@ -4198,7 +4202,7 @@ function setFaceCross(fs, hp, ang) {
     const o = k * 9;
     e1.set(Wd[o + 3] - Wd[o], Wd[o + 4] - Wd[o + 1], Wd[o + 5] - Wd[o + 2]); e2.set(Wd[o + 6] - Wd[o], Wd[o + 7] - Wd[o + 1], Wd[o + 8] - Wd[o + 2]);
     tn.crossVectors(e1, e2); ct.set((Wd[o] + Wd[o + 3] + Wd[o + 6]) / 3, (Wd[o + 1] + Wd[o + 4] + Wd[o + 7]) / 3, (Wd[o + 2] + Wd[o + 5] + Wd[o + 8]) / 3);
-    if (!fs.curved || tn.dot(cam.clone().sub(ct)) > 0) { facing[k] = 1; nFace++; }
+    if (!fs.curved || tn.normalize().dot(fs.n) > -0.1) { facing[k] = 1; nFace++; }       // sul lato che gira intorno si tiene la metà dalla parte del puntatore: la misura non cambia con la vista
   }
   if (!nFace) facing.fill(1);
   // linea lungo la superficie: taglia i triangoli del lato con la retta (a variabile, b fisso) o (b variabile, a fisso)
@@ -4222,23 +4226,37 @@ function setFaceCross(fs, hp, ang) {
     for (const sg of segs) { const r = runs[runs.length - 1]; if (r && sg[0][0] <= r.hi + 1e-4) { r.segs.push(sg); if (sg[1][0] > r.hi) { r.hi = sg[1][0]; r.end = sg[1][1]; } } else runs.push({ lo: sg[0][0], hi: sg[1][0], start: sg[0][1], end: sg[1][1], segs: [sg] }); }
     let run = runs.find(r => here >= r.lo - 1e-3 && here <= r.hi + 1e-3);
     if (!run) run = runs.reduce((m, r) => Math.min(Math.abs(r.lo - here), Math.abs(r.hi - here)) < Math.min(Math.abs(m.lo - here), Math.abs(m.hi - here)) ? r : m);
-    return { segs: run.segs.map(sg => [sg[0][1], sg[1][1]]), e0: run.start, e1: run.end };
+    return { segs: run.segs.map(sg => [sg[0][1], sg[1][1]]), chord: run.start.distanceTo(run.end) };
   };
-  const L = [line(0), line(1)].filter(Boolean);
-  crossData = L.length ? { lines: L, c: hp.clone() } : null;
+  const L = [line(0), line(1)];
+  // niente linee dietro alle parti davanti: ogni pezzetto si disegna solo se dalla camera si vede
+  const list = objects.filter(o => o.visible && !o.userData.locked), rc = raycaster, far0 = rc.far, near0 = rc.near, fh0 = rc.firstHitOnly;
+  const hidden = P => { const d = P.distanceTo(cam); rc.set(cam, P.clone().sub(cam).normalize()); rc.near = 0; rc.far = d - (0.03 + d * 0.002); rc.firstHitOnly = true; return rc.intersectObjects(list, false).length > 0; };
+  const pos = []; let budget = 400;
+  for (const ln of L) {
+    if (!ln) continue;
+    for (const [A, B] of ln.segs) {
+      const n = budget > 0 ? clamp(Math.ceil(A.distanceTo(B) / 1.5), 1, 40) : 1; budget -= n;
+      for (let i = 0; i < n; i++) {
+        const P0 = A.clone().lerp(B, i / n), P1 = A.clone().lerp(B, (i + 1) / n);
+        if (!hidden(P0.clone().add(P1).multiplyScalar(0.5))) pos.push(P0.x, P0.y, P0.z, P1.x, P1.y, P1.z);
+      }
+    }
+  }
+  rc.far = far0; rc.near = near0; rc.firstHitOnly = fh0;
+  const cs = getComputedStyle(document.documentElement);
+  crossMat.color.set(cs.getPropertyValue('--text').trim() || '#111113'); crossHaloMat.color.set(cs.getPropertyValue('--panel').trim() || '#ffffff');
+  crossLines.forEach(l => { l.geometry.dispose(); l.geometry = new LineSegmentsGeometry(); if (pos.length) l.geometry.setPositions(pos); });
+  crossData = pos.length ? { c: hp.clone() } : null;
   dirty = true;
+  return L.map(l => l && l.chord);
 }
 function drawFaceCross() {
+  crossLines.forEach(l => { l.visible = !!crossData; });
   if (!crossData) { faceCross.style.display = 'none'; return; }
-  const w = window.innerWidth, h = window.innerHeight, S = P => { const v = P.clone().project(camera); return [(v.x * 0.5 + 0.5) * w, (-v.y * 0.5 + 0.5) * h]; };
-  let d = '';
-  for (const ln of crossData.lines) {
-    for (const [A, B] of ln.segs) { const a = S(A), b = S(B); d += `M${a[0].toFixed(1)},${a[1].toFixed(1)}L${b[0].toFixed(1)},${b[1].toFixed(1)}`; }
-  }
-  const c = S(crossData.c);
+  const v = crossData.c.clone().project(camera);
   faceCross.style.display = 'block';
-  faceCrossPaths.forEach(p => p.setAttribute('d', d));
-  faceCrossDot.setAttribute('cx', c[0]); faceCrossDot.setAttribute('cy', c[1]);
+  faceCrossDot.setAttribute('cx', (v.x * 0.5 + 0.5) * window.innerWidth); faceCrossDot.setAttribute('cy', (-v.y * 0.5 + 0.5) * window.innerHeight);
 }
 
 /* ⌥ su un angolo: angolo interno del lato; ⌥ su uno spigolo: angolo tra i due lati */
@@ -4265,6 +4283,7 @@ function angleAt(hit, e) {
     const pd = hit.point.clone().sub(p), pa = (Math.atan2(pd.dot(w), pd.dot(u)) + 2 * Math.PI) % (2 * Math.PI);
     let lo = sorted[sorted.length - 1], hi = sorted[0], wedge = 2 * Math.PI - lo[0] + hi[0];
     for (let i = 0; i < sorted.length; i++) { const a = sorted[i], b = sorted[(i + 1) % sorted.length]; const span = (b[0] - a[0] + 2 * Math.PI) % (2 * Math.PI) || 2 * Math.PI; const rel = (pa - a[0] + 2 * Math.PI) % (2 * Math.PI); if (rel <= span) { lo = a; hi = b; wedge = span; break; } }
+    if (Math.abs(wedge * 180 / Math.PI - 180) < 10) continue;                       // vertice di una curva tassellata: non è un angolo
     best = { kind: 'corner', deg: wedge * 180 / Math.PI, p, sides: [lens[lo[1]], lens[hi[1]]] }; bd = d;
   }
   if (best) return best;
@@ -4298,14 +4317,17 @@ function rulerHover(e) {                                  // anteprima del punto
       return;
     }
     const fs = hoverFs, flat = Math.abs(fs.n.z) > 0.9;
-    let w1 = fs.W, h1 = fs.H, cang = 0;
-    if (!fs.curved) {                                    // asse "alto" = quello più vicino alla direzione su (lato) o avanti (piano)
-      const r = faceRect(fs), d = Math.abs(Math.cos(r.ang));                       // r.a è lungo la direzione r.ang rispetto all'asse u del lato
-      const uAlong = d > Math.SQRT1_2;                                             // r.a quasi parallelo a u
-      const A = r.a, B = r.b; w1 = uAlong ? A : B; h1 = uAlong ? B : A; cang = r.ang;
+    let w1 = fs.W, h1 = fs.H, cang = 0, uAlong = true;
+    if (!fs.curved) {
+      const r = faceRect(fs);
+      if (r.hullA / (r.a * r.b) > 0.97) {                // lato rettangolare, anche ruotato: gli assi sono quelli del lato (a = lungo r.ang)
+        uAlong = Math.abs(Math.cos(r.ang)) > Math.SQRT1_2;
+        w1 = uAlong ? r.a : r.b; h1 = uAlong ? r.b : r.a; cang = r.ang;
+      }                                                  // altrimenti assi dritti: orizzontale e verticale sul lato, X e Y sul piano
     }
-    setFaceCross(fs, hit.point, cang);
-    setAltTip(`${fs.curved ? '≈ ' : ''}${fmt(w1)} × ${fmt(h1)} mm`, tr(flat ? 'larghezza × profondità' : 'larghezza × altezza'), []);
+    const ch = setFaceCross(fs, hit.point, cang);        // lunghezza delle due linee che passano dal puntatore
+    const lw = uAlong ? ch[0] : ch[1], lh = uAlong ? ch[1] : ch[0], mw = lw == null ? w1 : lw, mh = lh == null ? h1 : lh;
+    setAltTip(`${fs.curved ? '≈ ' : ''}${fmt(mw)} × ${fmt(mh)} mm`, tr(flat ? 'larghezza × profondità' : 'larghezza × altezza'), Math.abs(mw - w1) > 0.05 || Math.abs(mh - h1) > 0.05 ? [[tr('Lato intero'), `${fmt(w1)} × ${fmt(h1)} mm`]] : []);
     faceDim.style.display = 'block';
     faceDim.style.transform = `translate(${e.clientX + 18}px, ${e.clientY + 18}px)`;
     return;
@@ -4371,7 +4393,7 @@ function updateSilhouettes() {                     // Raggi X: contorno (i due l
 }
 function render() {
   updateSilhouettes();
-  edgeMat.resolution.set(canvas.clientWidth, canvas.clientHeight); edgeHoverMat.resolution.copy(edgeMat.resolution);
+  edgeMat.resolution.set(canvas.clientWidth, canvas.clientHeight); edgeHoverMat.resolution.copy(edgeMat.resolution); crossHaloMat.resolution.copy(edgeMat.resolution); crossMat.resolution.copy(edgeMat.resolution);
   if (rotGizmo.visible) updateRotGizmo();
   updateHandleFacing();
   updateDims();   // prima del disegno: la scatola e le linee delle misure compaiono subito, non al movimento successivo
@@ -5284,7 +5306,7 @@ $('#ew-resume').addEventListener('click', async e => {
 });
 offerResume();
 
-window.forma = { restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */
