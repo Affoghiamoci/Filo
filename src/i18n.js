@@ -108,6 +108,7 @@ const EN = {
   'Nuovo motore per Combina, Taglia, Allunga e spigoli: solidi sempre chiusi e molto più veloci': 'New engine for Combine, Cut, Stretch and edges: always-closed solids and much faster',
   'Spigoli singoli su scatola e prisma, modificabili quando vuoi; bordi di cilindro e cono sempre modificabili': 'Single edges on box and prism, editable any time; cylinder and cone edges stay editable too',
   'Spigolo: sposta uno spigolo (anche in perpendicolare sui lati storti, come l\'esagono) o ridimensiona un anello, con calamita': 'Edge: move an edge (also perpendicular on slanted sides, like a hexagon) or resize a ring, with magnet',
+  'SVG importati più puliti: i fori con loghi non lasciano più crepe': 'Cleaner SVG imports: holes made with logos no longer leave cracks',
   'Perpendicolare allo spigolo, verso l\'esterno': 'Perpendicular to the edge, outwards',
   'Taglia e Allunga: il piano si trascina con il mouse; Allunga è più preciso': 'Cut and Stretch: drag the plane with the mouse; Stretch is more accurate',
   'Metro (prima Distanza): con ⌥ vedi larghezza, altezza, angoli e lunghezze sotto il mouse': 'Tape measure (was Distance): hold ⌥ to see width, height, angles and lengths under the mouse',

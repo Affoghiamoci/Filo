@@ -155,7 +155,12 @@ export function svgItems(svgText, { depth = 1, maxSize = 60 } = {}) {
     const st = path.userData.style || {};
     if (!st.fill || st.fill === 'none' || st.fillOpacity === 0) continue;
     const col = '#' + new THREE.Color(st.fill).getHexString();
-    SVGLoader.createShapes(path).forEach(sh => all.push({ color: col, shape: sh }));
+    SVGLoader.createShapes(path).forEach(sh => {                       // contorni puliti (punti doppi, curve, sovrapposizioni): servono solidi chiusi per i fori
+      const ex = sh.extractPoints(6), ar = p => { let s = 0; for (let i = 0; i < p.length; i++) { const u = p[i], v = p[(i + 1) % p.length]; s += u.x * v.y - v.x * u.y; } return s; };
+      const polys = [ex.shape, ...ex.holes].map((p, i) => { const q = p.slice(); if (q.length > 1 && q[0].distanceTo(q[q.length - 1]) < 1e-9) q.pop(); return (ar(q) > 0) === (i === 0) ? q : q.reverse(); });
+      const cl = unionShapes(polys);
+      (cl.length ? cl : [sh]).forEach(s2 => all.push({ color: col, shape: s2 }));
+    });
   }
   if (!all.length) return null;
   // ogni pezzo separato è un oggetto (poi raggruppati); con troppi pezzi, uno per colore
