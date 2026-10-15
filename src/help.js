@@ -100,6 +100,10 @@ export const HELP = {
     { id: 'ruler', g: 'measure', t: 'Metro e Misure', h: `
       {{img:distanza-alt|Con ${K('⌥')} premuto: larghezza e altezza del lato sotto il mouse}}
       <p>${K('D')}: clicca un punto o un lato, poi un secondo. Vedi la distanza e le differenze su X, Y e Z. Tra due lati paralleli misura la distanza tra i piani. Il punto si aggancia ad angoli, metà dei lati e lati vicini, e prima del clic vedi dove cadrà.</p>
+      <h3>Cosa significano i segni</h3>
+      <p>Prima del clic, sul pezzo compare un segno: dice a cosa si aggancerà il punto. Se ce n'è più di uno vicino vince il primo della lista.</p>
+      <ul class="hp-leg"><li><i class="mk v"></i><span><b>Quadrato</b>: un angolo (vertice) del pezzo. È l'aggancio più forte, perché di solito misuri da un angolo all'altro.</span></li><li><i class="mk m"></i><span><b>Rombo pieno</b>: la metà di un lato. Utile per centrare un foro o trovare il centro di una parete.</span></li><li><i class="mk e"></i><span><b>Cerchio vuoto</b>: un punto qualsiasi lungo uno spigolo. Il punto resta sullo spigolo, ma non è né un angolo né la metà.</span></li><li><i class="mk f"></i><span><b>Puntino piccolo e tenue</b>: nessun aggancio, il punto cade dove punti sulla faccia.</span></li><li><i class="mk p"></i><span><b>Cerchio bianco con bordo arancione</b>: i due punti che hai già cliccato. La linea arancione li unisce e la misura sta a metà.</span></li></ul>
+      <p>Con ${K('⌥')} premuto i segni cambiano significato: il quadrato indica un angolo del lato e il cerchio uno spigolo, per leggere gli angoli invece delle distanze.</p>
       <ul><li>Tieni premuto ${K('⌥')} e passa su un lato: si illumina e vedi larghezza e altezza (o profondità), anche se il lato è inclinato.</li><li>Sempre con ${K('⌥')}, su un angolo vedi l'angolo del lato e la lunghezza dei due bordi; su uno spigolo vedi l'angolo tra i due lati e la sua lunghezza.</li><li>${K('M')} mostra le dimensioni reali degli oggetti.</li></ul>` },
     { id: 'shortcuts', g: 'ref', t: 'Scorciatoie', h: `
       <div class="sc-grid">
@@ -214,6 +218,10 @@ export const HELP = {
     { id: 'ruler', g: 'measure', t: 'Tape measure and Dimensions', h: `
       {{img:distanza-alt|With ${K('⌥')} held: width and height of the face under the mouse}}
       <p>${K('D')}: click a point or a face, then a second one. You see the distance and the differences on X, Y and Z. Between two parallel faces it measures the distance between the planes. The point snaps to corners, edge midpoints and nearby edges, and before the click you see where it will land.</p>
+      <h3>What the marks mean</h3>
+      <p>Before you click, a mark appears on the piece: it tells you what the point will snap to. If several are close, the first on the list wins.</p>
+      <ul class="hp-leg"><li><i class="mk v"></i><span><b>Square</b>: a corner (vertex) of the piece. It is the strongest snap, because you usually measure from one corner to another.</span></li><li><i class="mk m"></i><span><b>Filled diamond</b>: the middle of an edge. Handy to centre a hole or find the middle of a wall.</span></li><li><i class="mk e"></i><span><b>Empty circle</b>: any point along an edge. The point stays on the edge, but it is neither a corner nor the middle.</span></li><li><i class="mk f"></i><span><b>Small faint dot</b>: no snap, the point lands where you aim on the face.</span></li><li><i class="mk p"></i><span><b>White circle with orange border</b>: the two points you already clicked. The orange line joins them and the measurement sits in the middle.</span></li></ul>
+      <p>With ${K('⌥')} held the marks change meaning: the square shows a corner of the face and the circle an edge, so you read angles instead of distances.</p>
       <ul><li>Hold ${K('⌥')} and move over a face: it lights up and you see width and height (or depth), even if the face is tilted.</li><li>Still with ${K('⌥')}, over a corner you see the face angle and the length of the two edges; over an edge you see the angle between the two faces and its length.</li><li>${K('M')} shows the real size of the objects.</li></ul>` },
     { id: 'shortcuts', g: 'ref', t: 'Shortcuts', h: `
       <div class="sc-grid">

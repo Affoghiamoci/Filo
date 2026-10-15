@@ -762,3 +762,11 @@ dialog[open],dialog[open]::backdrop{animation:fade-in .16s ease}
 #ctx hr{border:0;height:1px;margin:6px 4px;background:var(--line)}
 #ctx.has-chk button{padding-left:24px}
 #ctx button.on::before{content:'';position:absolute;left:10px;top:50%;width:6px;height:6px;margin-top:-3px;background:var(--accent)}
+
+#hp-main .hp-leg{list-style:none;padding:0;display:grid;gap:8px}
+#hp-main .hp-leg li{display:grid;grid-template-columns:20px 1fr;gap:10px;align-items:start;margin:0}
+#hp-main .hp-leg .mk{display:block;width:12px;height:12px;box-sizing:border-box;margin:5px auto 0;border:2px solid var(--accent);background:var(--panel)}
+#hp-main .hp-leg .mk.m{border:0;background:var(--accent);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+#hp-main .hp-leg .mk.e{border-radius:50%}
+#hp-main .hp-leg .mk.f{width:6px;height:6px;margin-top:8px;border-radius:50%;opacity:.6}
+#hp-main .hp-leg .mk.p{width:9px;height:9px;margin-top:6px;border-radius:50%;background:var(--on-accent)}
