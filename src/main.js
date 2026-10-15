@@ -2508,9 +2508,9 @@ function showHelp(el) {
   const title = (el.firstChild && el.firstChild.nodeType === 3 ? el.firstChild.textContent : el.textContent).replace(/\?$/, '').trim();
   tipEl.innerHTML = `<b>${esc(tr(title))}</b><small class="hl">${esc(txt)}</small>`;
   tipEl.classList.add('help'); tipEl.classList.remove('up', 'left'); tipEl.style.maxWidth = '290px';
-  const r = el.getBoundingClientRect(), left = r.left > window.innerWidth * 0.5;
+  const r = el.getBoundingClientRect(), box = (el.closest('#props, #cut-card, #side, .panel') || el).getBoundingClientRect(), left = r.left > window.innerWidth * 0.5;
   tipEl.classList.toggle('left', left);
-  tipEl.style.left = (left ? r.left - 14 : r.right + 14) + 'px';
+  tipEl.style.left = (left ? box.left - 16 : box.right + 16) + 'px';
   tipEl.style.top = Math.min(Math.max(r.top + r.height / 2, 60), window.innerHeight - 90) + 'px';
   tipEl.classList.add('show'); tipOn = true;
 }
