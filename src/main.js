@@ -4234,8 +4234,6 @@ function drawFaceCross() {
   let d = '';
   for (const ln of crossData.lines) {
     for (const [A, B] of ln.segs) { const a = S(A), b = S(B); d += `M${a[0].toFixed(1)},${a[1].toFixed(1)}L${b[0].toFixed(1)},${b[1].toFixed(1)}`; }
-    const a = S(ln.e0), b = S(ln.e1), dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l * 4, ny = dx / l * 4;      // trattino ai due capi
-    d += `M${a[0] - nx},${a[1] - ny}L${a[0] + nx},${a[1] + ny}M${b[0] - nx},${b[1] - ny}L${b[0] + nx},${b[1] + ny}`;
   }
   const c = S(crossData.c);
   faceCross.style.display = 'block';
