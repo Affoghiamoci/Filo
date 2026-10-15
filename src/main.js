@@ -4103,7 +4103,17 @@ function updateEdgeHandle() {
   moveHandle.visible = !!mi; if (mi) moveHandle.position.copy(mi.c);
   dirty = true;
 }
-function startEdgeScale() { const ri = ringInfo(); return ri ? { ri, f: 1 } : null; }
+function ringTargets(ri) {                              // raggi degli altri anelli dello stesso pezzo (piani paralleli): per tornare a un cilindro, o uguagliare l'altro bordo
+  const arr = worldPositions(ri.obj), best = new Map(), v = new THREE.Vector3();
+  for (let i = 0; i < arr.length; i += 3) {
+    v.set(arr[i], arr[i + 1], arr[i + 2]).sub(ri.c);
+    const h = v.dot(ri.nrm); if (Math.abs(h) < 0.01) continue;
+    const k = Math.round(h * 100), rad = v.addScaledVector(ri.nrm, -h).length();
+    if (rad > (best.get(k) || 0)) best.set(k, rad);
+  }
+  return [...best.values()].filter(r => r > 0.05).map(r => r / ri.r0);
+}
+function startEdgeScale() { const ri = ringInfo(); return ri ? { ri, f: 1, cands: ringTargets(ri) } : null; }
 function moveEdgeScale(e, es) {
   const { ri } = es;
   setRay(e);
@@ -4111,7 +4121,12 @@ function moveEdgeScale(e, es) {
   if (!p) return;
   let f = p.distanceTo(ri.c) / ri.r0;
   f = Math.round(clamp(f, 0.01, 10) * 100) / 100;
-  if (Math.abs(f - 1) < 0.03) f = 1;
+  let tag = '';
+  if (Math.abs(f - 1) < 0.03) { f = 1; tag = 'come prima'; }
+  if (state.magnet && !e.metaKey && !e.ctrlKey) {
+    let bd = Math.max(0.03, 0.6 / ri.r0);
+    for (const c of es.cands) if (Math.abs(f - c) < bd && c > 0.01) { bd = Math.abs(f - c); f = Math.round(c * 1000) / 1000; tag = 'uguale all\'altro anello'; }
+  }
   es.f = f;
   const arr = []; ri.P.forEach(q => { const v = ri.c.clone().add(q.clone().sub(ri.c).multiplyScalar(f)); arr.push(v.x, v.y, v.z); });
   ringPrev.geometry.dispose(); ringPrev.geometry = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
@@ -4122,7 +4137,7 @@ function moveEdgeScale(e, es) {
   dragRead.style.display = 'block';
   dragRead.style.left = ((v.x * 0.5 + 0.5) * window.innerWidth + 18) + 'px';
   dragRead.style.top = ((-v.y * 0.5 + 0.5) * window.innerHeight - 12) + 'px';
-  dragRead.textContent = `${Math.round(f * 100)} %`;
+  dragRead.textContent = `${fmt(Math.round(f * 1000) / 10)} %${tag ? ' · ' + tr(tag) : ''}`;
   dirty = true;
 }
 function applyEdgeScale(pctArg) {

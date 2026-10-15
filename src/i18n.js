@@ -102,6 +102,8 @@ const EN = {
   'Scegli tipo e misura, poi Applica.': 'Pick type and size, then Apply.',
   'Clicca uno spigolo. Con Maiusc ne scegli più di uno.': 'Click an edge. Hold Shift to pick more than one.',
   'Direzione': 'Direction',
+  'uguale all\'altro anello': 'same as the other ring',
+  'Ridimensiona un anello con la calamita: si aggancia a 100 % e al raggio dell\'altro anello (da cono tronco a cilindro)': 'Resize a ring with the magnet: it snaps to 100 % and to the radius of the other ring (truncated cone back to cylinder)',
   'Guida': 'Guide', 'Strumenti, scorciatoie e trucchi': 'Tools, shortcuts and tips', 'Guida (F1)': 'Guide (F1)',
   'Blocca': 'Lock', 'Nascondi': 'Hide',
   'Inizia': 'Start', 'Cosa vuoi creare?': 'What do you want to make?', 'Blocchi, cilindri, coni, poligoni e anelli da combinare e forare.': 'Blocks, cylinders, cones, polygons and rings to combine and cut.', 'Scrivi in 3D con 4 font a scelta o carica il tuo (TTF, OTF, WOFF).': 'Write in 3D with 4 fonts or load your own (TTF, OTF, WOFF).', 'Apri un 3MF o STL da modificare, oppure un SVG: diventa un solido da 1 mm. Puoi anche trascinare il file qui.': 'Open a 3MF or STL to edit, or an SVG: it becomes a 1 mm solid. You can also drop the file here.', 'Scatolina con coperchio su misura, pronta da stampare.': 'Custom box with lid, ready to print.', 'Scatolina': 'Small box',

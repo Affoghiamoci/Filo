@@ -67,7 +67,7 @@ export const HELP = {
       <p>Su uno spigolo compare un quadratino. Trascinalo, oppure scegli X, Y o Z e scrivi i mm. La faccia si inclina o si allunga, e da un cubo puoi ottenere un trapezio. Dopo questa modifica il pezzo non è più parametrico.</p>
       <ul><li>La calamita ti aiuta a tornare com'era, ad allinearti ai vertici paralleli e agli altri oggetti. Lo scatto vale quando la calamita non aggancia nulla.</li><li>Se lo spigolo è arrotondato, togli prima l'arrotondamento.</li></ul>
       <h3>Ridimensiona un anello</h3>
-      <p>Su un cerchio, o sugli spigoli di una faccia, trascina la maniglia o scrivi la scala in %. Con 50 % sul bordo alto, un cilindro diventa un cono tronco.</p>` },
+      <p>Su un cerchio, o sugli spigoli di una faccia, trascina la maniglia o scrivi la scala in %. Con 50 % sul bordo alto, un cilindro diventa un cono tronco. Con la calamita attiva la maniglia si aggancia a 100 % (come prima) e al raggio dell'altro anello, così torni a un cilindro dritto.</p>` },
     { id: 'stretch', g: 'model', t: 'Allunga', h: `
       <p>${K('U')}: scegli un asse e una posizione, poi di quanti mm spostare tutto ciò che sta oltre il piano. Un numero positivo allunga, uno negativo accorcia.</p>
       {{img:allunga|Piano di Allunga su una barra}}
@@ -167,7 +167,7 @@ export const HELP = {
       <p>A small square appears on the edge. Drag it, or pick X, Y or Z and type the mm. The face tilts or stretches, and a cube can become a trapezoid. After this the piece is no longer parametric.</p>
       <ul><li>The magnet helps you go back to how it was, line up with parallel vertices and with other objects. Snap step applies when the magnet finds nothing.</li><li>If the edge is rounded, remove the rounding first.</li></ul>
       <h3>Resize a ring</h3>
-      <p>On a circle, or on the edges of a face, drag the handle or type the scale in %. With 50 % on the top edge, a cylinder becomes a truncated cone.</p>` },
+      <p>On a circle, or on the edges of a face, drag the handle or type the scale in %. With 50 % on the top edge, a cylinder becomes a truncated cone. With the magnet on, the handle snaps to 100 % (as before) and to the radius of the other ring, so you can get back to a straight cylinder.</p>` },
     { id: 'stretch', g: 'model', t: 'Stretch', h: `
       <p>${K('U')}: pick an axis and a position, then how many mm to move everything beyond the plane. A positive number stretches, a negative one shortens.</p>
       {{img:allunga|Stretch plane on a bar}}
