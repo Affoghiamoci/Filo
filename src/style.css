@@ -157,7 +157,7 @@ label.f{white-space:nowrap}
 .p-title span{font:500 11px var(--mono);color:var(--muted);letter-spacing:.04em;text-transform:none}
 .row2{display:grid;grid-template-columns:1fr auto;gap:6px}
 .row2 em{font:normal 11px var(--mono);color:var(--muted)}
-#p-ground{width:100%;margin-top:6px;justify-content:center;background:var(--field)}
+#p-ground,#g-ground{width:100%;margin-top:6px;justify-content:center;background:var(--field)}
 #b-bed em{font:500 10.5px var(--mono);font-style:normal;opacity:.7;margin-left:4px}
 #bedmenu{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);z-index:45;display:flex;flex-direction:column;gap:4px;padding:8px;min-width:240px;border-radius:2px}
 #bedmenu .btn{display:flex;justify-content:space-between;gap:16px;text-align:left}

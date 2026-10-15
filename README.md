@@ -16,6 +16,7 @@ Versione 0.10.0 (beta). Sito: [filo.affogo.fyi](https://filo.affogo.fyi)
 - Lato: spingi e tira un lato piatto. Spigolo: arrotonda e smussa, ogni spigolo ha il suo raggio e resta modificabile
 - Taglia con un piano, Allunga e accorcia una parte, Metro con larghezza, altezza e angoli sotto il mouse
 - Fori, Combina (unisce i solidi e sottrae i fori) e Interseca (tiene solo la parte in comune) con un motore booleano che dà solidi sempre chiusi
+- Appoggia sul piatto raddrizza il pezzo sul lato piatto stabile più vicino (anche con più oggetti) e lo porta a Z = 0
 - Menu con il tasto destro (clic destro senza trascinare) su oggetti e sul vuoto, breve e con le scorciatoie; trascinando col destro si orbita come prima
 - Barra a sinistra con strumenti in seconda funzione (Riquadro e Lazo, Taglia e Allunga, Combina e Interseca): si aprono tenendo premuto, con il clic destro o dal triangolino
 - Gruppi, Livelli (blocca, nascondi, rinomina), Cronologia con anteprima, Annulla e Ripeti

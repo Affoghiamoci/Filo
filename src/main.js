@@ -9,6 +9,7 @@ import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { unzipSync, zipSync, strToU8 } from 'three/addons/libs/fflate.module.js';
 import { Brush, Evaluator, ADDITION, SUBTRACTION, INTERSECTION } from 'three-bvh-csg';
 import { initManifold, manifoldEvaluate, manifoldStretch, manifoldHalf, manifoldMod } from './mcsg.js';
+import { ConvexHull } from 'three/addons/math/ConvexHull.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
@@ -2101,10 +2102,7 @@ document.querySelectorAll('#p-rm button').forEach(b => b.addEventListener('click
   toast(sizeLock ? 'Proporzioni bloccate: le misure cambiano insieme' : 'Proporzioni libere');
 }));
 syncLock();
-$('#p-ground').addEventListener('click', () => {
-  const m = single();
-  if (m) { m.position.z -= worldBox(m).min.z; m.updateMatrixWorld(true); touch(); syncPanel(); updateHandles(); commit(); }
-});
+['#p-ground', '#g-ground'].forEach(id => $(id).addEventListener('click', () => { layOnPlate(); canvas.focus(); }));
 $('#p-name').addEventListener('input', e => { const m = single(); if (m) { m.userData.name = e.target.value; scheduleLayers(); } });
 $('#p-name').addEventListener('change', commit);
 document.addEventListener('click', e => { if (e.target.closest('[data-lang]')) setTimeout(syncPanel, 0); });   // il nome nel pannello segue la lingua
@@ -2598,12 +2596,80 @@ function closeCtx(back = false) {
   if (back) canvas.focus();
   return true;
 }
-function groundSelection() {                         // appoggia al piatto: il punto più basso della selezione va a quota 0
+/* Appoggia sul piatto: raddrizza la selezione (un blocco unico) sul lato piatto stabile che richiede meno rotazione, poi la porta a Z = 0.
+   Lati piatti = facce del guscio convesso su cui il pezzo sta in piedi (il baricentro cade dentro la faccia). Senza lati adatti (forme tonde) si limita ad appoggiare. */
+function plateCandidates(list) {
+  const V = [], seen = new Set(), tri = [];
+  const v = new THREE.Vector3(), a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  let vol = 0; const cm = new THREE.Vector3();
+  for (const m of list) {
+    m.updateMatrixWorld(true);
+    const pos = m.geometry.attributes.position, idx = m.geometry.index, n = idx ? idx.count : pos.count;
+    const W = i => v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
+    for (let i = 0; i < pos.count; i++) {
+      W(i); const k = Math.round(v.x * 100) + ',' + Math.round(v.y * 100) + ',' + Math.round(v.z * 100);
+      if (!seen.has(k)) { seen.add(k); V.push(v.clone()); }
+    }
+    for (let t = 0; t < n; t += 3) {                      // volume e baricentro dai tetraedri con segno
+      const i0 = idx ? idx.getX(t) : t, i1 = idx ? idx.getX(t + 1) : t + 1, i2 = idx ? idx.getX(t + 2) : t + 2;
+      a.copy(W(i0)); b.copy(W(i1)); c.copy(W(i2));
+      const d = a.dot(b.clone().cross(c)) / 6; vol += d; cm.addScaledVector(a.clone().add(b).add(c), d / 4);
+    }
+  }
+  if (V.length < 4) return null;
+  const centroid = Math.abs(vol) > 1e-6 ? cm.divideScalar(vol) : V.reduce((s, p) => s.add(p), new THREE.Vector3()).divideScalar(V.length);
+  let hull; try { hull = new ConvexHull().setFromPoints(V); } catch (e) { return null; }
+  const cl = [];
+  for (const f of hull.faces) {
+    const pts = []; let e = f.edge; do { pts.push(e.head().point); e = e.next; } while (e !== f.edge);
+    let area = 0; for (let i = 1; i < pts.length - 1; i++) area += new THREE.Vector3().subVectors(pts[i], pts[0]).cross(new THREE.Vector3().subVectors(pts[i + 1], pts[0])).length() / 2;
+    const n = f.normal.clone();
+    const hit = cl.find(q => q.n.dot(n) > Math.cos(2 * D2R));      // facce quasi parallele: stesso lato
+    if (hit) { hit.area += area; pts.forEach(p => hit.pts.push(p)); } else cl.push({ n, area, pts: [...pts] });
+  }
+  return { cl, centroid };
+}
+function plateStable(q, centroid) {                       // il baricentro, proiettato sul piano della faccia, cade dentro il suo contorno
+  const n = q.n, u = new THREE.Vector3().crossVectors(n, Math.abs(n.x) < 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0)).normalize(), w = new THREE.Vector3().crossVectors(n, u);
+  const P = q.pts.map(p => [p.dot(u), p.dot(w)]), o = [centroid.dot(u), centroid.dot(w)];
+  P.sort((p, r) => p[0] - r[0] || p[1] - r[1]);           // guscio 2D (catena monotona)
+  const cross = (O, A, B) => (A[0] - O[0]) * (B[1] - O[1]) - (A[1] - O[1]) * (B[0] - O[0]);
+  const lo = [], up = [];
+  for (const p of P) { while (lo.length > 1 && cross(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+  for (const p of P.slice().reverse()) { while (up.length > 1 && cross(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
+  const poly = lo.slice(0, -1).concat(up.slice(0, -1));
+  if (poly.length < 3) return false;
+  return poly.every((p, i) => cross(p, poly[(i + 1) % poly.length], o) >= -0.25);   // 0,25 mm di tolleranza
+}
+function layOnPlateNow() {
   if (!selection.length) return;
+  const info = plateCandidates(selection);
+  let rot = 0;
+  if (info) {
+    const big = Math.max(...info.cl.map(q => q.area));
+    const ok = info.cl.filter(q => q.area >= 1 && q.area >= big * 0.02 && plateStable(q, info.centroid));
+    const down = new THREE.Vector3(0, 0, -1);
+    ok.sort((p, r) => r.n.dot(down) - p.n.dot(down));      // la faccia più vicina al basso: rotazione minima
+    const best = ok[0];
+    if (best) {
+      const ang = Math.acos(Math.min(1, best.n.dot(down))) / D2R;
+      if (ang > 0.01) {
+        const R = new THREE.Quaternion().setFromUnitVectors(best.n, down), box = selBox(), ctr = box.getCenter(new THREE.Vector3());
+        selection.forEach(m => { m.position.sub(ctr).applyQuaternion(R).add(ctr); m.quaternion.premultiply(R); m.updateMatrixWorld(true); });
+        rot = ang;
+      }
+    } else rot = -1;
+  }
   const dz = -selBox().min.z;
-  if (Math.abs(dz) < 1e-6) return toast('È già appoggiato al piatto');
+  if (rot <= 0 && Math.abs(dz) < 1e-6) return toast(rot < 0 ? 'Nessun lato piatto stabile: è già appoggiato al piatto' : 'È già appoggiato al piatto');
   selection.forEach(m => { m.position.z += dz; m.updateMatrixWorld(true); });
   touch(); syncPanel(); updateHandles(); commit();
+  if (rot > 0) toast(`Raddrizzato di ${(rot < 10 ? Math.round(rot * 10) / 10 : Math.round(rot)).toString().replace('.', ',')}° e appoggiato sul piatto`);
+  else if (rot < 0) toast('Nessun lato piatto stabile: l’ho solo appoggiato al piatto');
+}
+async function layOnPlate() {
+  if (!selection.length) return;
+  return trisOf(selection) > 60000 ? busyRun('Cerco il lato su cui appoggiare…', layOnPlateNow) : layOnPlateNow();
 }
 function flagSelection(key) {                        // blocca o nasconde la selezione (come i pulsanti dei Livelli: non entra nella cronologia)
   const list = selection.slice();
@@ -2624,7 +2690,7 @@ function ctxObjectItems() {
   if (multi) items.push({ t: 'Combina', k: '⌘E', f: () => combine() }, { t: 'Interseca', k: '⇧⌘E', f: () => intersect() });
   if (grouped) items.push({ t: 'Separa gruppo', k: '⇧⌘G', f: ungroupSelection });
   else if (multi) items.push({ t: 'Raggruppa', k: '⌘G', f: groupSelection });
-  items.push('sep', { t: 'Appoggia sul piatto', f: groundSelection }, { t: 'Blocca', f: () => flagSelection('locked') }, { t: 'Nascondi', f: () => flagSelection('hidden') },
+  items.push('sep', { t: 'Appoggia sul piatto', f: () => layOnPlate() }, { t: 'Blocca', f: () => flagSelection('locked') }, { t: 'Nascondi', f: () => flagSelection('hidden') },
     'sep', { t: 'Elimina', k: '⌫', f: deleteSelection });
   return items;
 }
@@ -5088,7 +5154,7 @@ $('#ew-resume').addEventListener('click', async e => {
 });
 offerResume();
 
-window.forma = { restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, openCtx, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */
