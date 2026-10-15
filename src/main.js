@@ -2419,7 +2419,7 @@ const TOOLS = [
 const toolEls = {};
 $('#tools').innerHTML = TOOLS.map(([title, items], si) =>
   `<h3>[${si + 1}] ${title}</h3>` + items.map((t, ii) =>
-    `<button class="tool" data-s="${si}" data-i="${ii}" title="${t.desc}"><span class="ico"><svg viewBox="0 0 24 24">${I[t.icon]}</svg></span><span class="t"><b>${t.name}</b><small>${t.desc}</small></span>${t.key ? `<kbd>${t.key}</kbd>` : ''}</button>`).join('')).join('');
+    `<button class="tool" data-s="${si}" data-i="${ii}" aria-label="${t.name}"><span class="ico"><svg viewBox="0 0 24 24">${I[t.icon]}</svg></span><span class="t"><b>${t.name}</b><small>${t.desc}</small></span>${t.key ? `<kbd>${t.key}</kbd>` : ''}</button>`).join('')).join('');
 $('#tools').addEventListener('click', e => {
   const b = e.target.closest('.tool');
   if (!b) return;
@@ -2476,6 +2476,31 @@ $('#tools').addEventListener('pointerleave', hideTip);
 $('#tools').addEventListener('pointerdown', hideTip);
 $('#tools').addEventListener('scroll', hideTip);
 try { if (localStorage.getItem('forma.mini') === '1') setMini(true, false); } catch (_) {}
+
+/* tooltip del browser sostituito dal nostro pop up (stesso stile, stessa attesa) */
+let ttTimer = null;
+function ttHide() { clearTimeout(ttTimer); if (tipEl.classList.contains('tt')) { tipEl.classList.remove('tt', 'help', 'left', 'up'); tipEl.style.maxWidth = ''; hideTip(); } }
+document.addEventListener('pointerover', e => {
+  const el = e.target.closest && e.target.closest('[title]');
+  if (!el || el.closest('#bar') || el.closest('[data-help]') && el.closest('[data-help]') !== el) { return; }
+  if (el.hasAttribute('title') && el.title) { el.dataset.tt = el.title; el.removeAttribute('title'); }
+}, true);
+document.addEventListener('pointerover', e => {
+  const el = e.target.closest && e.target.closest('[data-tt]');
+  clearTimeout(ttTimer);
+  if (!el || el.closest('[data-help]')) return;
+  ttTimer = setTimeout(() => {
+    const r = el.getBoundingClientRect();
+    tipEl.innerHTML = `<small class="hl one">${esc(tr(el.dataset.tt))}</small>`;
+    tipEl.classList.add('help', 'tt'); tipEl.classList.remove('left', 'up'); tipEl.style.maxWidth = '260px';
+    const below = r.top < 120, x = Math.min(Math.max(r.left + r.width / 2, 130), window.innerWidth - 130);
+    tipEl.style.left = x + 'px'; tipEl.style.top = (below ? r.bottom + 12 : r.top - 12) + 'px';
+    tipEl.style.transform = below ? 'translate(-50%,0)' : 'translate(-50%,-100%)';
+    tipEl.classList.add('show'); tipOn = true;
+  }, 500);
+});
+document.addEventListener('pointerout', e => { if (e.target.closest && e.target.closest('[data-tt]')) { tipEl.style.transform = ''; ttHide(); } });
+document.addEventListener('pointerdown', () => { tipEl.style.transform = ''; ttHide(); });
 /* spiegazioni al passaggio del mouse sul titolo di un pannello (data-help) */
 let helpTimer = null;
 function showHelp(el) {
