@@ -25,8 +25,8 @@ export const HELP = {
     { id: 'text', g: 'create', t: 'Testo', h: `
       <p>${K('T')} scrive testo 3D. Scegli il font (Inter, Bebas Neue, Lora, VT323) oppure carica un tuo font con "+ Carica font…". Regoli dimensione, spessore e spaziatura. Il testo è un oggetto come gli altri: puoi renderlo un foro per inciderlo in una scatola.</p>` },
     { id: 'io', g: 'create', t: 'Importare ed esportare', h: `
-      <ul><li><b>Importa</b>: ${K('⌘O')} oppure trascina il file sulla finestra. Accetta 3MF e STL.</li><li>Se un file ha più parti staccate, Filo chiede se tenerle unite o dividerle in livelli.</li><li><b>Esporta</b>: ${K('⌘S')}. Il <b>3MF</b> è consigliato (tiene i nomi e i colori); l'STL è un solo corpo.</li></ul>
-      <div class="tip">Prima di esportare, Filo toglie i vertici doppi e ripara le fessure più piccole. I pezzi fatti con Combina e Taglia escono già chiusi.</div>` },
+      <ul><li><b>Importa</b>: ${K('⌘O')} oppure trascina il file sulla finestra. Accetta 3MF, STL e SVG (loghi e sagome diventano pezzi spessi 1 mm: servono i riempimenti, non i soli contorni).</li><li>Se un file ha più parti staccate, Filo chiede se tenerle unite o dividerle in livelli.</li><li><b>Esporta</b>: ${K('⌘S')}. Il <b>3MF</b> è consigliato (tiene i nomi e i colori); l'STL è un solo corpo.</li></ul>
+      <div class="tip">Prima di esportare, Filo toglie i vertici doppi e ripara le fessure più piccole. I pezzi fatti con Combina e Taglia escono già chiusi. Per essere sicuro, usa <b>Controlla</b> in alto a destra (vedi Controlla stampa).</div>` },
     { id: 'move', g: 'select', t: 'Sposta e duplica', h: `
       <p>${K('V')}: seleziona e trascina gli oggetti sul piatto.</p>
       <ul><li>${K('⇧')} mentre trascini: blocca un asse (e spegne l'aggancio).</li><li>${K('⌘')} premuto prima di trascinare: sposta su e giù.</li><li>${K('⌥')} + trascina: duplica.</li><li>Frecce: spostano di uno scatto (con ${K('⇧')}, di dieci). ${K('[')} ${K(']')}: giù e su.</li><li>${K('⌘D')} duplica, ${K('⌘C')} ${K('⌘X')} ${K('⌘V')} copia, taglia, incolla; ${K('⌘⇧V')} incolla sul posto.</li><li>${K('Canc')} elimina, ${K('Esc')} deseleziona.</li></ul>
@@ -37,7 +37,7 @@ export const HELP = {
       {{img:lazo|Lazo: disegni una linea libera attorno agli oggetti}}
       <ul><li>${K('⇧')} aggiunge alla selezione; ${K('⌘')} la toglie.</li><li>Un clic nel vuoto deseleziona.</li></ul>` },
     { id: 'groups', g: 'select', t: 'Gruppi, livelli e cronologia', h: `
-      <ul><li><b>Gruppo</b>: ${K('⌘G')} unisce più oggetti perché si muovano insieme; ${K('⇧⌘G')} li separa.</li><li><b>Livelli</b> (${K('F7')}): elenco degli oggetti, con blocco e nascondi. ${K('⇧')} + clic aggiunge, ${K('⌘')} + clic prende un intervallo.</li><li><b>Cronologia</b> (${K('F8')}): ogni passaggio con anteprima, per tornare indietro. ${K('⌘Z')} annulla, ${K('⇧⌘Z')} ripete.</li></ul>
+      <ul><li><b>Gruppo</b>: ${K('⌘G')} unisce più oggetti perché si muovano insieme; ${K('⇧⌘G')} li separa.</li><li><b>Livelli</b> (${K('F7')}): elenco degli oggetti, con blocco e nascondi. ${K('⇧')} + clic aggiunge, ${K('⌘')} + clic prende un intervallo.</li><li><b>Cronologia</b> (${K('F8')}): ogni passaggio con anteprima, per tornare indietro. ${K('⌘Z')} annulla, ${K('⇧⌘Z')} ripete. Dopo un annulla ritrovi anche gli spigoli e i lati che avevi selezionato, così puoi ritentare con un'altra misura.</li></ul>
       <p>Con due o più oggetti selezionati, clicca quello che vuoi come <b>chiave</b>: gli altri si allineano a lui.</p>` },
     { id: 'align', g: 'transform', t: 'Allinea e distribuisci', h: `
       <p>Con più oggetti selezionati, il pannello a destra mostra Allinea su X, Y e Z (inizio, centro, fine). Si allinea alla selezione, oppure all'oggetto <b>chiave</b> se ne hai cliccato uno.</p>
@@ -51,6 +51,7 @@ export const HELP = {
       {{img:calamita|Un oggetto trascinato si aggancia a contatto con l'altro}}
       <ul><li>${K('⌘')} premuto mentre trascini spegne la calamita solo per quel movimento.</li><li>${K('⇧')} blocca un asse e spegne anche lo scatto.</li><li>La calamita agisce anche sul trascinamento degli spigoli (vedi Spigolo).</li></ul>` },
     { id: 'rotate', g: 'transform', t: 'Ruota', h: `
+      {{img:ruota|L'anello si illumina, poi lo spicchio mostra l'angolo mentre ruoti}}
       <p>${K('R')} mostra tre anelli, uno per asse. Trascina un anello per ruotare: di default scatta ogni 15°, con ${K('⇧')} ogni 5°, con ${K('⌥')} è libero.</p>
       <p>Passando sopra un anello si illumina, e mentre ruoti vedi uno spicchio arancione con l'angolo fatto. Nel pannello a destra i pulsanti X, Y, Z ruotano di 90° (con ${K('⇧')} nel verso opposto) e i campi Rotazione accettano un angolo preciso.</p>` },
     { id: 'face', g: 'model', t: 'Lato', h: `
@@ -64,7 +65,9 @@ export const HELP = {
       <p>Scrivi la misura e premi Applica. Su scatola e prisma ogni spigolo ha il suo raggio, e puoi cambiarlo dopo: riseleziona lo spigolo, con 0 lo togli. Su cilindro e cono vale per il bordo alto e per quello basso: si possono modificare anche dal pannello a destra (Bordo alto, Bordo basso). Gli altri pezzi (pezzi uniti o importati) vengono modificati in modo definitivo, ma puoi sempre annullare. Sfera e toro non hanno spigoli.</p>
       <h3>Sposta lo spigolo</h3>
       {{img:spigolo-sposta|Trascinando lo spigolo il cubo diventa un trapezio}}
-      <p>Su uno spigolo compare un quadratino. Trascinalo, oppure scegli X, Y o Z e scrivi i mm. La faccia si inclina o si allunga, e da un cubo puoi ottenere un trapezio. Dopo questa modifica il pezzo non è più parametrico.</p>
+      {{img:esagono|Un lato dell'esagono tirato in fuori con la parete dritta}}
+      <p>Su uno spigolo compare un quadratino. Trascinalo, oppure scegli la direzione e scrivi i mm. Con X, Y o Z la faccia si inclina, e da un cubo puoi ottenere un trapezio. Dopo questa modifica il pezzo non è più parametrico.</p>
+      <ul><li><b>⊥ (perpendicolare)</b>: sui lati storti, come quelli dell'esagono, sposta lo spigolo dritto verso l'esterno. Sugli spigoli verticali del prisma va in fuori lungo il raggio.</li><li><b>Parete dritta</b> (acceso di default): per gli spigoli orizzontali sposta anche la base sotto o sopra, così la parete resta verticale e la faccia si allunga davvero invece di inclinarsi. Spegnilo per inclinare.</li><li>Sul prisma puoi scegliere anche gli spigoli verticali.</li></ul>
       <ul><li>La calamita ti aiuta a tornare com'era, ad allinearti ai vertici paralleli e agli altri oggetti. Lo scatto vale quando la calamita non aggancia nulla.</li><li>Se lo spigolo è arrotondato, togli prima l'arrotondamento.</li></ul>
       <h3>Ridimensiona un anello</h3>
       <p>Su un cerchio, o sugli spigoli di una faccia, trascina la maniglia o scrivi la scala in %. Con 50 % sul bordo alto, un cilindro diventa un cono tronco. Con la calamita attiva la maniglia si aggancia a 100 % (come prima) e al raggio dell'altro anello, così torni a un cilindro dritto.</p>` },
@@ -104,6 +107,11 @@ export const HELP = {
           <tr><td>${K('⌘Z')}</td><td>Annulla</td></tr><tr><td>${K('⇧⌘Z')}</td><td>Ripeti</td></tr><tr><td>${K('⌘D')}</td><td>Duplica</td></tr><tr><td>${K('⌘C')} ${K('⌘X')} ${K('⌘V')}</td><td>Copia, taglia, incolla</td></tr><tr><td>${K('⌘A')}</td><td>Seleziona tutto</td></tr><tr><td>${K('⌘O')}</td><td>Importa</td></tr><tr><td>${K('⌘S')}</td><td>Esporta</td></tr><tr><td>${K('Canc')}</td><td>Elimina</td></tr><tr><td>${K('Esc')}</td><td>Deseleziona</td></tr></table></div>
       </div>
       <p class="sc-note">Mentre trascini: ${K('⇧')} blocca un asse e spegne l'aggancio · ${K('⌘')} spegne la calamita (o sposta in verticale se premuto prima) · ${K('⌥')} duplica.</p>` },
+    { id: 'check', g: 'ref', t: 'Controlla stampa', h: `
+      {{img:controlla|Il pannello Controlla stampa con l'anteprima a strati}}
+      <p>Il pulsante <b>Controlla</b> (in alto, vicino a Esporta) apre un pannello a destra che resta aperto mentre guardi il modello. Analizza ciò che esporteresti: i pezzi selezionati, oppure tutto il visibile.</p>
+      <ul><li><b>Solido chiuso</b>: se ci sono crepe o facce sovrapposte, lo slicer può sbagliare. Ti dice quali pezzi.</li><li><b>Anteprima a strati</b>: scorri lo slider e vedi la sezione a ogni altezza. Nel modello compare un piano arancione alla stessa altezza.</li><li><b>Pareti sottili</b>: le zone sotto lo spessore minimo (0,8 mm di default) diventano rosse nell'anteprima.</li><li><b>Pezzi sospesi</b> e base a contatto con il piatto.</li><li><b>Sbalzi oltre 45°</b>: in rosso nel modello, per capire dove servirebbero i supporti.</li><li>Una stima di strati, grammi di PLA e tempo.</li></ul>
+      <div class="tip">È un controllo veloce, non uno slicer: la stima è indicativa e il G-code lo fa sempre Bambu Studio. Se modifichi il pezzo mentre il pannello è aperto, si aggiorna da solo.</div>` },
     { id: 'print', g: 'ref', t: 'Consigli per la stampa', h: `
       <ul><li><b>Appoggia sul piatto.</b> Con Z = 0 lo slicer non vede il pezzo in aria.</li><li><b>Tolleranze.</b> Per gli incastri lascia 0,2-0,4 mm di gioco. Con Ripeti lo Spazio serve a questo.</li><li><b>Fori piccoli.</b> Vengono più stretti del previsto, quindi prova prima con un campione.</li><li><b>Esporta in 3MF</b> se vuoi tenere nomi e colori.</li><li><b>Prima di stampare</b> dai un'occhiata all'anteprima dello slicer.</li></ul>` },
   ],
@@ -125,8 +133,8 @@ export const HELP = {
     { id: 'text', g: 'create', t: 'Text', h: `
       <p>${K('T')} writes 3D text. Pick a font (Inter, Bebas Neue, Lora, VT323) or load your own with "+ Load font…". Adjust size, depth and letter spacing. Text is an object like any other: make it a hole to engrave it into a box.</p>` },
     { id: 'io', g: 'create', t: 'Import and export', h: `
-      <ul><li><b>Import</b>: ${K('⌘O')} or drag the file onto the window. Accepts 3MF and STL.</li><li>If a file has several detached parts, Filo asks whether to keep them together or split them into layers.</li><li><b>Export</b>: ${K('⌘S')}. <b>3MF</b> is recommended (keeps names and colors); STL is a single body.</li></ul>
-      <div class="tip">Before exporting, Filo removes duplicate vertices and repairs the smallest gaps. Pieces made with Combine and Cut already come out closed.</div>` },
+      <ul><li><b>Import</b>: ${K('⌘O')} or drag the file onto the window. Accepts 3MF, STL and SVG (logos and shapes become 1 mm thick pieces: it needs filled shapes, not outlines only).</li><li>If a file has several detached parts, Filo asks whether to keep them together or split them into layers.</li><li><b>Export</b>: ${K('⌘S')}. <b>3MF</b> is recommended (keeps names and colors); STL is a single body.</li></ul>
+      <div class="tip">Before exporting, Filo removes duplicate vertices and repairs the smallest gaps. Pieces made with Combine and Cut already come out closed. To be sure, use <b>Check</b> at the top right (see Print check).</div>` },
     { id: 'move', g: 'select', t: 'Move and duplicate', h: `
       <p>${K('V')}: select and drag objects on the bed.</p>
       <ul><li>${K('⇧')} while dragging: lock an axis (and switch off snapping).</li><li>${K('⌘')} held before dragging: move up and down.</li><li>${K('⌥')} + drag: duplicate.</li><li>Arrows: move one step (with ${K('⇧')}, ten). ${K('[')} ${K(']')}: down and up.</li><li>${K('⌘D')} duplicates, ${K('⌘C')} ${K('⌘X')} ${K('⌘V')} copy, cut, paste; ${K('⌘⇧V')} pastes in place.</li><li>${K('Del')} deletes, ${K('Esc')} deselects.</li></ul>
@@ -137,7 +145,7 @@ export const HELP = {
       {{img:lazo|Lasso: draw a free line around the objects}}
       <ul><li>${K('⇧')} adds to the selection; ${K('⌘')} removes.</li><li>A click in empty space deselects.</li></ul>` },
     { id: 'groups', g: 'select', t: 'Groups, layers and history', h: `
-      <ul><li><b>Group</b>: ${K('⌘G')} joins several objects so they move together; ${K('⇧⌘G')} ungroups.</li><li><b>Layers</b> (${K('F7')}): list of objects, with lock and hide. ${K('⇧')} + click adds, ${K('⌘')} + click picks a range.</li><li><b>History</b> (${K('F8')}): every step with a preview, to go back. ${K('⌘Z')} undoes, ${K('⇧⌘Z')} redoes.</li></ul>
+      <ul><li><b>Group</b>: ${K('⌘G')} joins several objects so they move together; ${K('⇧⌘G')} ungroups.</li><li><b>Layers</b> (${K('F7')}): list of objects, with lock and hide. ${K('⇧')} + click adds, ${K('⌘')} + click picks a range.</li><li><b>History</b> (${K('F8')}): every step with a preview, to go back. ${K('⌘Z')} undoes, ${K('⇧⌘Z')} redoes. After an undo, the edges and faces you had selected are selected again, so you can retry with another value.</li></ul>
       <p>With two or more objects selected, click the one you want as the <b>key</b>: the others align to it.</p>` },
     { id: 'align', g: 'transform', t: 'Align and distribute', h: `
       <p>With several objects selected, the right panel shows Align on X, Y and Z (start, center, end). It aligns to the selection, or to the <b>key</b> object if you clicked one.</p>
@@ -151,6 +159,7 @@ export const HELP = {
       {{img:calamita|A dragged object snaps into contact with the other}}
       <ul><li>${K('⌘')} held while dragging switches the magnet off for that move only.</li><li>${K('⇧')} locks an axis and switches off the step as well.</li><li>The magnet also acts when dragging edges (see Edge).</li></ul>` },
     { id: 'rotate', g: 'transform', t: 'Rotate', h: `
+      {{img:ruota|The ring lights up, then the wedge shows the angle while you rotate}}
       <p>${K('R')} shows three rings, one per axis. Drag a ring to rotate: it snaps every 15° by default, every 5° with ${K('⇧')}, and is free with ${K('⌥')}.</p>
       <p>A ring lights up when you hover it, and while you rotate you see an orange wedge with the angle done so far. In the right panel the X, Y, Z buttons rotate by 90° (the other way with ${K('⇧')}) and the Rotation fields take an exact angle.</p>` },
     { id: 'face', g: 'model', t: 'Face', h: `
@@ -164,7 +173,9 @@ export const HELP = {
       <p>Type the size and press Apply. On box and prism each edge has its own radius, and you can change it later: reselect the edge, use 0 to remove it. On cylinder and cone this works on the top and bottom edge, and you can also edit them from the right panel (Top edge, Bottom edge). Other pieces (merged or imported) are changed for good, but you can always undo. Sphere and torus have no edges.</p>
       <h3>Move the edge</h3>
       {{img:spigolo-sposta|Dragging the edge turns the cube into a trapezoid}}
-      <p>A small square appears on the edge. Drag it, or pick X, Y or Z and type the mm. The face tilts or stretches, and a cube can become a trapezoid. After this the piece is no longer parametric.</p>
+      {{img:esagono|One side of the hexagon pulled out with the straight wall}}
+      <p>A small square appears on the edge. Drag it, or pick the direction and type the mm. With X, Y or Z the face tilts, and a cube can become a trapezoid. After this the piece is no longer parametric.</p>
+      <ul><li><b>⊥ (perpendicular)</b>: on slanted sides, like the hexagon's, it moves the edge straight outwards. On the prism's vertical edges it goes out along the radius.</li><li><b>Straight wall</b> (on by default): for horizontal edges it also moves the base below or above, so the wall stays vertical and the face really lengthens instead of tilting. Turn it off to tilt.</li><li>On the prism you can also pick the vertical edges.</li></ul>
       <ul><li>The magnet helps you go back to how it was, line up with parallel vertices and with other objects. Snap step applies when the magnet finds nothing.</li><li>If the edge is rounded, remove the rounding first.</li></ul>
       <h3>Resize a ring</h3>
       <p>On a circle, or on the edges of a face, drag the handle or type the scale in %. With 50 % on the top edge, a cylinder becomes a truncated cone. With the magnet on, the handle snaps to 100 % (as before) and to the radius of the other ring, so you can get back to a straight cylinder.</p>` },
@@ -204,6 +215,11 @@ export const HELP = {
           <tr><td>${K('⌘Z')}</td><td>Undo</td></tr><tr><td>${K('⇧⌘Z')}</td><td>Redo</td></tr><tr><td>${K('⌘D')}</td><td>Duplicate</td></tr><tr><td>${K('⌘C')} ${K('⌘X')} ${K('⌘V')}</td><td>Copy, cut, paste</td></tr><tr><td>${K('⌘A')}</td><td>Select all</td></tr><tr><td>${K('⌘O')}</td><td>Import</td></tr><tr><td>${K('⌘S')}</td><td>Export</td></tr><tr><td>${K('Del')}</td><td>Delete</td></tr><tr><td>${K('Esc')}</td><td>Deselect</td></tr></table></div>
       </div>
       <p class="sc-note">While dragging: ${K('⇧')} locks an axis and switches off snapping · ${K('⌘')} switches off the magnet (or moves vertically if held before) · ${K('⌥')} duplicates.</p>` },
+    { id: 'check', g: 'ref', t: 'Print check', h: `
+      {{img:controlla|The Print check panel with the layer preview}}
+      <p>The <b>Check</b> button (top, next to Export) opens a panel on the right that stays open while you look at the model. It analyzes what you would export: the selected pieces, or everything visible.</p>
+      <ul><li><b>Closed solid</b>: with cracks or overlapping faces the slicer can get it wrong. It tells you which pieces.</li><li><b>Layer preview</b>: drag the slider to see the section at every height. An orange plane shows the same height in the model.</li><li><b>Thin walls</b>: areas below the minimum thickness (0.8 mm by default) turn red in the preview.</li><li><b>Floating pieces</b> and the base touching the bed.</li><li><b>Overhangs past 45°</b>: red in the model, to see where supports would be needed.</li><li>An estimate of layers, grams of PLA and time.</li></ul>
+      <div class="tip">It is a quick check, not a slicer: the estimate is approximate and the G-code is always made by Bambu Studio. If you edit the piece while the panel is open, it updates by itself.</div>` },
     { id: 'print', g: 'ref', t: 'Printing tips', h: `
       <ul><li><b>Rest on the bed.</b> With Z = 0 the slicer does not see the piece floating.</li><li><b>Tolerances.</b> For fits leave 0.2-0.4 mm of clearance. In Repeat, Space is for this.</li><li><b>Small holes.</b> They come out narrower than expected, so try a sample first.</li><li><b>Export as 3MF</b> if you want to keep names and colors.</li><li><b>Before printing</b> take a look at the slicer preview.</li></ul>` },
   ],

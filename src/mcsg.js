@@ -12,7 +12,7 @@ export const initManifold = () => {
   return Module({ wasmBinary: bin }).then(m => { m.setup(); M = m; return m; }).catch(e => { console.warn('Manifold KO ' + JSON.stringify(Object.getOwnPropertyNames(e || {})) + ' ' + (e && e.message) + ' ' + (e && e.code) + ' ' + String(e && e.stack).slice(0, 400)); });
 };
 
-function toManifold(brush) {
+export function toManifold(brush) {
   brush.updateMatrixWorld(true);
   const g = brush.geometry, pos = g.attributes.position, idx = g.index, n = idx ? idx.count : pos.count;
   const v = new THREE.Vector3(), vp = new Float32Array(pos.count * 3);
@@ -21,11 +21,13 @@ function toManifold(brush) {
   for (let i = 0; i < n; i++) tv[i] = idx ? idx.getX(i) : i;
   const flip = brush.matrixWorld.determinant() < 0;
   if (flip) for (let i = 0; i < n; i += 3) { const t = tv[i + 1]; tv[i + 1] = tv[i + 2]; tv[i + 2] = t; }
-  const mesh = new M.Mesh({ numProp: 3, vertProperties: vp, triVerts: tv });
-  mesh.merge();                                                    // salda i vertici coincidenti (normali e UV duplicati)
-  const m = new M.Manifold(mesh);
-  if (m.status() !== 'NoError') { m.delete(); return null; }
-  return m;
+  try {
+    const mesh = new M.Mesh({ numProp: 3, vertProperties: vp, triVerts: tv });
+    mesh.merge();                                                  // salda i vertici coincidenti (normali e UV duplicati)
+    const m = new M.Manifold(mesh);
+    if (m.status() !== 'NoError') { m.delete(); return null; }
+    return m;
+  } catch (e) { return null; }                                     // non è un solido chiuso
 }
 
 function toBrush(m, material) {

@@ -52,7 +52,7 @@ html,body{margin:0;height:100%;overflow:hidden;color:var(--text);
 #side header span{display:block;margin-top:6px;color:var(--muted);font:11px var(--mono);letter-spacing:.06em;text-transform:uppercase}
 #tools{overflow-y:auto;padding:2px 8px 10px;flex:1}
 #tools h3{margin:16px 10px 4px;font:500 10.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.tool{all:unset;box-sizing:border-box;display:grid;grid-template-columns:26px 1fr auto;gap:10px;align-items:center;
+.tool{all:unset;box-sizing:border-box;display:grid;grid-template-columns:26px 1fr minmax(30px,auto);gap:10px;align-items:center;
   width:100%;padding:8px 10px;border-radius:2px;cursor:default}
 .tool:hover{background:var(--hover)}
 .tool.active{background:var(--ink);color:var(--on-ink);box-shadow:inset 3px 0 0 var(--accent)}
@@ -664,3 +664,34 @@ label.f.has-stp{position:relative;padding-right:3px}
 #tip.help.left{transform:translate(-100%,-50%)}
 #tip small.hl{font-size:12px;line-height:1.5;color:var(--text);opacity:.85;margin-top:4px}
 #tip small.hl.one{margin:0;font-size:12px}
+
+/* controlla stampa */
+#b-check{margin-right:6px}
+#dlg-check{position:fixed;inset:auto;top:16px;right:16px;left:auto;bottom:auto;margin:0;width:420px;max-height:calc(100vh - 32px);overflow:auto;border:1px solid var(--line);border-radius:2px;padding:0;background:var(--panel);color:var(--text);box-shadow:var(--shadow)}
+#dlg-check:not([open]){display:none}
+.chk{padding:14px 16px 14px;display:flex;flex-direction:column;gap:10px}
+.chk-head{display:flex;align-items:center;justify-content:space-between}
+.chk-wait{font:500 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:30px 0;text-align:center}
+.chk-prev{position:relative;border:1px solid var(--line);background:var(--field);border-radius:2px}
+.chk-prev canvas{display:block;width:100%;height:auto}
+.chk-rd{position:absolute;left:8px;top:6px;font:500 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+#chk-sl{width:100%;accent-color:var(--accent)}
+.chk-opts{display:flex;gap:10px}
+.chk-opts label{flex:1;display:flex;flex-direction:column;gap:4px;font:500 10px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.chk-opts select{all:unset;box-sizing:border-box;height:28px;padding:0 8px;background:var(--field);border-radius:2px;font:500 12px var(--mono);color:var(--text);cursor:default}
+#chk-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+#chk-list li{display:grid;grid-template-columns:14px 1fr;gap:8px;padding:7px 0;border-top:1px solid var(--line);font-size:12.5px;line-height:1.35}
+#chk-list li i{width:8px;height:8px;margin-top:5px;border-radius:50%;background:#2fa866}
+#chk-list li.w i{background:#e0a100}
+#chk-list li.b i{background:#e5484d}
+#chk-list li b{font-weight:600;display:block}
+#chk-list li span{color:var(--muted)}
+.chk-est{display:flex;gap:14px;font:500 11px var(--mono);letter-spacing:.04em;color:var(--muted);border-top:1px solid var(--line);padding-top:8px;flex-wrap:wrap}
+.chk-est b{color:var(--text);font-weight:600}
+.chk-foot{display:flex;flex-direction:column;gap:4px}
+.chk-sw{display:flex;gap:8px;align-items:center;font-size:12px}
+.chk-sw input{accent-color:var(--accent)}
+
+/* la barra si mostra quando i font sono pronti: niente testo che va a capo e poi si risistema */
+html:not(.ui-ready) #side{visibility:hidden}
+#side{transition:width .22s ease,opacity .15s}
