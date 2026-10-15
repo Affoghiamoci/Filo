@@ -34,7 +34,7 @@ with sync_playwright() as p:
     pg.reload();pg.wait_for_function("window.forma");pg.wait_for_timeout(1200)
     hint=rect(pg,'#empty-hint .ew:not(#ew-resume)'); res=rect(pg,'#ew-resume')
     check('Riprendi visibile come seconda scheda',pg.evaluate("getComputedStyle(document.querySelector('#ew-resume')).display")!='none')
-    check('subito sotto, a 16 px',abs(res[1]-hint[3]-16)<1.5 and abs(res[0]-hint[0])<1 and abs(res[2]-hint[2])<1)
+    check('subito sotto, a 24 px',abs(res[1]-hint[3]-24)<1.5 and abs(res[0]-hint[0])<1 and abs(res[2]-hint[2])<1)
     check('dentro lo schermo e sopra la barra',res[3]<=900-12 and res[3]<=rect(pg,'#bar')[1]+1)
     check('la riga non è più dentro la scheda Inizia',pg.evaluate("!document.querySelector('#empty-hint .ew:not(#ew-resume) #ew-resume')"))
     pg.click('#ew-resume [data-eh=resume-del]');pg.wait_for_timeout(300)

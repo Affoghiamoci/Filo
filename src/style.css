@@ -710,7 +710,7 @@ label.f.has-stp{position:relative;padding-right:4px}
 /* la barra si mostra quando i font sono pronti: niente testo che va a capo e poi si risistema */
 html:not(.ui-ready) #side{visibility:hidden}
 #side{transition:width .22s ease,opacity .15s}
-.ew-resume-btns{display:flex;gap:6px}.ew-del{min-width:0;color:var(--muted)}#empty-hint{display:flex;flex-direction:column;align-items:center;gap:16px}#ew-resume.ew{width:min(540px,calc(100vw - var(--sw,312px) - 48px))}@media (max-height:800px){#empty-hint{top:12px;transform:translateX(-50%)}}#ew-resume::before{display:none}#ew-resume .ew-sec{border-top:0}
+.ew-resume-btns{display:flex;gap:6px}.ew-del{min-width:0;color:var(--muted)}#empty-hint{display:flex;flex-direction:column;align-items:center;gap:24px}#ew-resume.ew{width:min(540px,calc(100vw - var(--sw,312px) - 48px))}@media (max-height:800px){#empty-hint{top:12px;transform:translateX(-50%)}}#ew-resume::before{display:none}#ew-resume .ew-sec{border-top:0}#ew-resume.ew{background:var(--ink);color:var(--on-ink);border-color:var(--ink);box-shadow:0 12px 0 rgba(0,0,0,.08),inset 0 -2px 0 var(--accent)}#ew-resume .ew-t b{color:var(--on-ink)}#ew-resume .ew-t span{color:color-mix(in srgb,var(--on-ink) 65%,transparent)}#ew-resume .ew-go{background:var(--on-ink);color:var(--ink)}#ew-resume .ew-del{background:transparent;color:color-mix(in srgb,var(--on-ink) 70%,transparent);border-color:color-mix(in srgb,var(--on-ink) 30%,transparent)}#ew-resume .ew-tile:hover{border-color:var(--accent);background:var(--on-ink);color:var(--ink)}#ew-resume .ew-del:hover{background:transparent;color:var(--on-ink)}
 
 #topbar .btn.ic,#topbar .btn.ic.primary{flex:0 0 40px;height:34px;padding:0;justify-content:center}
 #topbar #b-check{height:34px;padding:0 10px}
