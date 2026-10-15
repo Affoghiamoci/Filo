@@ -145,7 +145,7 @@
   <div id="e-move-box">
     <h4 data-help="Trascina il quadratino sullo spigolo, oppure scrivi di quanto spostarlo (un numero negativo lo sposta dall'altra parte). Con un cubo puoi ottenere un trapezio. Dopo la modifica il pezzo non è più parametrico.">Sposta lo spigolo<i class="inf" aria-hidden="true">?</i></h4>
     <div class="ax-row"><span>Direzione</span><div class="seg seg4" id="e-mv-ax"><button data-v="x">X</button><button data-v="y">Y</button><button data-v="z">Z</button><button data-v="n" title="Perpendicolare allo spigolo, verso l'esterno">⊥</button></div></div>
-    <label class="chk-sw" id="e-mv-colw"><input type="checkbox" id="e-mv-col" checked> Parete dritta (sposta anche sopra e sotto)</label>
+    <label class="chk-sw" id="e-mv-colw"><input type="checkbox" id="e-mv-col"> Parete dritta (sposta anche sopra e sotto)</label>
     <div class="row2"><label class="f">Di<input id="e-mv" type="number" step="0.5" placeholder="5"><em>mm</em></label><button class="btn primary" id="e-mv-go">Applica</button></div>
   </div>
   <div id="e-scale-box">
@@ -222,11 +222,6 @@
 <div id="snapmenu" class="panel hidden"></div>
 <div id="empty-hint"><div class="ew">
   <div class="ew-head"><div class="ew-title"><i>[ 0 ]</i><b>Inizia</b></div><div class="langsw" role="group" aria-label="Language"><button data-lang="it">IT</button><button data-lang="en">EN</button></div></div>
-  <section class="ew-sec hidden" id="ew-resume">
-    <span class="ew-n">↺</span>
-    <div class="ew-t"><b>Riprendi</b><span id="ew-resume-t">Ultimo lavoro salvato in questo browser.</span></div>
-    <div class="ew-resume-btns"><button class="ew-tile ew-go" data-eh="resume">Riprendi</button><button class="ew-tile ew-del" data-eh="resume-del" aria-label="Elimina il lavoro salvato" title="Elimina il lavoro salvato">Elimina</button></div>
-  </section>
   <section class="ew-sec">
     <span class="ew-n">01</span>
     <div class="ew-t"><b>Forme</b><span>Blocchi, cilindri, coni, poligoni e anelli da combinare e forare.</span></div>
@@ -259,7 +254,15 @@
     <div class="ew-t"><b>Guida</b><span>Strumenti, scorciatoie e consigli per la stampa.</span></div>
     <button class="ew-tile ew-go" data-eh="help" data-ic="help">Apri guida <kbd>?</kbd></button>
   </section>
-</div></div>
+</div>
+  <section class="ew ew-resume hidden" id="ew-resume">
+    <div class="ew-sec">
+      <span class="ew-n">↺</span>
+      <div class="ew-t"><b>Riprendi</b><span id="ew-resume-t">Ultimo lavoro salvato in questo browser.</span></div>
+      <div class="ew-resume-btns"><button class="ew-tile ew-go" data-eh="resume">Riprendi</button><button class="ew-tile ew-del" data-eh="resume-del" aria-label="Elimina il lavoro salvato" title="Elimina il lavoro salvato">Elimina</button></div>
+    </div>
+  </section>
+</div>
 <div id="hpop" class="panel hidden"><span id="hpop-chip" class="chip">X+</span><span class="lbl">allunga di</span><input id="hpop-val" type="number" step="1" placeholder="0" title="Valore negativo per accorciare. Invio per applicare"><span class="lbl">mm</span></div>
 <div id="dropin"><div class="di-box"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg><b>Rilascia per importare</b><span>File 3MF, STL o SVG</span></div></div>
 <div id="toast"></div>
@@ -340,7 +343,7 @@
     <p>Questa app è stata generata con l’ausilio dell’intelligenza artificiale.</p>
     <div class="info-row"><span class="lbl">Novità</span><div class="cl">
       <b>0.10.0</b>
-      <ul><li>Nuovo comando Interseca (⇧⌘E) e strumenti in seconda funzione nella barra: Riquadro e Lazo, Taglia e Allunga, Combina e Interseca</li><li>Menu con il tasto destro su oggetti e sul vuoto: duplica, copia, foro, appoggia sul piatto, blocca, nascondi, combina e interseca; ⌘Z annulla anche blocca e nascondi</li><li>Appoggia sul piatto raddrizza il pezzo sul lato piatto più vicino, anche per più oggetti</li><li>Esporta porta sempre tutto il piatto, Esc annulla le modifiche e chiude i menu, animazioni più morbide</li></ul>
+      <ul><li>Nuovo comando Interseca (⇧⌘E) e strumenti in seconda funzione nella barra: Riquadro e Lazo, Taglia e Allunga, Combina e Interseca</li><li>Menu con il tasto destro su oggetti e sul vuoto: duplica, copia, foro, appoggia sul piatto, blocca, nascondi, combina e interseca; ⌘Z annulla anche blocca e nascondi</li><li>Appoggia sul piatto raddrizza il pezzo sul lato piatto più vicino, anche per più oggetti</li><li>Spigolo: lo spigolo si sposta da solo, la parete dritta si attiva solo se la spunti; Riprendi ora è una scheda sotto Inizia</li><li>Esporta porta sempre tutto il piatto, Esc annulla le modifiche e chiude i menu, animazioni più morbide</li></ul>
       <details><summary>Versioni precedenti</summary>
         <b>0.9.0</b>
         <ul><li>Controlla stampa: anteprima a strati, pareti sottili, sbalzi, pezzi sospesi e stima di peso e tempo</li><li>Spigolo: ogni spigolo ha il suo raggio e resta modificabile; gli anelli si ridimensionano con la calamita</li><li>Nuovo motore per Combina, Taglia e Allunga: solidi sempre chiusi e più veloci</li><li>Nuova guida: finestra grande con immagini e GIF (tasto ? o F1)</li><li>Metro, Ruota, Distribuisci e Ripeti più completi; Scatto da 0,1 mm e Libero</li><li>Riprendi l'ultimo lavoro dalla schermata iniziale, con avviso prima di ricaricare la pagina</li><li>Export 3MF con le impostazioni di Bambu Studio e riparazione automatica delle crepe</li></ul>

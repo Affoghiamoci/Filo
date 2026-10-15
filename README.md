@@ -27,7 +27,7 @@ Versione 0.10.0 (beta). Sito: [filo.affogo.fyi](https://filo.affogo.fyi)
 - Piatti pronti: A1 mini, A1, P1S, X1C, P2S, H2S, H2D e fino a 40 cm
 - Import di 3MF (anche di Bambu Studio e Orca), STL e SVG
 - Export 3MF con le impostazioni di Bambu Studio e riparazione automatica delle crepe, oppure STL. L'export porta sempre tutto il piatto
-- Riprendi l'ultimo lavoro dalla schermata iniziale, con avviso prima di ricaricare la pagina
+- Riprendi l'ultimo lavoro dalla schermata iniziale (scheda sotto Inizia), con avviso prima di ricaricare la pagina
 
 **Interfaccia**
 - Tema chiaro, scuro o automatico, vista Raggi X, viste senza prospettiva

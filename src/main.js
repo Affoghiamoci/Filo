@@ -4592,7 +4592,7 @@ function moveInfo() {                                   // spigoli scelti (non u
 }
 const dvOf = (mi, ax, k) => ax === 'n' && mi.rad ? (mi.rad.get(k) || new THREE.Vector3()) : axV(mi, ax);
 const axV = (mi, ax) => ax === 'n' ? mi.n : WAX[ax];
-const EM = { ax: null, col: true };
+const EM = { ax: null, col: false };
 const xyKey = (x, y) => Math.round(x * 2000) + ',' + Math.round(y * 2000);
 const useCol = (mi, ax) => EM.col && mi.horiz && ax !== 'z';        // parete dritta: si sposta tutta la colonna di vertici sotto/sopra lo spigolo
 function edgeMoveAxis(mi) { if (EM.ax && EM.ax !== mi.par && (EM.ax !== 'n' || mi.n)) return EM.ax; if (mi.n) return 'n'; return 'xyz'.split('').find(a => a !== mi.par); }

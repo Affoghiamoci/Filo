@@ -710,7 +710,7 @@ label.f.has-stp{position:relative;padding-right:4px}
 /* la barra si mostra quando i font sono pronti: niente testo che va a capo e poi si risistema */
 html:not(.ui-ready) #side{visibility:hidden}
 #side{transition:width .22s ease,opacity .15s}
-.ew-resume-btns{display:flex;gap:6px}.ew-del{min-width:0;color:var(--muted)}#ew-resume{background:color-mix(in srgb,var(--accent) 5%,transparent)}
+.ew-resume-btns{display:flex;gap:6px}.ew-del{min-width:0;color:var(--muted)}#empty-hint{display:flex;flex-direction:column;align-items:center;gap:16px}#ew-resume.ew{width:min(540px,calc(100vw - var(--sw,312px) - 48px))}@media (max-height:800px){#empty-hint{top:12px;transform:translateX(-50%)}}#ew-resume::before{display:none}#ew-resume .ew-sec{border-top:0}
 
 #topbar .btn.ic,#topbar .btn.ic.primary{flex:0 0 40px;height:34px;padding:0;justify-content:center}
 #topbar #b-check{height:34px;padding:0 10px}
