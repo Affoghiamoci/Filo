@@ -4189,25 +4189,53 @@ labelsEl.appendChild(faceCross);
 const faceCrossPaths = faceCross.querySelectorAll('path'), faceCrossDot = faceCross.querySelector('circle');
 let crossData = null;
 function setFaceCross(fs, hp, ang) {
-  const c = Math.cos(ang), s = Math.sin(ang), T = fs.tri2d;
-  let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
-  for (let i = 0; i < T.length; i += 2) {
-    const a = T[i] * c + T[i + 1] * s, b = -T[i] * s + T[i + 1] * c;
-    a0 = Math.min(a0, a); a1 = Math.max(a1, a); b0 = Math.min(b0, b); b1 = Math.max(b1, b);
+  const c = Math.cos(ang), s = Math.sin(ang), T = fs.tri2d, Wd = fs.world, nT = T.length / 6;
+  const rel = hp.clone().sub(fs.o), pu = rel.dot(fs.u), pv = rel.dot(fs.v);
+  const pa = pu * c + pv * s, pb = -pu * s + pv * c, cam = camera.position;
+  const tn = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), ct = new THREE.Vector3();
+  const facing = new Uint8Array(nT); let nFace = 0;
+  for (let k = 0; k < nT; k++) {                                  // solo i triangoli rivolti verso la camera: sul lato curvo che gira intorno si ignora il retro
+    const o = k * 9;
+    e1.set(Wd[o + 3] - Wd[o], Wd[o + 4] - Wd[o + 1], Wd[o + 5] - Wd[o + 2]); e2.set(Wd[o + 6] - Wd[o], Wd[o + 7] - Wd[o + 1], Wd[o + 8] - Wd[o + 2]);
+    tn.crossVectors(e1, e2); ct.set((Wd[o] + Wd[o + 3] + Wd[o + 6]) / 3, (Wd[o + 1] + Wd[o + 4] + Wd[o + 7]) / 3, (Wd[o + 2] + Wd[o + 5] + Wd[o + 8]) / 3);
+    if (!fs.curved || tn.dot(cam.clone().sub(ct)) > 0) { facing[k] = 1; nFace++; }
   }
-  const rel = hp.clone().sub(fs.o), pu = rel.dot(fs.u), pv = rel.dot(fs.v), dn = rel.dot(fs.n);
-  const pa = clamp(pu * c + pv * s, a0, a1), pb = clamp(-pu * s + pv * c, b0, b1);
-  const P = (a, b) => fs.o.clone().addScaledVector(fs.u, a * c - b * s).addScaledVector(fs.v, a * s + b * c).addScaledVector(fs.n, dn);
-  crossData = { segs: [[P(a0, pb), P(a1, pb)], [P(pa, b0), P(pa, b1)]], c: P(pa, pb) };
+  if (!nFace) facing.fill(1);
+  // linea lungo la superficie: taglia i triangoli del lato con la retta (a variabile, b fisso) o (b variabile, a fisso)
+  const line = along => {
+    const segs = [], fix = along === 0 ? pb : pa;
+    const co = (k, j) => { const x = T[k * 6 + j * 2], y = T[k * 6 + j * 2 + 1]; return along === 0 ? [x * c + y * s, -x * s + y * c] : [-x * s + y * c, x * c + y * s]; };   // [variabile, fisso]
+    for (let k = 0; k < nT; k++) {
+      if (!facing[k]) continue;
+      const pts = [];
+      for (let j = 0; j < 3; j++) {
+        const P = co(k, j), Q = co(k, (j + 1) % 3), dP = P[1] - fix, dQ = Q[1] - fix;
+        if (dP * dQ > 0 || dP === dQ) continue;
+        const t = dP / (dP - dQ), pj = j * 3, qj = ((j + 1) % 3) * 3;
+        pts.push([P[0] + (Q[0] - P[0]) * t, new THREE.Vector3(Wd[k * 9 + pj] + (Wd[k * 9 + qj] - Wd[k * 9 + pj]) * t, Wd[k * 9 + pj + 1] + (Wd[k * 9 + qj + 1] - Wd[k * 9 + pj + 1]) * t, Wd[k * 9 + pj + 2] + (Wd[k * 9 + qj + 2] - Wd[k * 9 + pj + 2]) * t)]);
+      }
+      if (pts.length >= 2 && Math.abs(pts[0][0] - pts[1][0]) > 1e-6) segs.push(pts[0][0] < pts[1][0] ? [pts[0], pts[1]] : [pts[1], pts[0]]);
+    }
+    if (!segs.length) return null;
+    segs.sort((p, q) => p[0][0] - q[0][0]);
+    const here = along === 0 ? pa : pb, runs = [];                 // tratti continui: la linea si ferma ai buchi e ai bordi del lato
+    for (const sg of segs) { const r = runs[runs.length - 1]; if (r && sg[0][0] <= r.hi + 1e-4) { r.segs.push(sg); if (sg[1][0] > r.hi) { r.hi = sg[1][0]; r.end = sg[1][1]; } } else runs.push({ lo: sg[0][0], hi: sg[1][0], start: sg[0][1], end: sg[1][1], segs: [sg] }); }
+    let run = runs.find(r => here >= r.lo - 1e-3 && here <= r.hi + 1e-3);
+    if (!run) run = runs.reduce((m, r) => Math.min(Math.abs(r.lo - here), Math.abs(r.hi - here)) < Math.min(Math.abs(m.lo - here), Math.abs(m.hi - here)) ? r : m);
+    return { segs: run.segs.map(sg => [sg[0][1], sg[1][1]]), e0: run.start, e1: run.end };
+  };
+  const L = [line(0), line(1)].filter(Boolean);
+  crossData = L.length ? { lines: L, c: hp.clone() } : null;
   dirty = true;
 }
 function drawFaceCross() {
   if (!crossData) { faceCross.style.display = 'none'; return; }
   const w = window.innerWidth, h = window.innerHeight, S = P => { const v = P.clone().project(camera); return [(v.x * 0.5 + 0.5) * w, (-v.y * 0.5 + 0.5) * h]; };
   let d = '';
-  for (const [A, B] of crossData.segs) {
-    const a = S(A), b = S(B), dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l * 5, ny = dx / l * 5;
-    d += `M${a[0]},${a[1]}L${b[0]},${b[1]}M${a[0] - nx},${a[1] - ny}L${a[0] + nx},${a[1] + ny}M${b[0] - nx},${b[1] - ny}L${b[0] + nx},${b[1] + ny}`;
+  for (const ln of crossData.lines) {
+    for (const [A, B] of ln.segs) { const a = S(A), b = S(B); d += `M${a[0].toFixed(1)},${a[1].toFixed(1)}L${b[0].toFixed(1)},${b[1].toFixed(1)}`; }
+    const a = S(ln.e0), b = S(ln.e1), dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l * 4, ny = dx / l * 4;      // trattino ai due capi
+    d += `M${a[0] - nx},${a[1] - ny}L${a[0] + nx},${a[1] + ny}M${b[0] - nx},${b[1] - ny}L${b[0] + nx},${b[1] + ny}`;
   }
   const c = S(crossData.c);
   faceCross.style.display = 'block';

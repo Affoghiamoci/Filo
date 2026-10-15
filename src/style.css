@@ -647,10 +647,10 @@ label.f.has-stp{position:relative;padding-right:4px}
 
 /* etichetta di ⌥ (misure e angoli) */
 .face-cross{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;display:none;pointer-events:none}
-.face-cross path{fill:none;stroke-linecap:round}
-.face-cross .h{stroke:var(--panel);stroke-width:4;opacity:.75}
-.face-cross .l{stroke:var(--accent);stroke-width:1.5}
-.face-cross circle{fill:var(--accent);stroke:var(--panel);stroke-width:1.5}
+.face-cross path{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.face-cross .h{stroke:var(--panel);stroke-width:3;opacity:.7}
+.face-cross .l{stroke:var(--text);stroke-width:1}
+.face-cross circle{r:2.5;fill:var(--accent);stroke:var(--panel);stroke-width:1}
 .alt-tip{position:absolute;left:0;top:0;display:none;min-width:130px;padding:8px 12px 8px 14px;border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:2px;background:var(--panel);color:var(--text);box-shadow:var(--shadow);white-space:nowrap;pointer-events:none;z-index:6}
 .alt-tip b{display:block;font:600 17px/1.15 var(--mono);letter-spacing:.01em}
 .alt-tip .c{display:block;margin-top:4px;font:500 10px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
