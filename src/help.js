@@ -61,7 +61,7 @@ export const HELP = {
       <p>${K('E')}: clicca uno spigolo (${K('⇧')} per aggiungerne altri) e scegli cosa farne.</p>
       <h3>Arrotonda o smussa</h3>
       {{img:spigolo|Due spigoli arrotondati su una scatola}}
-      <p>Scrivi la misura e premi Applica. Su <b>scatola e prisma</b> ogni spigolo ha il suo raggio e <b>resta modificabile</b>: riseleziona lo spigolo per cambiarlo, con 0 lo togli. Su altri pezzi l'operazione è definitiva (si può annullare).</p>
+      <p>Scrivi la misura e premi Applica. Su <b>scatola e prisma</b> ogni spigolo ha il suo raggio e <b>resta modificabile</b>: riseleziona lo spigolo per cambiarlo, con 0 lo togli. Su <b>cilindro e cono</b> il bordo alto e basso si arrotonda dal pannello a destra (Bordo alto, Bordo basso) e resta modificabile; con lo strumento Spigolo l'operazione è definitiva. Lo stesso vale per sfera, toro e pezzi uniti o importati (si può sempre annullare).</p>
       <h3>Sposta lo spigolo</h3>
       {{img:spigolo-sposta|Trascinando lo spigolo il cubo diventa un trapezio}}
       <p>Su uno spigolo compare un quadratino: trascinalo, oppure scegli X, Y o Z e scrivi i mm. La faccia si inclina o si allunga. Il pezzo diventa libero (non più parametrico).</p>
@@ -88,14 +88,14 @@ export const HELP = {
       {{img:ripeti|Griglia a nido d'ape di prismi esagonali}}
       <p>Copia la selezione in <b>griglia</b>, <b>nido d'ape</b> o <b>cerchio</b>. Righe e colonne, e lo <b>spazio</b> tra le copie: la distanza vera è l'ingombro dell'oggetto più lo spazio, quindi con 0 le copie si toccano.</p>
       <ul><li>Nido d'ape: le righe dispari sono spostate di mezzo passo; lo Spazio Y parte dal valore che dà righe a 0,866 del passo e si può cambiare.</li><li>Cerchio: numero di copie, angolo e centro.</li><li>Usalo con un foro per fare griglie di fori, poi Combina.</li></ul>` },
-    { id: 'ruler', g: 'measure', t: 'Distanza e Misure', h: `
+    { id: 'ruler', g: 'measure', t: 'Metro e Misure', h: `
       {{img:distanza-alt|Con ${K('⌥')} premuto: larghezza e altezza del lato sotto il mouse}}
       <p>${K('D')}: clicca un punto o un lato, poi un secondo. Mostra la distanza e le differenze su X, Y, Z. Su due lati paralleli misura la distanza tra i piani. Il punto si aggancia ad angoli, metà lato e lati vicini; prima del clic vedi un'anteprima.</p>
       <ul><li>Tieni premuto ${K('⌥')} e passa su un lato: si illumina e vedi larghezza e altezza (o profondità) in tempo reale. Anche su lati inclinati o ruotati.</li><li>Con ${K('⌥')} premuto, su un angolo di un lato vedi l'angolo interno (per esempio 90° o 120°); su uno spigolo vedi l'angolo tra i due lati.</li><li>${K('M')} (Misure in basso) mostra le dimensioni reali degli oggetti.</li></ul>` },
     { id: 'shortcuts', g: 'ref', t: 'Scorciatoie', h: `
       <div class="sc-grid">
         <div><h3>Strumenti</h3><table>
-          <tr><td>${K('V')}</td><td>Sposta</td></tr><tr><td>${K('Q')}</td><td>Riquadro</td></tr><tr><td>${K('W')}</td><td>Lazo</td></tr><tr><td>${K('R')}</td><td>Ruota</td></tr><tr><td>${K('L')}</td><td>Lato</td></tr><tr><td>${K('E')}</td><td>Spigolo</td></tr><tr><td>${K('U')}</td><td>Allunga</td></tr><tr><td>${K('K')}</td><td>Taglia</td></tr><tr><td>${K('D')}</td><td>Distanza</td></tr></table></div>
+          <tr><td>${K('V')}</td><td>Sposta</td></tr><tr><td>${K('Q')}</td><td>Riquadro</td></tr><tr><td>${K('W')}</td><td>Lazo</td></tr><tr><td>${K('R')}</td><td>Ruota</td></tr><tr><td>${K('L')}</td><td>Lato</td></tr><tr><td>${K('E')}</td><td>Spigolo</td></tr><tr><td>${K('U')}</td><td>Allunga</td></tr><tr><td>${K('K')}</td><td>Taglia</td></tr><tr><td>${K('D')}</td><td>Metro</td></tr></table></div>
         <div><h3>Forme</h3><table>
           <tr><td>${K('B')}</td><td>Scatola</td></tr><tr><td>${K('C')}</td><td>Cilindro</td></tr><tr><td>${K('S')}</td><td>Sfera</td></tr><tr><td>${K('O')}</td><td>Cono</td></tr><tr><td>${K('P')}</td><td>Prisma</td></tr><tr><td>${K('T')}</td><td>Testo</td></tr><tr><td>${K('X')}</td><td>Foro / Solido</td></tr><tr><td>${K('⌘E')}</td><td>Combina</td></tr><tr><td>${K('⌘G')}</td><td>Raggruppa</td></tr></table></div>
         <div><h3>Vista</h3><table>
@@ -161,7 +161,7 @@ export const HELP = {
       <p>${K('E')}: click an edge (${K('⇧')} to add more) and choose what to do.</p>
       <h3>Round or chamfer</h3>
       {{img:spigolo|Two rounded edges on a box}}
-      <p>Type the size and press Apply. On <b>box and prism</b> each edge has its own radius and <b>stays editable</b>: reselect the edge to change it, use 0 to remove it. On other pieces the operation is final (you can undo).</p>
+      <p>Type the size and press Apply. On <b>box and prism</b> each edge has its own radius and <b>stays editable</b>: reselect the edge to change it, use 0 to remove it. On <b>cylinder and cone</b> the top and bottom edges are rounded from the panel on the right (Top edge, Bottom edge) and stay editable; with the Edge tool the operation is final. The same goes for sphere, torus and merged or imported pieces (you can always undo).</p>
       <h3>Move the edge</h3>
       {{img:spigolo-sposta|Dragging the edge turns the cube into a trapezoid}}
       <p>A small square appears on an edge: drag it, or pick X, Y or Z and type the mm. The face tilts or lengthens. The piece becomes free (no longer parametric).</p>
@@ -188,14 +188,14 @@ export const HELP = {
       {{img:ripeti|Honeycomb grid of hexagonal prisms}}
       <p>Copies the selection in a <b>grid</b>, <b>honeycomb</b> or <b>circle</b>. Rows and columns, and the <b>gap</b> between copies: the real distance is the object's size plus the gap, so with 0 the copies touch.</p>
       <ul><li>Honeycomb: odd rows are shifted by half a step; Gap Y starts at the value that gives rows at 0.866 of the pitch and can be changed.</li><li>Circle: number of copies, angle and center.</li><li>Use it with a hole to make grids of holes, then Combine.</li></ul>` },
-    { id: 'ruler', g: 'measure', t: 'Distance and Dimensions', h: `
+    { id: 'ruler', g: 'measure', t: 'Tape measure and Dimensions', h: `
       {{img:distanza-alt|With ${K('⌥')} held: width and height of the face under the mouse}}
       <p>${K('D')}: click a point or an edge, then a second one. It shows the distance and the differences on X, Y, Z. On two parallel faces it measures the distance between planes. The point snaps to corners, edge midpoints and nearby edges; before you click you see a preview.</p>
       <ul><li>Hold ${K('⌥')} and move over a face: it lights up and you see width and height (or depth) in real time. Also on tilted or rotated faces.</li><li>With ${K('⌥')} held, over a face corner you see its inner angle (for example 90° or 120°); over an edge you see the angle between the two faces.</li><li>${K('M')} (Dimensions at the bottom) shows the real size of objects.</li></ul>` },
     { id: 'shortcuts', g: 'ref', t: 'Shortcuts', h: `
       <div class="sc-grid">
         <div><h3>Tools</h3><table>
-          <tr><td>${K('V')}</td><td>Move</td></tr><tr><td>${K('Q')}</td><td>Marquee</td></tr><tr><td>${K('W')}</td><td>Lasso</td></tr><tr><td>${K('R')}</td><td>Rotate</td></tr><tr><td>${K('L')}</td><td>Face</td></tr><tr><td>${K('E')}</td><td>Edge</td></tr><tr><td>${K('U')}</td><td>Stretch</td></tr><tr><td>${K('K')}</td><td>Cut</td></tr><tr><td>${K('D')}</td><td>Distance</td></tr></table></div>
+          <tr><td>${K('V')}</td><td>Move</td></tr><tr><td>${K('Q')}</td><td>Marquee</td></tr><tr><td>${K('W')}</td><td>Lasso</td></tr><tr><td>${K('R')}</td><td>Rotate</td></tr><tr><td>${K('L')}</td><td>Face</td></tr><tr><td>${K('E')}</td><td>Edge</td></tr><tr><td>${K('U')}</td><td>Stretch</td></tr><tr><td>${K('K')}</td><td>Cut</td></tr><tr><td>${K('D')}</td><td>Tape measure</td></tr></table></div>
         <div><h3>Shapes</h3><table>
           <tr><td>${K('B')}</td><td>Box</td></tr><tr><td>${K('C')}</td><td>Cylinder</td></tr><tr><td>${K('S')}</td><td>Sphere</td></tr><tr><td>${K('O')}</td><td>Cone</td></tr><tr><td>${K('P')}</td><td>Prism</td></tr><tr><td>${K('T')}</td><td>Text</td></tr><tr><td>${K('X')}</td><td>Hole / Solid</td></tr><tr><td>${K('⌘E')}</td><td>Combine</td></tr><tr><td>${K('⌘G')}</td><td>Group</td></tr></table></div>
         <div><h3>View</h3><table>

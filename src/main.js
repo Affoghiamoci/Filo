@@ -8,7 +8,7 @@ import { mergeVertices, mergeGeometries, toCreasedNormals } from 'three/addons/u
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { unzipSync, zipSync, strToU8 } from 'three/addons/libs/fflate.module.js';
 import { Brush, Evaluator, ADDITION, SUBTRACTION, INTERSECTION } from 'three-bvh-csg';
-import { initManifold, manifoldEvaluate } from './mcsg.js';
+import { initManifold, manifoldEvaluate, manifoldStretch, manifoldHalf } from './mcsg.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
@@ -516,7 +516,7 @@ const HEAVY = 250000;   // oltre questa soglia: niente bordi, ombre e anteprima 
 const triCount = g => g.index ? g.index.count / 3 : g.attributes.position.count / 3;
 function heavyGuard(list) {
   const n = list.reduce((a, m) => a + triCount(m.geometry), 0);
-  if (n < 400000) return false;
+  if (n < (window.__noManifold ? 400000 : 1500000)) return false;
   return !confirm(tr('Modello molto pesante') + ` (${n.toLocaleString('it-IT')}). ` + tr('Questa operazione può bloccare il browser per diversi minuti. Conviene semplificarlo prima (in Bambu Studio: tasto destro, Semplifica modello). Continuare lo stesso?'));
 }
 function makeMesh(d) {
@@ -1367,7 +1367,7 @@ canvas.addEventListener('pointerdown', e => {
       const c = selBox().getCenter(new THREE.Vector3()), axis = AXV[ax];
       const pl = new THREE.Plane().setFromNormalAndCoplanarPoint(axis, c);
       const p = raycaster.ray.intersectPlane(pl, new THREE.Vector3());
-      if (p) { drag.mode = 'rotate'; drag.rot = { ax, axis, c, pl, v0: p.sub(c), items: startRot(), delta: 0 }; return; }
+      if (p) { drag.mode = 'rotate'; drag.rot = { ax, axis, c, pl, v0: p.sub(c), items: startRot(), delta: 0 }; rotAct = ax; rotLook(); return; }
     }
     const hit = pickObject(e);
     if (hit && !selection.includes(hit)) setSelection(withGroups([hit]));
@@ -1443,6 +1443,7 @@ canvas.addEventListener('pointermove', e => {
     else if (state.tool === 'face' && !state.space) { updateHover(e); if (faceHandle.visible) { setRay(e); canvas.style.cursor = raycaster.intersectObject(faceHandle, false)[0] ? 'pointer' : 'crosshair'; } } else hideHover();
     if (HANDLES[0].visible && state.tool === 'move' && !state.space) canvas.style.cursor = pickHandle(e) ? 'pointer' : 'default';
     if (planeTool() && !state.space) canvas.style.cursor = cutPlaneHit(e) ? 'grab' : 'default';
+    if (state.tool === 'rotate' && !state.space) { const h = pickRing(e); if (h !== rotHot) { rotHot = h; rotLook(); } canvas.style.cursor = h ? 'pointer' : 'crosshair'; } else if (rotHot) { rotHot = null; rotLook(); }
     if (state.tool === 'ruler') rulerHover(e); else { if (rulerHov.style.display !== 'none') rulerHov.style.display = 'none'; if (faceDim.style.display !== 'none') faceDim.style.display = 'none'; }
     return;
   }
@@ -1465,7 +1466,7 @@ canvas.addEventListener('pointermove', e => {
     let ang = Math.atan2(r.axis.dot(new THREE.Vector3().crossVectors(r.v0, v)), r.v0.dot(v));
     if (!e.altKey) { const st = (e.shiftKey ? 5 : 15) * D2R; ang = Math.round(ang / st) * st; }
     r.delta = ang;
-    applyRot(r.items, r.axis, ang, r.c);
+    applyRot(r.items, r.axis, ang, r.c); rotWedgeSet(r, ang);
     const sp = r.c.clone().project(camera);
     dragRead.style.display = 'block';
     dragRead.style.left = e.clientX + 18 + 'px'; dragRead.style.top = e.clientY - 12 + 'px';
@@ -1519,7 +1520,7 @@ canvas.addEventListener('pointerup', e => {
   const d = drag; drag = null;
   updateCursor(false);
   if (d.mode === 'move') { vtxMark.visible = false; guide.visible = false; dragRead.style.display = 'none'; dirty = true; }
-  if (d.mode === 'rotate') { dragRead.style.display = 'none'; if (d.moved && d.rot.delta !== 0) commit(); return; }
+  if (d.mode === 'rotate') { rotEnd(); dragRead.style.display = 'none'; if (d.moved && d.rot.delta !== 0) commit(); return; }
   if (d.mode === 'edgemove') { endEdgeMove(d.em, d.moved); return; }
   if (d.mode === 'cutmove') { dragRead.style.display = 'none'; canvas.style.cursor = 'grab'; return; }
   if (d.mode === 'edgescale') {
@@ -1849,6 +1850,46 @@ for (const ax of ['x', 'y', 'z']) {
   for (const mm of [vis, pick]) { mm.renderOrder = 997; if (ax === 'x') mm.rotation.y = Math.PI / 2; else if (ax === 'y') mm.rotation.x = Math.PI / 2; }
   pick.userData.axis = ax; rotGizmo.add(vis, pick); rotPick.push(pick); rotRings[ax] = vis;
 }
+/* grafica dell'anello: tacche ogni 15° (più lunghe ogni 90°), alone al passaggio del mouse e spicchio con braccia mentre si ruota */
+const rotHalo = {}, rotMat = {}, rotTick = {};
+for (const ax of ['x', 'y', 'z']) {
+  const ring = rotRings[ax]; rotMat[ax] = ring.material;
+  const tk = [];
+  for (let i = 0; i < 24; i++) {
+    const a = i * Math.PI / 12, r0 = i % 6 === 0 ? 0.86 : 0.94, c = Math.cos(a), s = Math.sin(a);
+    tk.push(c * r0, s * r0, 0, c * 1.0, s * 1.0, 0);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(tk, 3));
+  const ticks = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: AXIS_COLOR[ax], transparent: true, opacity: 0.7, depthTest: false, depthWrite: false }));
+  ticks.renderOrder = 997; ring.add(ticks); rotTick[ax] = ticks;
+  const halo = new THREE.Mesh(new THREE.TorusGeometry(1, 0.05, 8, 128), new THREE.MeshBasicMaterial({ color: AXIS_COLOR[ax], transparent: true, opacity: 0, depthTest: false, depthWrite: false }));
+  halo.renderOrder = 996; ring.add(halo); rotHalo[ax] = halo;
+}
+const rotWedge = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ color: 0xff6a00, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthTest: false, depthWrite: false }));
+rotWedge.renderOrder = 995; rotWedge.visible = false; rotWedge.frustumCulled = false; rotGizmo.add(rotWedge);
+const rotArm = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xff6a00, depthTest: false, depthWrite: false }));
+rotArm.renderOrder = 998; rotArm.visible = false; rotArm.frustumCulled = false; rotGizmo.add(rotArm);
+let rotHot = null, rotAct = null;
+function rotLook() {                                          // anello sotto il mouse o in uso: pieno e con alone; gli altri sbiaditi
+  const on = rotAct || rotHot;
+  for (const ax of ['x', 'y', 'z']) {
+    rotMat[ax].opacity = !on ? 0.9 : on === ax ? 1 : 0.3;
+    rotHalo[ax].material.opacity = on === ax ? (rotAct ? 0.22 : 0.3) : 0;
+    rotTick[ax].material.opacity = !on ? 0.7 : on === ax ? 0.9 : 0.2;
+  }
+  dirty = true;
+}
+function rotWedgeSet(r, ang) {                                // spicchio dal punto di partenza all'angolo attuale (coordinate del gruppo: raggio 1)
+  const u = r.v0.clone().normalize(), w = r.axis.clone().cross(u), n = Math.max(2, Math.ceil(Math.abs(ang) / (3 * D2R)));
+  const P = [0, 0, 0], at = f => u.clone().multiplyScalar(Math.cos(f)).addScaledVector(w, Math.sin(f));
+  for (let i = 0; i <= n; i++) { const q = at(ang * i / n); P.push(q.x, q.y, q.z); }
+  const idx = []; for (let i = 1; i <= n; i++) idx.push(0, i, i + 1);
+  const g = rotWedge.geometry; g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setIndex(idx); g.computeBoundingSphere();
+  const a0 = at(0), a1 = at(ang);
+  rotArm.geometry.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, a0.x * 1.12, a0.y * 1.12, a0.z * 1.12, 0, 0, 0, a1.x * 1.12, a1.y * 1.12, a1.z * 1.12], 3));
+  rotWedge.visible = rotArm.visible = Math.abs(ang) > 1e-4; dirty = true;
+}
+function rotEnd() { rotAct = null; rotWedge.visible = rotArm.visible = false; rotLook(); }
 function updateRotGizmo() {
   const on = state.tool === 'rotate' && selection.length > 0;
   rotGizmo.visible = on;
@@ -2353,7 +2394,7 @@ const TOOLS = [
     { id: 'edge', icon: 'edge', name: 'Spigolo', key: 'E', desc: 'Arrotonda o smussa uno spigolo', run: () => setTool('edge') },
     { id: 'stretch', icon: 'stretch', name: 'Allunga', key: 'U', desc: 'Allunga o accorcia una parte, da un piano in poi', run: () => setTool('stretch') },
     { id: 'cut', icon: 'cut', name: 'Taglia', key: 'K', desc: 'Taglia un oggetto con un piano', run: () => setTool('cut') },
-    { id: 'ruler', icon: 'dist', name: 'Distanza', key: 'D', desc: 'Misura tra due punti o lati', run: () => setTool('ruler') },
+    { id: 'ruler', icon: 'dist', name: 'Metro', key: 'D', desc: 'Misura tra due punti o lati', run: () => setTool('ruler') },
   ]],
   ['Forme', [
     { icon: 'box', name: 'Scatola', key: 'B', desc: 'Aggiunge un blocco', run: () => createObject('box') },
@@ -3655,7 +3696,7 @@ function rulerCardText(lines) { rulerCard.innerHTML = lines.map((l, i) => `<div 
 function clearRuler() {
   ruler.a = ruler.b = ruler.foot = null; rulerLine.visible = false;
   rulerPts.forEach(e => (e.style.display = 'none')); rulerLabel.style.display = 'none'; dirty = true;
-  if (state.tool === 'ruler') rulerCardText([tr('Distanza'), tr('Clicca un punto o un lato, poi un secondo. Su due lati paralleli misura la distanza tra i piani.'), tr('Tieni premuto ⌥ per vedere larghezza e altezza del lato sotto il mouse, e gli angoli se passi su un angolo o uno spigolo.')]); else rulerCard.classList.add('hidden');
+  if (state.tool === 'ruler') rulerCardText([tr('Metro'), tr('Clicca un punto o un lato, poi un secondo. Su due lati paralleli misura la distanza tra i piani.'), tr('Tieni premuto ⌥ per vedere larghezza e altezza del lato sotto il mouse, e gli angoli se passi su un angolo o uno spigolo.')]); else rulerCard.classList.add('hidden');
 }
 // punto cliccato sulla superficie; si aggancia a un vertice o a uno spigolo vicino
 function rulerPick(hit) {
@@ -3783,7 +3824,7 @@ window.addEventListener('keyup', e => { if (e.key === 'Alt' && state.tool === 'r
 function rulerClick(hit) {
   if (!hit) { clearRuler(); return; }
   const pt = rulerPick(hit);
-  if (!ruler.a || ruler.b) { clearRuler(); ruler.a = pt; rulerCardText([tr('Distanza'), tr('Ora clicca il secondo punto o lato.')]); dirty = true; return; }
+  if (!ruler.a || ruler.b) { clearRuler(); ruler.a = pt; rulerCardText([tr('Metro'), tr('Ora clicca il secondo punto o lato.')]); dirty = true; return; }
   ruler.b = pt;
   const d = pt.p.clone().sub(ruler.a.p), a = ruler.a;
   const parallel = a.n && pt.n && !a.snap && !pt.snap && Math.abs(a.n.dot(pt.n)) > 0.9995;
@@ -4313,16 +4354,16 @@ function cutToolChanged() {
   } else cutRefresh();
 }
 function cutPlaneHit(e) { if (!cutPlane || !cutPlane.visible) return false; setRay(e); cutPlane.updateMatrixWorld(true); return !!raycaster.intersectObject(cutPlane.children[0], false)[0]; }
-function cutAxisParam(e) {                                     // punto dell'asse (retta per il centro del piano) più vicino al raggio del mouse
+function cutAxisParam(e, p00) {                                     // punto dell'asse (retta per il centro del piano) più vicino al raggio del mouse
   setRay(e);
-  const o = raycaster.ray.origin, d = raycaster.ray.direction, a = WAX[CUT.ax], p0 = cutPlane.position.clone();
+  const o = raycaster.ray.origin, d = raycaster.ray.direction, a = WAX[CUT.ax], p0 = p00 || cutPlane.position.clone();
   const w = o.clone().sub(p0), b = d.dot(a), den = 1 - b * b;
   if (den < 1e-4) return null;                                 // asse quasi verso la camera: non si può trascinare
   return (a.dot(w) - b * d.dot(w)) / den;
 }
-function startCutMove(e) { const t = cutAxisParam(e); return t === null ? null : { t0: t, pos0: CUT.pos }; }
+function startCutMove(e) { const p0 = cutPlane.position.clone(), t = cutAxisParam(e, p0); return t === null ? null : { t0: t, pos0: CUT.pos, p0 }; }   // l'origine resta quella di inizio: se seguisse il piano in movimento, il piano vibrerebbe
 function moveCutMove(e, cm) {
-  const t = cutAxisParam(e); if (t === null) return;
+  const t = cutAxisParam(e, cm.p0); if (t === null) return;
   const b = selBox(); let v = snapV(cm.pos0 + (t - cm.t0));
   v = clamp(v, b.min[CUT.ax] - 5, b.max[CUT.ax] + 5);
   CUT.pos = Math.round(v * 100) / 100; $('#cut-pos').value = fmt(CUT.pos); cutRefresh();
@@ -4354,7 +4395,9 @@ function planeCutNow() {
     const c = new Brush(new THREE.BoxGeometry(BIG, BIG, BIG), M.solid);
     c.position[ax] = pos - side * BIG / 2; c.updateMatrixWorld(true);
     m.updateMatrixWorld(true);
-    return bakeResult(evaluator.evaluate(m, c, SUBTRACTION), `${m.userData.name} ${side < 0 ? 1 : 2}`);
+    const nm = `${m.userData.name} ${side < 0 ? 1 : 2}`, mh = window.__noManifold ? null : manifoldHalf(m, ax, pos, side, M.solid);
+    if (mh) return bakeResult(mh, nm);
+    return bakeResult(evaluator.evaluate(m, c, SUBTRACTION), nm);
   };
   for (const m of list) {
     const b = worldBox(m);
@@ -4424,9 +4467,15 @@ function stretchNow() {
     m.updateMatrixWorld(true);
     const g = m.geometry, idx = g.index, pa = g.attributes.position, nI = idx ? idx.count : pa.count, v = new THREE.Vector3(), W = new Float32Array(nI * 3);
     for (let i = 0; i < nI; i++) { v.fromBufferAttribute(pa, idx ? idx.getX(i) : i).applyMatrix4(m.matrixWorld); W[i * 3] = v.x; W[i * 3 + 1] = v.y; W[i * 3 + 2] = v.z; }
-    const arr = stretchPositions(W, k, pos, delta);
-    if (!arr.length) { made.push(m); continue; }
-    const bk = bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(arr) }, m.userData.name);
+    let res = null;
+    if (!window.__noManifold) res = manifoldStretch(m, CUT.ax, pos, delta, M.solid);
+    let bk = null;
+    if (res) bk = bakeResult(res, m.userData.name);
+    else {
+      const arr = stretchPositions(W, k, pos, delta);
+      if (!arr.length) { made.push(m); continue; }
+      bk = bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(arr) }, m.userData.name);
+    }
     if (!bk) { made.push(m); continue; }
     replaceWithMerged(m, bk, true); made.push(...lastPieces); n++;
   }

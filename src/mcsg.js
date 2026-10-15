@@ -52,3 +52,45 @@ export function manifoldEvaluate(a, b, op, material) {
   } catch (e) { console.warn('Manifold op ' + (e && (e.message || e.code || e.name)) + ' ' + String(e && e.stack).slice(0, 300)); return null; }
   finally { for (const x of [ma, mb, r]) { try { x && x.delete(); } catch (e) {} } }
 }
+
+// Allunga/accorcia: taglia il pezzo sul piano, sposta la parte oltre il piano e riempie lo spazio con la sezione estrusa (delta > 0)
+// o lascia combaciare le due parti (delta < 0). Restituisce un Brush in coordinate mondo, o null.
+const TO_Z = { x: [0, -90, 0], y: [90, 0, 0], z: [0, 0, 0] }, FROM_Z = { x: [0, 90, 0], y: [-90, 0, 0], z: [0, 0, 0] };
+export function manifoldStretch(brush, ax, pos, delta, material) {
+  if (!M) return null;
+  let objs = [];
+  const keep = o => { objs.push(o); return o; };
+  try {
+    const m0 = toManifold(brush); if (!m0) return null; keep(m0);
+    const m = keep(m0.rotate(TO_Z[ax]));
+    let parts;
+    if (delta > 0) {
+      let cs = keep(m.slice(pos));
+      if (cs.isEmpty()) { cs = keep(m.slice(pos + 0.002)); }
+      if (cs.isEmpty()) return null;
+      const slab = keep(keep(M.Manifold.extrude(cs, delta)).translate([0, 0, pos]));
+      parts = [keep(m.trimByPlane([0, 0, -1], -pos)), slab, keep(keep(m.trimByPlane([0, 0, 1], pos)).translate([0, 0, delta]))];
+    } else {
+      const L = pos + delta;
+      parts = [keep(m.trimByPlane([0, 0, -1], -L)), keep(keep(m.trimByPlane([0, 0, 1], pos)).translate([0, 0, delta]))];
+    }
+    const u = keep(M.Manifold.union(parts));
+    const r = keep(u.rotate(FROM_Z[ax]));
+    if (r.status() !== 'NoError' || r.isEmpty()) return null;
+    return toBrush(r, material || brush.material);
+  } catch (e) { console.warn('Manifold stretch ' + (e && e.message)); return null; }
+  finally { for (const x of objs) { try { x.delete(); } catch (e) {} } }
+}
+
+// tiene la metà del pezzo dalla parte 'side' (-1 sotto il piano, +1 sopra): taglio esatto, chiuso e veloce
+export function manifoldHalf(brush, ax, pos, side, material) {
+  if (!M) return null;
+  const objs = [], keep = o => { objs.push(o); return o; }, n = [0, 0, 0]; n['xyz'.indexOf(ax)] = side;
+  try {
+    const m = toManifold(brush); if (!m) return null; keep(m);
+    const r = keep(m.trimByPlane(n, side * pos));
+    if (r.status() !== 'NoError' || r.isEmpty()) return null;
+    return toBrush(r, material || brush.material);
+  } catch (e) { console.warn('Manifold half ' + (e && e.message)); return null; }
+  finally { for (const x of objs) { try { x.delete(); } catch (e) {} } }
+}
