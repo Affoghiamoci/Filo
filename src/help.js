@@ -1,7 +1,7 @@
 // Guida di Filo: contenuti in italiano e inglese. Le figure sono {{img:nome|didascalia}}.
 export const GROUPS = {
-  it: { start: 'Per iniziare', create: 'Creare', select: 'Selezionare', transform: 'Trasformare', model: 'Modellare', solids: 'Fori e unione', measure: 'Misurare', ref: 'Riferimento' },
-  en: { start: 'Getting started', create: 'Create', select: 'Select', transform: 'Transform', model: 'Shape', solids: 'Holes and joining', measure: 'Measure', ref: 'Reference' },
+  it: { start: 'Per iniziare', path: 'Percorso', create: 'Creare', select: 'Selezionare', transform: 'Trasformare', model: 'Modellare', solids: 'Fori e unione', measure: 'Misurare', ref: 'Riferimento' },
+  en: { start: 'Getting started', path: 'Learning path', create: 'Create', select: 'Select', transform: 'Transform', model: 'Shape', solids: 'Holes and joining', measure: 'Measure', ref: 'Reference' },
 };
 
 const K = (...k) => k.map(x => `<kbd>${x}</kbd>`).join(' ');
@@ -17,6 +17,21 @@ export const HELP = {
       <ul><li><b>Ruotare</b>: trascina nel vuoto o con il tasto destro. Un clic destro senza trascinare apre il menu.</li><li><b>Spostare</b>: ${K('Spazio')} + trascina.</li><li><b>Zoom</b>: rotella o pizzico sul trackpad; ${K('⌥')} + scorrimento funziona con qualsiasi dispositivo.</li><li><b>Adatta alla vista</b>: ${K('⌘0')}; doppio clic su un oggetto per centrarlo.</li></ul>
       <p>Il cubo in alto a sinistra mostra l'orientamento. Nella barra in basso, "Vista" porta subito Davanti, Sopra, Destra o 3D. Davanti, Sopra e Destra sono senza prospettiva, comode per allineare.</p>
       <ul><li>${K('M')} mostra le <b>Misure</b> reali degli oggetti.</li><li>${K('Z')} attiva i <b>Raggi X</b>: i contorni delle parti coperte.</li><li>${K('Tab')} riduce la barra laterale.</li></ul>` },
+    { id: 'l1', g: 'path', t: '1. La prima scatola', h: `
+      <div class="tip"><b>In 5 minuti</b>: metti una scatola sul piatto, la misuri e capisci come si muove. Tutto il resto del percorso parte da qui.</div>
+      {{try:prima-scatola|Prova ora: carica una scatola da 40 × 30 × 20 mm}}
+      <ol class="hp-st">
+        <li><b>Aggiungi la scatola</b><p>Premi ${K('B')} oppure clicca <i>Scatola</i> nella barra a sinistra, sezione Forme. Compare al centro del piatto, già appoggiata a Z = 0.</p>
+          {{img:l1-scatola|La scatola appena creata: gli strumenti sono a sinistra}}</li>
+        <li><b>Scrivi le misure</b><p>Nel pannello a destra, sotto <i>Misure (mm)</i>: L è la larghezza (asse X), P la profondità (Y), A l'altezza (Z). Scrivi 40, 30 e 20 e premi ${K('Invio')}. Le frecce nei campi cambiano il valore, con ${K('⇧')} a passi da 10.</p>
+          {{img:l1-pannello|Posizione e misure nel pannello a destra}}</li>
+        <li><b>Spostala</b><p>Trascina le maniglie colorate: rossa per X, verde per Y, blu per Z. Oppure scrivi i numeri in <i>Posizione</i>. Quanto salta il movimento lo decide <i>Scatto</i>, nella barra in basso (1 mm di partenza).</p></li>
+        <li><b>Guardala da tutte le parti</b><p>Trascina nel vuoto per ruotare la vista, usa la rotella per lo zoom. In basso, <i>Vista</i> porta subito Davanti, Sopra, Destra o 3D.</p></li>
+        <li><b>Controlla le misure</b><p>${K('M')} scrive le misure vere sopra l'oggetto. Se non tornano con quelle che volevi, correggile dal pannello.</p>
+          {{img:l1-misure|Con ${K('M')} le misure compaiono sopra la scatola}}</li>
+        <li><b>Torna indietro quando vuoi</b><p>${K('⌘Z')} annulla e ${K('⇧⌘Z')} ripete. L'elenco di tutti i passi è nella Cronologia (${K('F8')}): clicca un passo per tornarci.</p></li>
+      </ol>
+      <div class="tip"><b>Prossimo passo</b>: nella lezione 2 aggiungi un cilindro e fai un foro nella scatola.</div>` },
     { id: 'shapes', g: 'create', t: 'Forme', h: `
       {{img:forme|Scatola, cilindro, sfera, cono, prisma e toro}}
       <p>Scatola ${K('B')}, cilindro ${K('C')}, sfera ${K('S')}, cono ${K('O')}, prisma ${K('P')}, toro (dalla barra). Ogni forma nasce con misure semplici e si regola dal pannello a destra.</p>
@@ -135,6 +150,21 @@ export const HELP = {
       <ul><li><b>Orbit</b>: drag in empty space or with the right button. A right-click without dragging opens the menu.</li><li><b>Pan</b>: ${K('Space')} + drag.</li><li><b>Zoom</b>: wheel or pinch on the trackpad; ${K('⌥')} + scroll works with any device.</li><li><b>Fit to view</b>: ${K('⌘0')}; double click an object to center it.</li></ul>
       <p>The cube at the top left shows the orientation. In the bottom bar, "View" jumps to Front, Top, Right or 3D. Front, Top and Right have no perspective, handy for aligning.</p>
       <ul><li>${K('M')} shows the real <b>Dimensions</b> of objects.</li><li>${K('Z')} toggles <b>X-ray</b>: outlines of hidden parts.</li><li>${K('Tab')} collapses the sidebar.</li></ul>` },
+    { id: 'l1', g: 'path', t: '1. Your first box', h: `
+      <div class="tip"><b>In 5 minutes</b>: put a box on the plate, measure it and learn how it moves. The rest of the path starts here.</div>
+      {{try:prima-scatola|Try it now: load a 40 × 30 × 20 mm box}}
+      <ol class="hp-st">
+        <li><b>Add the box</b><p>Press ${K('B')} or click <i>Box</i> in the left bar, Shapes section. It appears at the centre of the plate, already resting on Z = 0.</p>
+          {{img:l1-scatola-en|The new box: the tools are on the left}}</li>
+        <li><b>Type the sizes</b><p>In the right panel, under <i>Size (mm)</i>: W is the width (X axis), D the depth (Y), H the height (Z). Type 40, 30 and 20 and press ${K('Enter')}. The arrows in the fields change the value, with ${K('⇧')} in steps of 10.</p>
+          {{img:l1-pannello-en|Position and size in the right panel}}</li>
+        <li><b>Move it</b><p>Drag the coloured handles: red for X, green for Y, blue for Z. Or type the numbers in <i>Position</i>. How far each move jumps is set by <i>Step</i>, in the bottom bar (1 mm to start with).</p></li>
+        <li><b>Look at it from every side</b><p>Drag in the empty space to rotate the view, use the wheel to zoom. At the bottom, <i>View</i> takes you straight to Front, Top, Right or 3D.</p></li>
+        <li><b>Check the sizes</b><p>${K('M')} writes the real sizes over the object. If they are not what you wanted, fix them in the panel.</p>
+          {{img:l1-misure|With ${K('M')} the sizes appear over the box}}</li>
+        <li><b>Go back whenever you want</b><p>${K('⌘Z')} undoes and ${K('⇧⌘Z')} redoes. The list of every step is in History (${K('F8')}): click a step to go back to it.</p></li>
+      </ol>
+      <div class="tip"><b>Next</b>: in lesson 2 you add a cylinder and make a hole in the box.</div>` },
     { id: 'shapes', g: 'create', t: 'Shapes', h: `
       {{img:forme|Box, cylinder, sphere, cone, prism and torus}}
       <p>Box ${K('B')}, cylinder ${K('C')}, sphere ${K('S')}, cone ${K('O')}, prism ${K('P')}, torus (from the bar). Each shape starts with simple sizes and is adjusted in the right panel.</p>

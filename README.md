@@ -68,7 +68,8 @@ Il codice è in `src/`:
 | `index.template.html`, `style.css` | Struttura e stile (la build li unisce in un solo file) |
 | `edges.js`, `mcsg.js`, `manifold.wasm` | Spigoli e booleane (Manifold, con three-bvh-csg come ripiego) |
 | `textgen.js`, `print.js` | Testo 3D e controllo di stampa |
-| `i18n.js`, `help.js`, `helpimg.js` | Traduzioni IT/EN e Guida |
+| `i18n.js`, `help.js`, `helpimg.js`, `helpimg2.js`, `examples.js` | Traduzioni IT/EN, Guida, immagini e esempi caricabili |
+| `tools/` | Generatore delle immagini della Guida (`guide-shots.py`, `guide-lessons.py`, `pack-help-images.mjs`) |
 
 Altri file utili: `DESIGN.md` (token, tipografia, spaziature e componenti da consultare prima di toccare l'interfaccia), `IDEE.md` (idee rimandate), `THIRD_PARTY_LICENSES.md` (generato dalla build).
 
