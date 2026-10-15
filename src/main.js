@@ -2445,6 +2445,7 @@ function setTool(t) {
 const sideEl = $('#side'), tipEl = $('#tip');
 function setMini(on, save = true) {
   sideEl.classList.toggle('mini', on);
+  if (!on && save) { sideEl.classList.add('opening'); clearTimeout(setMini.t); setMini.t = setTimeout(() => sideEl.classList.remove('opening'), 320); }
   document.documentElement.style.setProperty('--sw', on ? '72px' : '312px');
   hideTip();
   document.querySelectorAll('#tools .tool').forEach(b => {      // barra stretta: c'è già il nostro pop up, quindi niente tooltip del browser (si sovrapporrebbero)

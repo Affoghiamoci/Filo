@@ -115,6 +115,10 @@ label.f{white-space:nowrap}
 .icon-btn:focus-visible{box-shadow:0 0 0 2px var(--accent)}
 .icon-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 #side{transition:width .22s ease}
+#side.opening{overflow:hidden}
+#side.opening>*{min-width:312px;white-space:nowrap}
+#side.opening .titles,#side.opening .tool .t,#side.opening .tool kbd,#side.opening #foot,#side.opening #nav-help,#side.opening #help-open,#side.opening #tools h3{animation:side-in .18s ease .08s backwards}
+@keyframes side-in{from{opacity:0}to{opacity:1}}
 #side.mini{width:60px;bottom:auto;max-height:calc(100% - 24px)}
 #side.mini header{padding:10px 0 2px;justify-content:center}
 #side.mini .titles,#side.mini #nav-help,#side.mini .tool .t,#side.mini .tool kbd{display:none}
