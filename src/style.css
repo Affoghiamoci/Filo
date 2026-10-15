@@ -785,3 +785,8 @@ dialog[open],dialog[open]::backdrop{animation:fade-in .16s ease}
   #dlg-info .info-main{order:-1;padding-right:0}
   #dlg-info .info-news{border-right:0;padding-right:0;border-top:1px solid var(--line);margin-top:6px;padding-top:12px}
 }
+/* Info: le novità scorrono dentro la loro colonna, aprendo "Versioni precedenti" la finestra non cambia altezza */
+@media (min-width:761px){
+  #dlg-info .info-news{contain:size;display:flex;flex-direction:column;min-height:0}
+  #dlg-info .info-news .cl{flex:1;min-height:0;overflow:auto;padding-right:10px;margin-right:-6px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+}

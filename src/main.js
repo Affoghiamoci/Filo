@@ -4874,6 +4874,8 @@ const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
 $('#info-close').addEventListener('click', () => infoDlg.close());
+{ const det = infoDlg.querySelector('.cl details'), cl = infoDlg.querySelector('.cl');   // aprendo le versioni precedenti, la colonna scorre fino a loro
+  if (det && cl) det.addEventListener('toggle', () => { if (det.open) cl.scrollTo({ top: Math.max(0, det.offsetTop - cl.offsetTop - 8), behavior: 'smooth' }); }); }
 infoDlg.addEventListener('click', e => { if (e.target === infoDlg) infoDlg.close(); });
 initI18n();
 Promise.race([document.fonts && document.fonts.ready, new Promise(r => setTimeout(r, 900))]).then(() => requestAnimationFrame(() => document.documentElement.classList.add('ui-ready')));

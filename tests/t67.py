@@ -17,6 +17,11 @@ with sync_playwright() as p:
             check(tag+'novità a sinistra, resto a destra',r['nr']<=r['ml']+1 and abs(r['nt']-r['mt'])<40)
         else:
             check(tag+'una colonna, resto sopra le novità',r['mt']<r['nt'] and r['dr']<=r['w'])
+        if w>=900:
+            h0=pg.evaluate("document.querySelector('#dlg-info').getBoundingClientRect().height")
+            pg.click('#dlg-info summary');pg.wait_for_timeout(700)
+            h1=pg.evaluate("document.querySelector('#dlg-info').getBoundingClientRect().height")
+            check(tag+'aprendo Versioni precedenti la finestra non cambia altezza',abs(h0-h1)<1 and pg.evaluate("(()=>{const c=document.querySelector('.cl');return c.scrollHeight>c.clientHeight})()"))
         check(tag+'link al repository',r['href']=='https://github.com/Affoghiamoci/Filo')
         check(tag+'testo MIT',('MIT' in r['txt']) and (('Codice' in r['txt'].title()) if lang=='it' else ('code' in r['txt'].lower())))
         check(tag+'nessun errore',not errs)
