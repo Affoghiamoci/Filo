@@ -163,10 +163,10 @@
 <svg id="mq" class="hidden" aria-hidden="true"><rect id="mq-r"/><polygon id="mq-p"/></svg>
 
 <div id="topbar" class="panel">
-  <button class="btn" id="b-import" title="Importa un file 3MF o STL (⌘O)">Importa <kbd class="o">⌘<span>O</span></kbd></button>
+  <button class="btn ic" id="b-import" title="Importa un file 3MF o STL (⌘O)" aria-label="Importa"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="square"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M4 14v6h16v-6"/></svg></button>
   <input type="file" id="file-in" accept=".3mf,.stl,.svg,.3MF,.STL,.SVG" multiple hidden>
-  <button class="btn" id="b-check" title="Controlla se il pezzo è pronto da stampare">Controlla</button>
-  <button class="btn primary" id="b-export" title="Esporta il modello (⌘S)">Esporta</button>
+  <button class="btn ic" id="b-check" title="Controlla se il pezzo è pronto da stampare" aria-label="Controlla"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="square"><path d="M12 3 4 6v6c0 4.5 3.2 7.8 8 9 4.8-1.2 8-4.5 8-9V6l-8-3Z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg></button>
+  <button class="btn ic primary" id="b-export" title="Esporta il modello (⌘S)" aria-label="Esporta"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="square"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M4 14v6h16v-6"/></svg></button>
 </div>
 
 <aside id="layers" class="panel hidden">
@@ -217,6 +217,11 @@
 <div id="snapmenu" class="panel hidden"></div>
 <div id="empty-hint"><div class="ew">
   <div class="ew-head"><div class="ew-title"><i>[ 0 ]</i><b>Inizia</b></div><div class="langsw" role="group" aria-label="Language"><button data-lang="it">IT</button><button data-lang="en">EN</button></div></div>
+  <section class="ew-sec hidden" id="ew-resume">
+    <span class="ew-n">↺</span>
+    <div class="ew-t"><b>Riprendi</b><span id="ew-resume-t">Ultimo lavoro salvato in questo browser.</span></div>
+    <div class="ew-resume-btns"><button class="ew-tile ew-go" data-eh="resume">Riprendi</button><button class="ew-tile ew-del" data-eh="resume-del" aria-label="Elimina il lavoro salvato" title="Elimina il lavoro salvato">Elimina</button></div>
+  </section>
   <section class="ew-sec">
     <span class="ew-n">01</span>
     <div class="ew-t"><b>Forme</b><span>Blocchi, cilindri, coni, poligoni e anelli da combinare e forare.</span></div>
@@ -328,7 +333,7 @@
     <p>Questa app è stata generata con l’ausilio dell’intelligenza artificiale.</p>
     <div class="info-row"><span class="lbl">Novità</span><div class="cl">
       <b>0.9.0</b>
-      <ul><li>Controlla stampa: pannello con anteprima a strati, pareti sottili, sbalzi in rosso, pezzi sospesi e stima di peso e tempo</li><li>Spigolo: sposta uno spigolo con la direzione ⊥ e la parete dritta (l'esagono si allunga senza storcersi), anche i verticali del prisma; ridimensiona gli anelli, con calamita</li><li>Annulla riporta anche spigoli e lati selezionati</li><li>Raggi X: contorno delle pareti di cilindri e coni, anche dietro altri pezzi</li><li>Guida con nuove immagini e GIF (Ruota, Spigolo, Controlla)</li><li>Nuova guida: finestra grande con categorie, immagini e GIF (tasto ? o F1)</li><li>Nuovo motore per Combina, Taglia, Allunga e spigoli: solidi sempre chiusi e molto più veloci</li><li>Spigoli singoli su scatola e prisma, modificabili quando vuoi; bordi di cilindro e cono sempre modificabili</li><li>SVG importati più puliti: i fori con loghi non lasciano più crepe</li><li>Taglia e Allunga: il piano si trascina con il mouse; Allunga è più preciso</li><li>Metro (prima Distanza): con ⌥ vedi larghezza, altezza, angoli e lunghezze sotto il mouse</li><li>Ruota con tacche, alone e spicchio dell'angolo; Distribuisci per avere spazi uguali</li><li>Ripeti con Spazio tra le copie; Scatto con 0,1 mm e Libero; calamita su angoli e lati degli altri oggetti</li><li>Barra in basso a sezioni, pop up al passaggio del mouse, Scatolina con anteprima</li><li>Export 3MF con le impostazioni di Bambu Studio; riparazione automatica delle crepe</li></ul>
+      <ul><li>Controlla stampa: pannello con anteprima a strati, pareti sottili, sbalzi in rosso, pezzi sospesi e stima di peso e tempo</li><li>Spigolo: sposta uno spigolo con la direzione ⊥ e la parete dritta (l'esagono si allunga senza storcersi), anche i verticali del prisma; ridimensiona gli anelli, con calamita</li><li>Annulla riporta anche spigoli e lati selezionati</li><li>Riprendi l'ultimo lavoro dalla schermata iniziale e avviso prima di ricaricare la pagina</li><li>Barra in alto con tre icone: Importa, Controlla, Esporta</li><li>Raggi X: contorno delle pareti di cilindri e coni, anche dietro altri pezzi</li><li>Guida con nuove immagini e GIF (Ruota, Spigolo, Controlla)</li><li>Nuova guida: finestra grande con categorie, immagini e GIF (tasto ? o F1)</li><li>Nuovo motore per Combina, Taglia, Allunga e spigoli: solidi sempre chiusi e molto più veloci</li><li>Spigoli singoli su scatola e prisma, modificabili quando vuoi; bordi di cilindro e cono sempre modificabili</li><li>SVG importati più puliti: i fori con loghi non lasciano più crepe</li><li>Taglia e Allunga: il piano si trascina con il mouse; Allunga è più preciso</li><li>Metro (prima Distanza): con ⌥ vedi larghezza, altezza, angoli e lunghezze sotto il mouse</li><li>Ruota con tacche, alone e spicchio dell'angolo; Distribuisci per avere spazi uguali</li><li>Ripeti con Spazio tra le copie; Scatto con 0,1 mm e Libero; calamita su angoli e lati degli altri oggetti</li><li>Barra in basso a sezioni, pop up al passaggio del mouse, Scatolina con anteprima</li><li>Export 3MF con le impostazioni di Bambu Studio; riparazione automatica delle crepe</li></ul>
       <details><summary>Versioni precedenti</summary>
         <b>0.7.9</b>
         <ul><li>Strumento Spigolo (arrotonda e smussa), nuove forme (cono, prisma, toro)</li><li>Tema chiaro, scuro o automatico, vista Raggi X, Ripeti in griglia, nido d'ape e cerchio</li><li>Viste senza prospettiva, copia e incolla, esportazione 3MF riparata</li><li>Modelli pesanti più fluidi e import 3MF di Bambu e Orca corretto</li></ul>

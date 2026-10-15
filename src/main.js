@@ -638,7 +638,7 @@ function createObject(kind) {
 }
 
 /* ------------------------------------------------------------- selezione */
-let nextGid = 1;
+let nextGid = 1, unsaved = false;
 let layersOn = false, layersQueued = false;
 const withGroups = list => {
   const g = new Set(list.map(m => m.userData.gid).filter(v => v != null));
@@ -738,6 +738,7 @@ function applyCtx(c) {
   c.edges.forEach(e => { const o = objects.find(x => x.userData.id === e.id); if (o) selectEdgeAt({ object: o, point: new THREE.Vector3(...e.pt) }, true); });
 }
 function commit() {
+  unsaved = objects.length > 0; scheduleSave();
   if (pendCtx && Date.now() - pendCtx.t < 8000 && history[hIdx]) history[hIdx].ctx = pendCtx.c;
   pendCtx = null;
   history.length = hIdx + 1;
@@ -2154,6 +2155,7 @@ function exportList() {
 }
 const exportName = list => (list.length === 1 ? list[0].userData.name : 'filo').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'filo';
 function download(data, type, filename) {
+  unsaved = false;
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([data], { type }));
   a.download = filename;
@@ -4745,7 +4747,74 @@ $('#chk-sl').addEventListener('input', e => chkDraw(+e.target.value));
 $('#chk-lh').addEventListener('change', chkRun); $('#chk-mw').addEventListener('change', chkRun);
 $('#chk-ov').addEventListener('change', e => { if (chk.ov) { chk.ov.visible = e.target.checked; dirty = true; } });
 
-window.forma = { openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+
+/* ------------------------------------------ ultimo lavoro: salvataggio automatico nel browser e avviso prima di ricaricare */
+const IDB = { db: null };
+function idb() {
+  return IDB.db || (IDB.db = new Promise((res, rej) => { try { const r = indexedDB.open('filo', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); } catch (e) { rej(e); } }));
+}
+const idbGet = k => idb().then(db => new Promise((res, rej) => { const q = db.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }));
+const idbSet = (k, v) => idb().then(db => new Promise((res, rej) => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').put(v, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }));
+const idbDel = k => idb().then(db => new Promise(res => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }));
+let saveTimer = 0;
+function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveLast, 1500); }
+function saveLast() {
+  if (!objects.length) return;                                       // un'area vuota non cancella l'ultimo lavoro
+  try {
+    const list = objects.map(m => {
+      const d = entryOf(m); d.hidden = !!m.userData.hidden; d.locked = !!m.userData.locked;
+      if (d.kind === 'merged' && d.geo) { const g = d.geo; d.geo = { pos: g.attributes.position.array.slice(), nor: g.attributes.normal ? g.attributes.normal.array.slice() : null, idx: g.index ? g.index.array.slice() : null }; }
+      return d;
+    });
+    idbSet('last', { t: Date.now(), n: objects.length, nextId, nextGid, list }).catch(() => {});
+  } catch (e) { console.warn('salvataggio', e); }
+}
+function geoFromSaved(s) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(s.pos, 3));
+  if (s.nor) g.setAttribute('normal', new THREE.BufferAttribute(s.nor, 3));
+  if (s.idx) g.setIndex(new THREE.BufferAttribute(s.idx, 1));
+  g.computeBoundingBox(); g.computeBoundingSphere();
+  return g;
+}
+async function restoreLast() {
+  let s; try { s = await idbGet('last'); } catch (e) { return false; }
+  if (!s || !s.list || !s.list.length) return false;
+  [...objects].forEach(removeMesh);
+  s.list.forEach(d => { if (d.kind === 'merged') d.geo = geoFromSaved(d.geo); makeMesh(d); });
+  nextId = Math.max(nextId, s.nextId || 1, ...objects.map(o => o.userData.id + 1)); nextGid = Math.max(nextGid, s.nextGid || 1);
+  setSelection([]); touch(); commit(); fitView();
+  unsaved = false;
+  toast(`${tr("Ripreso l'ultimo lavoro")}: ${s.n} ${tr(s.n === 1 ? 'pezzo' : 'pezzi')}`);
+  return true;
+}
+function ago(t) {
+  const m = Math.round((Date.now() - t) / 60000);
+  if (m < 1) return tr('adesso');
+  if (m < 60) return `${m} ${tr('min fa')}`;
+  const h = Math.round(m / 60);
+  if (h < 36) return `${h} ${tr(h === 1 ? 'ora fa' : 'ore fa')}`;
+  return new Date(t).toLocaleDateString(getLang() === 'en' ? 'en-GB' : 'it-IT', { day: 'numeric', month: 'short' });
+}
+async function offerResume() {
+  let s; try { s = await idbGet('last'); } catch (e) { return; }
+  const sec = $('#ew-resume');
+  if (!s || !s.list || !s.list.length || objects.length) { sec.classList.add('hidden'); return; }
+  const names = s.list.slice(0, 3).map(d => d.name).join(', ') + (s.list.length > 3 ? '…' : '');
+  $('#ew-resume-t').textContent = `${s.n} ${tr(s.n === 1 ? 'pezzo' : 'pezzi')} · ${ago(s.t)} · ${names}`;
+  sec.classList.remove('hidden');
+}
+window.addEventListener('beforeunload', e => { if (unsaved && objects.length) { e.preventDefault(); e.returnValue = ''; } });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && unsaved) saveLast(); });
+$('#ew-resume').addEventListener('click', async e => {
+  const b = e.target.closest('[data-eh]'); if (!b) return;
+  e.stopPropagation();
+  if (b.dataset.eh === 'resume') { if (!(await restoreLast())) toast('Non c\'è niente da riprendere'); }
+  else if (b.dataset.eh === 'resume-del') { await idbDel('last'); $('#ew-resume').classList.add('hidden'); toast('Lavoro salvato eliminato'); }
+});
+offerResume();
+
+window.forma = { restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */
@@ -5016,6 +5085,7 @@ $('#empty-hint').addEventListener('click', e => {
   const b = e.target.closest('[data-eh]');
   if (!b) return;
   const a = b.dataset.eh;
+  if (a === 'resume' || a === 'resume-del') return;
   if (a === 'text') addText();
   else if (a === 'import') $('#file-in').click();
   else if (a === 'help') window.openHelp();
