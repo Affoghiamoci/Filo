@@ -117,6 +117,7 @@ label.f{white-space:nowrap}
 #side{transition:width .22s ease}
 #side.opening{overflow:hidden}
 #side.opening>*{min-width:290px;white-space:nowrap}
+#side.opening>#foot{min-width:262px}
 #side.opening .titles,#side.opening .tool .t,#side.opening .tool kbd,#side.opening #foot,#side.opening #nav-help,#side.opening #help-open,#side.opening #tools h3{animation:side-in .18s ease .08s backwards}
 @keyframes side-in{from{opacity:0}to{opacity:1}}
 #side.mini{width:60px;bottom:auto;max-height:calc(100% - 24px)}

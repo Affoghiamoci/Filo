@@ -4305,7 +4305,9 @@ function startEdgeMove(e) {
   const mi = moveInfo(); if (!mi) return null;
   const obj = mi.obj, pos = obj.geometry.attributes.position, keys = new Set(mi.pts.map(p => ekey(p.x, p.y, p.z))), v = new THREE.Vector3(), idx = [], idxCol = [], rd = new Map(), hit = new Set(), xys = new Set(mi.pts.map(p => xyKey(p.x, p.y)));
   obj.updateMatrixWorld(true);
-  for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(obj.matrixWorld); const k = ekey(v.x, v.y, v.z); if (keys.has(k)) { idx.push(i); idxCol.push(i); hit.add(k); if (mi.rad) rd.set(i, mi.rad.get(k)); } else if (xys.has(xyKey(v.x, v.y))) idxCol.push(i); }
+  const wg = obj.geometry.clone(); wg.applyMatrix4(obj.matrixWorld); const wpos = wg.attributes.position;   // stessa precisione (float32) dell'analisi degli spigoli, altrimenti i vertici non combaciano
+  for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(wpos, i); const k = ekey(v.x, v.y, v.z); if (keys.has(k)) { idx.push(i); idxCol.push(i); hit.add(k); if (mi.rad) rd.set(i, mi.rad.get(k)); } else if (xys.has(xyKey(v.x, v.y))) idxCol.push(i); }
+  wg.dispose();
   if (hit.size < keys.size) { toast('Questo spigolo è arrotondato: per spostarlo togli prima l\'arrotondamento'); return null; }
   const sc = new THREE.Vector2(), proj = p => { const q = p.clone().project(camera); return new THREE.Vector2((q.x * 0.5 + 0.5) * window.innerWidth, (-q.y * 0.5 + 0.5) * window.innerHeight); };
   const c0 = proj(mi.c), dirs = {};
