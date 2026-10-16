@@ -1,85 +1,140 @@
-# Filo
+<div align="center">
 
-Modellatore 3D semplice che gira offline in un solo file HTML, pensato per creare e modificare oggetti da stampare in 3D: mollette, ganci, scatoline e simili. Interfaccia in italiano e inglese, scorciatoie alla Photoshop, piatti Bambu Lab, stile industriale con accento arancione.
+<img src="docs/img/banner.png" alt="Filo, a tiny 3D modeler for things you're going to print" width="100%">
 
-Versione 0.10.7 (beta). Sito: [filo.affogo.fyi](https://filo.affogo.fyi). Codice: [github.com/Affoghiamoci/Filo](https://github.com/Affoghiamoci/Filo)
+<br>
 
-## Cosa fa
+**A small 3D modeler for the things you actually print: boxes, holders, hooks, brackets.**<br>
+One HTML file. No install, no account, works offline.
 
-**Creare**
-- Forme: scatola, cilindro, sfera, cono, prisma (n lati), toro, testo 3D con font a scelta (anche tuoi) e SVG
-- Scatolina con coperchio su misura, con anteprima
-- Ripeti in griglia, nido d'ape o cerchio, con spazio tra le copie
+[**Open Filo → filo.affogo.fyi**](https://filo.affogo.fyi)
 
-**Modificare**
-- Sposta, ruota (con scatto a 15°), ridimensiona (anche gruppi e oggetti ruotati, con lucchetto delle proporzioni), allinea e distribuisci
-- Lato: spingi e tira un lato piatto. Spigolo: arrotonda e smussa, ogni spigolo ha il suo raggio e resta modificabile
-- Taglia con un piano, Allunga e accorcia una parte, Metro con larghezza, altezza e angoli sotto il mouse
-- Fori, Combina (unisce i solidi e sottrae i fori) e Interseca (tiene solo la parte in comune) con un motore booleano che dà solidi sempre chiusi
-- Appoggia sul piatto raddrizza il pezzo sul lato piatto stabile più vicino (anche con più oggetti) e lo porta a Z = 0
-- Menu con il tasto destro (clic destro senza trascinare) su oggetti e sul vuoto, breve e con le scorciatoie; trascinando col destro si orbita come prima
-- Barra a sinistra con strumenti in seconda funzione (Riquadro e Lazo, Taglia e Allunga, Combina e Interseca): si aprono tenendo premuto, con il clic destro o dal triangolino
-- Gruppi, Livelli (blocca, nascondi, rinomina), Cronologia con anteprima, Annulla e Ripeti
-- Scatto da 0,1 mm a libero e calamita su angoli e lati degli altri oggetti
+![version](https://img.shields.io/badge/version-0.10.7_beta-ff6a00?style=flat-square)
+![offline](https://img.shields.io/badge/works-offline-1a1a1a?style=flat-square)
+![license](https://img.shields.io/badge/license-MIT-1a1a1a?style=flat-square)
+![formats](https://img.shields.io/badge/3MF_·_STL_·_SVG-1a1a1a?style=flat-square)
 
-**Controllare e stampare**
-- Controlla stampa: anteprima a strati, pareti sottili, sbalzi in rosso, pezzi sospesi, stima di peso e tempo
-- Piatti pronti: A1 mini, A1, P1S, X1C, P2S, H2S, H2D e fino a 40 cm
-- Import di 3MF (anche di Bambu Studio e Orca), STL e SVG
-- Export 3MF con le impostazioni di Bambu Studio e riparazione automatica delle crepe, oppure STL. L'export porta sempre tutto il piatto
-- Riprendi l'ultimo lavoro dalla schermata iniziale (scheda sotto Inizia), con avviso prima di ricaricare la pagina
+[English](README.md) · [Italiano](README.it.md)
 
-**Interfaccia**
-- Tema chiaro, scuro o automatico, vista Raggi X, viste senza prospettiva
-- Guida integrata con immagini e GIF (tasto `?` o `F1`)
-- `Esc` annulla la modifica di un campo, chiude i menu, poi deseleziona
+</div>
 
-## Scorciatoie principali
+---
 
-| Tasto | Azione | Tasto | Azione |
+## Why Filo
+
+I wanted something between "drag a few boxes around" and a full CAD package. Most of what I print is simple: a holder, a lid, a clip, a bracket. Filo is built for that. You push shapes together, cut holes, round the edges, check the print and send it to the slicer.
+
+- **One file.** Open `index.html` and that's it. Models never leave your device.
+- **Made for printing.** Bambu Lab plates, a print check, and a 3MF export that opens ready in Bambu Studio.
+- **Always-closed solids.** Booleans run on Manifold, so combined parts come out watertight.
+- **Photoshop-style shortcuts.** One key per tool, shown next to each tool in the sidebar.
+
+<p align="center">
+  <img src="docs/img/hero.png" alt="Filo main window with an orange box with three round holes and a slot" width="100%">
+</p>
+
+## What it does
+
+### Build
+
+- Shapes: box, cylinder, sphere, cone, n-sided prism, torus, 3D text (any font, including your own) and SVG import
+- "Box with lid" template, sized to your measurements, with preview
+- Repeat in a grid, honeycomb or circle, with spacing between copies
+
+<p align="center">
+  <img src="docs/img/holes.png" alt="Holes subtracted from a solid with Combine, with Layers panel open" width="49%">
+  <img src="docs/img/edges.png" alt="Rounded and chamfered edges, each edge with its own radius" width="49%">
+</p>
+
+### Edit
+
+- Move, rotate (15° snap), resize (also groups and rotated objects, with proportion lock), align and distribute
+- **Face:** push or pull a flat face. **Edge:** round or chamfer, each edge with its own editable radius
+- **Cut** with a plane, **Stretch** a part, **Tape measure** for widths, heights and angles under the cursor
+- **Hole / Solid**, **Combine** (union, minus holes) and **Intersect**
+- **Drop to plate** finds the nearest stable flat face and puts the part on Z = 0
+- Groups, Layers (lock, hide, rename), History with previews, Undo / Redo
+- Snap from 0.1 mm to free, with magnet to corners and edges of other objects
+
+<p align="center">
+  <img src="docs/img/text.png" alt="3D text with font, size and depth controls" width="49%">
+  <img src="docs/img/knob.png" alt="Knurled knob made by repeating a shape in a circle" width="49%">
+</p>
+
+### Check and print
+
+- **Print check:** layer preview, thin walls, overhangs in red, floating parts, weight and time estimate
+- Plates ready to go: A1 mini, A1, P1S, X1C, P2S, H2S, H2D, and custom sizes up to 40 cm
+- Import 3MF (including from Bambu Studio and Orca), STL and SVG
+- Export 3MF with Bambu Studio settings and automatic crack repair, or STL. Export always carries the whole plate
+
+<p align="center">
+  <img src="docs/img/print-check.png" alt="Print check with overhangs highlighted and layer slider" width="49%">
+  <img src="docs/img/dimensions.png" alt="Dimension labels shown on an object" width="49%">
+</p>
+
+### Interface
+
+- Light, dark or automatic theme, X-ray view, true isometric and orthographic views
+- Italian and English UI
+- Built-in guide with images and GIFs (`?` or `F1`)
+
+<p align="center">
+  <img src="docs/img/dark.png" alt="Filo in the dark theme" width="49%">
+  <img src="docs/img/box-with-lid.png" alt="Box with lid template" width="49%">
+</p>
+
+## Shortcuts
+
+`⌘` is `Ctrl` on Windows and Linux.
+
+| Key | Action | Key | Action |
 |---|---|---|---|
-| `V` | Sposta | `B` `C` `S` `O` `P` | Scatola, cilindro, sfera, cono, prisma |
-| `Q` `W` | Riquadro, Lazo | `T` | Testo |
-| `R` | Ruota | `X` | Foro o solido |
-| `L` | Lato | `⌘E` `⇧⌘E` | Combina, Interseca |
-| `E` | Spigolo | `⌘G` | Raggruppa |
-| `U` `K` | Allunga, Taglia | `⌘D` | Duplica |
-| `D` | Metro | `⌘Z` `⇧⌘Z` | Annulla, Ripeti |
-| `Tab` | Sidebar stretta | `F7` `F8` | Livelli, Cronologia |
+| `V` | Move | `B` `C` `S` `O` `P` | Box, cylinder, sphere, cone, prism |
+| `Q` `W` | Marquee, Lasso | `T` | Text |
+| `R` | Rotate | `X` | Hole / Solid |
+| `L` | Face | `⌘E` `⇧⌘E` | Combine, Intersect |
+| `E` | Edge | `⌘G` | Group |
+| `U` `K` | Stretch, Cut | `⌘D` | Duplicate |
+| `D` | Tape measure | `⌘Z` `⇧⌘Z` | Undo, Redo |
+| `Tab` | Narrow sidebar | `F7` `F8` | Layers, History |
 
-Il resto è nella Guida dell'app.
+Everything else is in the in-app Guide.
 
-## Uso
+## Use it
 
-Apri `index.html` nel browser: nessun server, nessuna connessione, i modelli restano sul tuo dispositivo.
+- **Online:** [filo.affogo.fyi](https://filo.affogo.fyi)
+- **Offline:** download `index.html` from this repo and open it in your browser. No server, no connection needed.
 
-## Sviluppo
+## Build from source
 
-```
+```bash
 npm install
-node build.mjs     # produce dist/forma.html (circa 3,3 MB, tutto incluso)
+node build.mjs     # outputs dist/forma.html (about 3.3 MB, everything inlined)
 ```
 
-Il codice è in `src/`:
-
-| File | Cosa contiene |
+| File | What's in it |
 |---|---|
-| `main.js` | Scena, strumenti, pannelli, import ed export |
-| `index.template.html`, `style.css` | Struttura e stile (la build li unisce in un solo file) |
-| `edges.js`, `mcsg.js`, `manifold.wasm` | Spigoli e booleane (Manifold, con three-bvh-csg come ripiego) |
-| `textgen.js`, `print.js` | Testo 3D e controllo di stampa |
-| `i18n.js`, `help.js`, `helpimg.js` | Traduzioni IT/EN, Guida e immagini |
+| `src/main.js` | Scene, tools, panels, import and export |
+| `src/index.template.html`, `src/style.css` | Structure and style (the build inlines them) |
+| `src/edges.js`, `src/mcsg.js`, `src/manifold.wasm.js` | Edges and booleans (Manifold, three-bvh-csg as fallback) |
+| `src/textgen.js`, `src/print.js` | 3D text and print check |
+| `src/i18n.js`, `src/help.js`, `src/helpimg.js` | IT/EN strings, Guide and its images |
 
-Altri file utili: `DESIGN.md` (token, tipografia, spaziature e componenti da consultare prima di toccare l'interfaccia), `IDEE.md` (idee rimandate), `THIRD_PARTY_LICENSES.md` (generato dalla build), `LICENSE` (MIT).
+Also in the repo: `DESIGN.md` (tokens, type, spacing and components, read it before touching the UI), `IDEE.md` (parked ideas, in Italian), `THIRD_PARTY_LICENSES.md` (generated by the build).
 
-I test in `tests/` sono script Playwright (Python) che aprono `dist/forma.html` in Chromium headless e pilotano l'app con l'API `window.forma`. Puntano a `/tmp/forma/dist/forma.html`: se il progetto sta altrove, cambia il percorso.
+The tests in `tests/` are Playwright (Python) scripts that open `dist/forma.html` in headless Chromium and drive the app through `window.forma`. They point at `/tmp/forma/dist/forma.html`, so change the path if the project lives elsewhere.
 
-Stack: three.js, Manifold, three-bvh-csg, clipper-lib, opentype.js, esbuild, font Inter, Bebas Neue, Lora e VT323.
+**Stack:** three.js, Manifold, three-bvh-csg, clipper-lib, opentype.js, esbuild. Fonts: Inter, Bebas Neue, Lora, VT323.
+
+## Status
+
+Filo is in beta. It's a one-person project, so expect rough edges. If something breaks or a feature would help your prints, [open an issue](https://github.com/Affoghiamoci/Filo/issues).
 
 ## Privacy
 
-Sul sito ufficiale Filo conta solo le visite in forma anonima, nessun cookie. I modelli non lasciano mai il tuo dispositivo e la versione scaricata non invia nulla.
+The official site only counts visits anonymously, no cookies. Your models never leave your device, and the downloaded file sends nothing.
 
-## Licenza
+## License
 
-Filo è rilasciato con licenza MIT (vedi `LICENSE`). Le librerie incluse sono tutte open source (MIT, Apache-2.0, BSL-1.0, OFL-1.1), i testi sono in `THIRD_PARTY_LICENSES.md`.
+MIT, see [`LICENSE`](LICENSE). Bundled libraries are all open source (MIT, Apache-2.0, BSL-1.0, OFL-1.1); their texts are in [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md).
