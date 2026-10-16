@@ -342,6 +342,8 @@ const EN = {
   'Rotellina del mouse: in Comandi puoi forzarla come zoom': 'Mouse wheel: in Controls you can force it as zoom',
   'Premendo una scorciatoia, il suo tasto nel menu laterale si illumina': 'Pressing a shortcut lights up its key in the side menu',
   'Nuovo logo, sezioni del pannello a destra più leggere, piatto Max': 'New logo, lighter sections in the right panel, Max plate',
+  'Calcoli più robusti sui pezzi con tanti dettagli piccoli (come le zigrinature): Filo non rovina più un solido già chiuso e l\'esportazione sceglie la versione migliore': 'More robust calculations on parts with many small details (such as knurling): Filo no longer damages an already closed solid and export picks the best version',
+  'Vista 3D isometrica anche all\'avvio': 'Isometric 3D view at startup too',
   'Nuovo comando Interseca (⇧⌘E) e strumenti in seconda funzione nella barra: Riquadro e Lazo, Taglia e Allunga, Combina e Interseca': 'New Intersect command (⇧⌘E) and tools with a second function in the bar: Marquee and Lasso, Cut and Stretch, Combine and Intersect',
   'I tuoi lavori salvati nella cache compariranno qui': 'Your work saved in the cache will show up here',
   'Si salva da solo, fino a 5 lavori in questo browser.': 'It saves itself, up to 5 works in this browser.',

@@ -3,7 +3,7 @@ with sync_playwright() as p:
     b=p.chromium.launch(args=["--use-gl=swiftshader"]);pg=b.new_page(viewport={'width':1400,'height':850})
     errs=[];pg.on('pageerror',lambda e:errs.append(str(e)));pg.on('console',lambda m: m.type=='error' and errs.append(m.text))
     pg.goto('file:///tmp/forma/dist/forma.html');pg.wait_for_timeout(1000)
-    pg.evaluate("forma.createObject('cylinder');forma.createObject('box');forma.objects[1].position.set(40,0,0);forma.objects[0].position.set(-5,0,0);forma.fitView()");pg.wait_for_timeout(500)
+    pg.evaluate("forma.createObject('cylinder');forma.createObject('box');forma.objects[1].position.set(40,0,0);forma.objects[0].position.set(-5,0,0);forma.cam.az=35;forma.cam.el=28;forma.fitView()");pg.wait_for_timeout(500)
     pg.keyboard.press('e');pg.wait_for_timeout(200)
     # project top rim point of box edge
     pt=pg.evaluate("""(()=>{const o=forma.objects[1];const an=forma.edgeAnalysis(o);const e=an.sharp.find(e=>an.vp(e.a).z>19&&an.vp(e.b).z>19&&Math.abs(an.vp(e.a).y-an.vp(e.b).y)<1&&an.vp(e.a).y<0);

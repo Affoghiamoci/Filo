@@ -30,6 +30,21 @@ export function toManifold(brush) {
   } catch (e) { return null; }                                     // non è un solido chiuso
 }
 
+// vero se Manifold accetta la mesh come solido chiuso (null se il motore non è pronto). P: posizioni xyz, I: indici dei triangoli (o null se la mesh non è indicizzata)
+export function meshIsClosed(P, I) {
+  if (!M) return null;
+  let m = null;
+  try {
+    const tv = I ? Uint32Array.from(I) : Uint32Array.from({ length: P.length / 3 }, (_, k) => k);
+    const mesh = new M.Mesh({ numProp: 3, vertProperties: Float32Array.from(P), triVerts: tv });
+    mesh.merge();
+    m = new M.Manifold(mesh);
+    return m.status() === 'NoError';
+  } catch (e) { return false; }
+  finally { try { m && m.delete(); } catch (e) {} }
+}
+export const geoIsClosed = g => meshIsClosed(g.attributes.position.array, g.index ? g.index.array : null);
+
 function toBrush(m, material) {
   const mesh = m.getMesh(), vp = mesh.vertProperties, tv = mesh.triVerts, nP = mesh.numProp;
   const pos = new Float32Array(tv.length * 3);

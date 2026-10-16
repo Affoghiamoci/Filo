@@ -116,7 +116,7 @@ applyTheme();
 // Viste Davanti/Sopra/Destra: prospettiva quasi nulla (FOV minuscolo, camera lontana), quindi misure e allineamenti si leggono senza deformazioni.
 // cam.dist resta la distanza "equivalente" a FOV 35: l'inquadratura non cambia.
 const BASE_FOV = 35, ORTHO_FOV = 2, fovSprites = [];
-const cam = { az: 35, el: 28, dist: 320, fov: BASE_FOV, target: new THREE.Vector3(0, 0, 10) };
+const cam = { az: 135, el: 35.264, dist: 320, fov: BASE_FOV, target: new THREE.Vector3(0, 0, 10) };
 function applyCamera() {
   const az = cam.az * D2R, el = cam.el * D2R;
   const k = Math.tan(BASE_FOV * D2R / 2) / Math.tan(cam.fov * D2R / 2), D = cam.dist * k;
@@ -885,6 +885,18 @@ function openEdgeCount(g) {                                                    /
   for (let t = 0; t < tris.length; t += 3) for (let k = 0; k < 3; k++) { const e = key(tris[t + k], tris[t + (k + 1) % 3]); use.set(e, (use.get(e) || 0) + 1); }
   let c = 0; for (const u of use.values()) if (u === 1) c++; return c;
 }
+/* difetti di chiusura: lati senza il "gemello" opposto o usati più di una volta (0 = la mesh è chiusa, coordinate identiche tra triangoli vicini) */
+function edgeDefects(I) {
+  const use = new Map(); let bad = 0;
+  for (let t = 0; t < I.length; t += 3) for (let k = 0; k < 3; k++) { const a = I[t + k], b = I[t + (k + 1) % 3]; if (a === b) continue; const key = a * 4294967296 + b; use.set(key, (use.get(key) || 0) + 1); }
+  for (const [key, c] of use) { const a = Math.floor(key / 4294967296), b = key - a * 4294967296; if (c > 1 || use.get(b * 4294967296 + a) !== c) bad++; }
+  return bad;
+}
+function geoDefects(g) {
+  const p = g.attributes.position, idx = g.index, n = idx ? idx.count : p.count, map = new Map(), I = new Uint32Array(n);
+  for (let i = 0; i < n; i++) { const j = idx ? idx.getX(i) : i, k = p.getX(j) + ',' + p.getY(j) + ',' + p.getZ(j); let id = map.get(k); if (id === undefined) { id = map.size; map.set(k, id); } I[i] = id; }
+  return edgeDefects(I);
+}
 function bakeResult(res, name) {
   res.updateMatrixWorld(true);
   let g = res.geometry.clone();
@@ -892,7 +904,8 @@ function bakeResult(res, name) {
   g.applyMatrix4(res.matrixWorld);
   clean(g);
   if (window.__prof) console.log('PROF open prima', openEdgeCount(g), 'tri', g.attributes.position.count / 3);
-  g = healMesh(g);
+  { const d0 = geoDefects(g), h = healMesh(g);                                  // la riparazione (saldatura a 1 µm) non deve mai peggiorare: se rompe un pezzo già chiuso si tiene l'originale
+    if (h !== g && geoDefects(h) <= d0) g = h; }
   if (!g.index) g = geometryFromPositions(g.attributes.position.array);       // il risultato di Manifold arriva con normali piatte: si ricalcolano morbide (30°), così le pareti curve non fanno le fasce
   if (window.__prof) console.log('PROF open dopo', openEdgeCount(g));
   g.computeBoundingBox();
@@ -2447,12 +2460,22 @@ function build3MF(list, opt = {}) {
     m.updateMatrixWorld(true);
     let g = m.geometry.clone();
     g.deleteAttribute('normal'); g.deleteAttribute('uv');
-    g = mergeVertices(g, 1e-4);
-    const pos = g.attributes.position, idx = g.index;
-    const W = new Float32Array(pos.count * 3);
-    for (let k = 0; k < pos.count; k++) { v.fromBufferAttribute(pos, k).applyMatrix4(m.matrixWorld); W.set([+(v.x + off[0]).toFixed(4), +(v.y + off[1]).toFixed(4), +v.z.toFixed(4)], k * 3); }
-    const I0 = idx ? Uint32Array.from(idx.array) : Uint32Array.from({ length: pos.count }, (_, k) => k);
-    const R = repairForExport(W, I0);
+    const g0 = g;
+    const prep = (tol, dig) => {                                                 // tol: saldatura dei vertici; dig: decimali delle coordinate
+      const gg = tol ? mergeVertices(g0.clone(), tol) : g0.clone();
+      const pos = gg.attributes.position, idx = gg.index;
+      const W = new Float32Array(pos.count * 3);
+      for (let k = 0; k < pos.count; k++) { v.fromBufferAttribute(pos, k).applyMatrix4(m.matrixWorld); W.set([+(v.x + off[0]).toFixed(dig), +(v.y + off[1]).toFixed(dig), +v.z.toFixed(dig)], k * 3); }
+      const I0 = idx ? Uint32Array.from(idx.array) : Uint32Array.from({ length: pos.count }, (_, k) => k);
+      gg.dispose();
+      return repairForExport(W, I0);
+    };
+    let R = prep(1e-4, 4), bad = edgeDefects(R.I);
+    for (const [tol, dig] of bad ? [[1e-6, 6], [0, 7]] : []) {                    // saldatura e arrotondamento non devono rompere un pezzo: si riprova con più precisione e si tiene la versione migliore
+      const R2 = prep(tol, dig), b2 = edgeDefects(R2.I);
+      if (b2 < bad) { R = R2; bad = b2; }
+      if (!bad) break;
+    }
     { let vol = 0; for (let k = 0; k < R.I.length; k += 3) { const a = R.I[k] * 3, b = R.I[k + 1] * 3, c = R.I[k + 2] * 3, P = R.P; vol += (P[a] * (P[b + 1] * P[c + 2] - P[b + 2] * P[c + 1]) - P[a + 1] * (P[b] * P[c + 2] - P[b + 2] * P[c]) + P[a + 2] * (P[b] * P[c + 1] - P[b + 1] * P[c])) / 6; } if (Math.abs(vol) < 0.01 && list.length > 1) { if (opt.stat) opt.stat.dropped++; g.dispose(); return; } }
     let vs = '', ts = '';
     for (let k = 0; k < R.P.length; k += 3) vs += `<vertex x="${R.P[k]}" y="${R.P[k + 1]}" z="${R.P[k + 2]}"/>`;

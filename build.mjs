@@ -2,17 +2,7 @@ import { build } from 'esbuild';
 import fs from 'fs';
 const r = await build({ entryPoints: ['src/main.js'], bundle: true, minify: true, format: 'iife', write: false, target: 'es2020', loader: { '.woff': 'binary' }, define: { 'import.meta.url': '"https://filo.local/"' }, plugins: [{ name: 'nonode', setup(b) { b.onResolve({ filter: /^node:/ }, a => ({ path: a.path, namespace: 'nonode' })); b.onLoad({ filter: /.*/, namespace: 'nonode' }, () => ({ contents: 'export default {}; export const createRequire = () => () => ({});' })); } }], logLevel: 'warning' });
 const js = r.outputFiles[0].text.replace(/<\/script/g, '<\\/script');
-let css = fs.readFileSync('src/style.css', 'utf8');
-/* variante con IBM Plex Mono al posto del mono di sistema: MONO=plex node build.mjs → dist/forma-plex.html (il build normale non cambia) */
-const PLEX = process.env.MONO === 'plex' || process.env.MONO === 'plexall', PLEXALL = process.env.MONO === 'plexall';   // plexall: Plex Mono anche al posto del font dei testi
-if (PLEX) {
-  const ff = w => `@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:${w};font-display:block;src:url(data:font/woff2;base64,${fs.readFileSync(`node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-${w}-normal.woff2`).toString('base64')}) format('woff2')}\n`;
-  const before = css;
-  css = [400, 500, 600, 700].map(ff).join('') + css.replace('--mono:ui-monospace,', '--mono:"IBM Plex Mono",ui-monospace,');
-  css += '\n/* Plex: metriche verticali diverse, la pillola si ricentra */\n#side header .titles .beta{padding:4px 9px 5px}\n';
-  if (PLEXALL) css += ':root{--font:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;--sans:var(--font)}\n';
-  if (css === before) throw new Error('--mono non trovato');
-}
+const css = fs.readFileSync('src/style.css', 'utf8');
 let html = fs.readFileSync('src/index.template.html', 'utf8');
 const rd = p => fs.readFileSync(p, 'utf8').trim();
 const MIT = (y, who) => `MIT License\n\nCopyright (c) ${y} ${who}\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.`;
@@ -29,13 +19,12 @@ const LIC = [
   ['Bebas Neue', 'OFL-1.1', rd('node_modules/@fontsource/bebas-neue/LICENSE')],
   ['Lora', 'OFL-1.1', rd('node_modules/@fontsource/lora/LICENSE')],
   ['VT323', 'OFL-1.1', rd('node_modules/@fontsource/vt323/LICENSE')],
-  ...(PLEX ? [['IBM Plex Mono', 'OFL-1.1', rd('node_modules/@fontsource/ibm-plex-mono/LICENSE')]] : []),
 ];
 const escH = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const licHtml = `<ul class="lic-list">${LIC.map(l => `<li><span>${l[0]}</span><span>${l[1]}</span></li>`).join('')}</ul><details class="lic-det"><summary>Testi completi delle licenze</summary><pre>${LIC.map(l => `=== ${l[0]} (${l[1]}) ===\n${escH(l[2])}`).join('\n\n')}</pre></details>`;
-if (!PLEX) fs.writeFileSync('THIRD_PARTY_LICENSES.md', LIC.map(l => `## ${l[0]} (${l[1]})\n\n\`\`\`\n${l[2]}\n\`\`\``).join('\n\n') + '\n');
+fs.writeFileSync('THIRD_PARTY_LICENSES.md', LIC.map(l => `## ${l[0]} (${l[1]})\n\n\`\`\`\n${l[2]}\n\`\`\``).join('\n\n') + '\n');
 html = html.replace('<!--LICENSES-->', () => licHtml);
 html = html.replace('<!--CSS-->', () => css).replace('<!--JS-->', () => js);
 fs.mkdirSync('dist', { recursive: true });
-fs.writeFileSync(PLEXALL ? 'dist/forma-plexall.html' : PLEX ? 'dist/forma-plex.html' : 'dist/forma.html', html);
+fs.writeFileSync('dist/forma.html', html);
 console.log('ok', (html.length / 1024).toFixed(0) + ' KB');
