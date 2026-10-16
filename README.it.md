@@ -1,5 +1,7 @@
 # Filo
 
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/eu-ai-label-white.svg"><img src="docs/img/eu-ai-label-black.svg" alt="Icona UE: AI coinvolta nel progetto" width="28" align="center"></picture>&nbsp; Realizzato con l'aiuto dell'AI (Claude)
+
 [English](README.md) · Italiano
 
 Modellatore 3D semplice che gira offline in un solo file HTML, pensato per creare e modificare oggetti da stampare in 3D: mollette, ganci, scatoline e simili. Interfaccia in italiano e inglese, scorciatoie alla Photoshop, piatti Bambu Lab, stile industriale con accento arancione.

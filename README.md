@@ -14,6 +14,11 @@ One HTML file. No install, no account, works offline.
 ![license](https://img.shields.io/badge/license-MIT-1a1a1a?style=flat-square)
 ![formats](https://img.shields.io/badge/3MF_·_STL_·_SVG-1a1a1a?style=flat-square)
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/eu-ai-label-white.svg">
+  <img src="docs/img/eu-ai-label-black.svg" alt="EU icon: AI was involved in making this project" width="32" align="center">
+</picture>&nbsp; Built with AI assistance (Claude)
+
 [English](README.md) · [Italiano](README.it.md)
 
 </div>
@@ -126,6 +131,17 @@ Also in the repo: `DESIGN.md` (tokens, type, spacing and components, read it bef
 The tests in `tests/` are Playwright (Python) scripts that open `dist/forma.html` in headless Chromium and drive the app through `window.forma`. They point at `/tmp/forma/dist/forma.html`, so change the path if the project lives elsewhere.
 
 **Stack:** three.js, Manifold, three-bvh-csg, clipper-lib, opentype.js, esbuild. Fonts: Inter, Bebas Neue, Lora, VT323.
+
+## Built with AI
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/eu-ai-label-white.svg">
+  <img src="docs/img/eu-ai-label-black.svg" alt="EU icon: AI was involved" width="40" align="left" hspace="10">
+</picture>
+
+Filo is designed and directed by me, and the code is written with the help of an AI assistant (Claude). I test it, print with it and decide what goes in. The screenshots and the banner in this README were also made with AI help. The icon is the [European Commission's icon for labelling AI-generated content](https://digital-strategy.ec.europa.eu/en/policies/eu-icons-labelling-ai-generated-content), used as published. It signals AI involvement and is not a statement of legal compliance.
+
+<br clear="left">
 
 ## Status
 
