@@ -810,7 +810,7 @@ function updatePerfNote() {
   $('#perf-note').classList.toggle('hidden', !heavy || perfDismissed);
 }
 $('#perf-x').addEventListener('click', () => { perfDismissed = true; updatePerfNote(); });
-function touch() { dirty = dimsDirty = true; if (window.__chkStale) window.__chkStale(); if (wantPixelRatio() !== pixelRatio) resize(); updatePerfNote(); $('#empty-hint').classList.toggle('hidden', objects.length > 0); scheduleLayers(); updateRotGizmo(); }
+function touch() { dirty = dimsDirty = true; if (repPrevG) repeatPreview(); if (window.__chkStale) window.__chkStale(); if (wantPixelRatio() !== pixelRatio) resize(); updatePerfNote(); $('#empty-hint').classList.toggle('hidden', objects.length > 0); scheduleLayers(); updateRotGizmo(); }
 const bvhEval = new Evaluator();
 bvhEval.attributes = ['position', 'normal'];
 let useManifold = true;                                  // window.__noManifold = true per confrontare con il vecchio motore
@@ -1000,9 +1000,10 @@ function repeatSpots(o, src) {                       // per ogni copia: traslazi
     const py = o.py;                                    // spazio tra le copie; in nido d'ape lo spazio Y parte dal valore che dà righe a 0,866 × passo
     const bb = new THREE.Box3(); src.forEach(m => bb.union(worldBox(m)));
     const ex = bb.max.x - bb.min.x, ey = bb.max.y - bb.min.y;   // passo = ingombro reale + spazio
+    const i0 = Math.floor((nx - 1) / 2), j0 = Math.floor((ny - 1) / 2);   // l'originale è uno dei pezzi centrali (con numeri pari, uno dei due)
     for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
-      if (!i && !j) continue;
-      spots.push({ dx: i * (ex + o.px) + (honey && j % 2 ? (ex + o.px) / 2 : 0), dy: j * (ey + py) });
+      if (i === i0 && j === j0) continue;
+      spots.push({ dx: (i - i0) * (ex + o.px) + (honey && (j - j0) % 2 ? (ex + o.px) / 2 : 0), dy: (j - j0) * (ey + py) });
     }
   }
   return spots;
@@ -1054,7 +1055,7 @@ function repeatOpts() {
   return { mode: RP.mode, nx: v('rp-nx') || 1, ny: v('rp-ny') || 1, px: isNaN(v('rp-px')) ? 2 : v('rp-px'), py: isNaN(v('rp-py')) ? 2 : v('rp-py'), n: v('rp-n') || 6, arc: v('rp-arc') || 360, cx: v('rp-cx') || 0, cy: v('rp-cy') || 0 };
 }
 $('#rp-go').addEventListener('click', () => { hideRepeatPreview(); repeatSelection(repeatOpts()); });
-/* anteprima: le copie compaiono come sagome arancioni mentre si cambiano i numeri; spariscono uscendo dal pannello o col pulsante Ripeti */
+/* anteprima: le copie compaiono come sagome arancioni mentre si cambiano i numeri; restano mentre ci si muove nello spazio e spariscono con Esc, cambiando strumento o selezione, o col pulsante Ripeti */
 var repPrevG = null;
 function hideRepeatPreview() {
   if (!repPrevG) return;
@@ -1071,7 +1072,8 @@ function updateRepeatInfo(spots, src) {
   let txt = `${n} ${tr(n === 1 ? 'copia in più' : 'copie in più')}`;
   if (o.mode !== 'polar') {
     const bb = new THREE.Box3(); src.forEach(m => bb.union(worldBox(m)));
-    txt += ` · ${fmt(bb.max.x - bb.min.x + Math.max(...spots.map(p => p.dx)))} × ${fmt(bb.max.y - bb.min.y + Math.max(...spots.map(p => p.dy)))} mm`;
+    const dxs = spots.map(p => p.dx), dys = spots.map(p => p.dy);
+    txt += ` · ${fmt(bb.max.x - bb.min.x + Math.max(0, ...dxs) - Math.min(0, ...dxs))} × ${fmt(bb.max.y - bb.min.y + Math.max(0, ...dys) - Math.min(0, ...dys))} mm`;
   }
   el.textContent = txt;
 }
@@ -1110,8 +1112,6 @@ function repeatPreview() {
   const sec = $('#p-repeat');
   ['input', 'change', 'focusin'].forEach(ev => sec.addEventListener(ev, () => repeatPreview()));
   sec.addEventListener('click', e => { if (e.target.closest('#rp-mode button')) repeatPreview(); });
-  sec.addEventListener('focusout', e => { if (!e.relatedTarget || !sec.contains(e.relatedTarget)) hideRepeatPreview(); });
-  document.addEventListener('pointerdown', e => { if (repPrevG && !e.target.closest('#p-repeat')) hideRepeatPreview(); }, true);
 }
 $('#rp-px').addEventListener('input', () => { if (RP.mode === 'honey') honeyGapY(); });
 // i campi non superano mai i limiti: ogni campo resta nel suo min/max e il totale delle copie nuove non va oltre 600
@@ -2844,6 +2844,7 @@ function setTool(t) {
 }
 function setToolInner(t) {
   state.tool = t;
+  if (repPrevG) hideRepeatPreview();
   updateRotGizmo();
   if (t !== 'face') { clearFace(false); hideHover(); }
   if (t !== 'edge') clearEdges();
@@ -3142,6 +3143,7 @@ function closeOpenMenus() {
 window.addEventListener('keydown', e => {
   if (e.key !== 'Escape' || e.isComposing) return;
   const t = e.target;
+  if (repPrevG && !(t.closest && t.closest('#p-repeat'))) { hideRepeatPreview(); e.preventDefault(); e.stopPropagation(); return; }   // Esc fuori dai campi: prima l'anteprima di Ripeti
   if (t.tagName === 'INPUT' && (t.type === 'number' || t.id === 'p-name') && !t.closest('dialog, #hpop') && fieldStart.has(t)) {
     e.preventDefault(); e.stopPropagation();
     const v0 = fieldStart.get(t);
@@ -3152,10 +3154,18 @@ window.addEventListener('keydown', e => {
       gScale = null; syncPanel();
     }
     t.blur();
+    if (t.closest('#p-repeat')) hideRepeatPreview();
     return;
   }
+  if (t.closest && t.closest('#p-repeat')) hideRepeatPreview();
   if (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || dlg.open || document.querySelector('dialog[open]:not(#dlg-check)')) return;
   if (closeOpenMenus()) { e.preventDefault(); e.stopPropagation(); }
+}, true);
+
+/* scorciatoie che il browser userebbe per altro (cerca successivo, segnalibro, salva pagina, apri file, zoom pagina): in Filo hanno un altro significato, quindi il browser le ignora anche con un campo o una finestra aperti */
+window.addEventListener('keydown', e => {
+  if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
+  if (['g', 'e', 'd', 's', 'o', '0', '=', '+', '-'].includes(e.key.toLowerCase())) e.preventDefault();
 }, true);
 
 /* ------------------------------------------------------------ tastiera */
