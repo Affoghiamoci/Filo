@@ -23,7 +23,7 @@ with sync_playwright() as p:
     check('intestazione: pallino pieno arancione se aperta',pg.evaluate("(()=>{const h=[...document.querySelectorAll('#p-scroll h4.ph')].find(h=>h.offsetParent);return getComputedStyle(h,'::before').borderRadius==='50%'&&getComputedStyle(h,'::after').content==='none'})()"))
     check('Allinea al piatto non compare più con un oggetto',pg.evaluate("document.querySelector('#p-key').offsetParent===null"))
     pg.click('[data-view=iso]');pg.wait_for_timeout(900)
-    check('3D: guarda da dietro a destra (X, Y e Z visibili), stessa inclinazione di prima',pg.evaluate("Math.abs(forma.cam.az-145)<0.5&&Math.abs(forma.cam.el-28)<0.5"))
+    check('3D: guarda da dietro a destra (X, Y e Z visibili), isometrica vera 45°/35,26°',pg.evaluate("Math.abs(forma.cam.az-135)<0.5&&Math.abs(forma.cam.el-35.264)<0.5"))
     check('nessun errore di pagina',not errs)
     b.close()
 print('TUTTO OK' if ok else 'ERRORI')

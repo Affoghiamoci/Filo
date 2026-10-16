@@ -2,7 +2,7 @@
 
 Modellatore 3D semplice che gira offline in un solo file HTML, pensato per creare e modificare oggetti da stampare in 3D: mollette, ganci, scatoline e simili. Interfaccia in italiano e inglese, scorciatoie alla Photoshop, piatti Bambu Lab, stile industriale con accento arancione.
 
-Versione 0.10.0 (beta). Sito: [filo.affogo.fyi](https://filo.affogo.fyi). Codice: [github.com/Affoghiamoci/Filo](https://github.com/Affoghiamoci/Filo)
+Versione 0.10.7 (beta). Sito: [filo.affogo.fyi](https://filo.affogo.fyi). Codice: [github.com/Affoghiamoci/Filo](https://github.com/Affoghiamoci/Filo)
 
 ## Cosa fa
 

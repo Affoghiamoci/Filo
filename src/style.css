@@ -181,6 +181,9 @@ label.f{white-space:nowrap}
 #dragread{position:fixed;display:none;z-index:50;pointer-events:none;padding:4px 8px;background:var(--ink);color:var(--on-ink);font:600 11px var(--mono);border-radius:2px;border-left:3px solid var(--accent)}
 kbd.o span{font-family:var(--sans,system-ui);font-weight:600}
 kbd{font-feature-settings:"zero" 1}
+/* scorciatoia premuta: il chip del menu laterale si accende d'arancione e torna com'era */
+@keyframes kflash{16%{background-color:var(--accent);color:var(--on-accent)}}
+kbd.kflash{animation:kflash .7s ease-out}
 #side header{justify-content:flex-start}
 #side header .logo{width:30px;height:30px;flex:none;margin-top:-1px}
 #side header .titles{flex:1;min-width:0}
@@ -575,7 +578,7 @@ label.f.has-stp{position:relative;padding-right:4px}
 #topbar{width:300px}
 
 /* pillola Beta accanto al logo */
-#side header .titles .beta{margin:2px 0 0 8px;padding:4px 6px 2px;border:1px solid var(--accent);border-radius:999px;background:var(--accent-weak);color:var(--accent);font:500 9.5px/1 var(--mono);letter-spacing:.04em;text-transform:none;white-space:nowrap;align-self:center}
+#side header .titles .beta{margin:2px 0 0;padding:5px 9px 4px;border:1px solid var(--accent);border-radius:999px;background:var(--accent-weak);color:var(--accent);font:500 9.5px/1 var(--mono);letter-spacing:.03em;text-transform:none;white-space:nowrap;align-self:center}
 #side header .titles .beta span{display:inline;margin:0;color:inherit;font:inherit}
 #side.mini .titles .beta{display:none}
 
@@ -879,10 +882,10 @@ dialog[open],dialog[open]::backdrop{animation:fade-in .16s ease}
 #side:not(.mini) #foot #lang button{min-width:0;width:42px;padding:0}
 
 /* logo intero (simbolo a pixel + scritta): il simbolo è `--accent`, la scritta segue il tema */
-.logo-full{display:block;height:34px;width:auto;flex:none;color:var(--text)}
+.logo-full{display:block;height:32px;width:auto;flex:none;color:var(--text)}
 .logo-full .lf-px{fill:var(--accent)}
 .logo-full .lf-word{fill:currentColor}
-#side header .titles{gap:10px}
+#side header .titles{gap:8px}
 #side:not(.mini) header .logo{display:none}
 .info-head .logo{display:none}
 .info-head .logo-full{height:40px}

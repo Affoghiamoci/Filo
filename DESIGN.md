@@ -40,7 +40,7 @@ Stati e assi hanno un token fisso, uguale nei due temi: `--ok` verde `#2fa866`, 
 | Tasto (kbd) | mono 500 10.5px su `--field` |
 | Micro: didascalie della barra, titoli dei menu, tasti sulle righe, badge | mono 500 9.5px, tracking .04 to .1em, maiuscolo |
 | Glifi piccoli: "?" dei suggerimenti 8px, etichette del cubo 7.5px | mono 500, sono simboli più che testo da leggere |
-| Badge versione (sidebar e Info) | pillola tonda, bordo 1px accento, fondo accento 12%, mono 500 9.5px |
+| Badge versione (sidebar e Info) | pillola tonda, bordo 1px accento, fondo accento 12%, mono 500 9.5px, respiro interno 5/9px |
 | Voce di elenco, titolo riga | sans 600 13px |
 | Testo descrittivo | sans 12px, line-height 1.45, `--muted` |
 | Nota (hint) | sans 11.5 to 12px, `--muted` |
@@ -96,3 +96,8 @@ Esc fa una cosa alla volta, nell'ordine: 1) in un campo numerico o nel nome annu
 ## 9. Controllo prima di consegnare
 1. Tutti i colori sono token? 2. Raggio 2 px? 3. Spaziature nella scala a 4? 4. Etichette mono maiuscole, frasi in sans? 5. Chiaro e scuro guardati entrambi? 6. Nessun elemento tagliato o sovrapposto a 1280 px di larghezza? 7. Testi IT e chiavi EN presenti?
 - **Pulsanti Ruota di 90°**: tre icone diverse, una per asse, disegnate per il pulsante (32 px, viewBox 28): cubo isometrico (Z in alto, X in basso a sinistra, Y in basso a destra; tratto 1,5 `currentColor`, riempimento = sfondo del pulsante) con un segmento d'asse (`--accent`, 1,6) e una freccia a nastro in `--accent` che avvolge il cubo attorno a quell'asse: banda piena con punta larga sul lato anteriore, metà posteriore della banda al 32%. La freccia gira nel verso positivo (regola della mano destra). La lettera X, Y o Z sta accanto nel colore dell'asse (`--ax-x`, `--ax-y`, `--ax-z`). ⇧ inverte il verso.
+
+
+## Scorciatoie premute
+
+Premendo una scorciatoia mostrata nel menu laterale (chip `kbd` di strumenti e Guida) il chip si illumina d'arancione (`--accent`, testo `--on-accent`) e torna com'era in 0,7 s (`@keyframes kflash`, classe `.kflash`).

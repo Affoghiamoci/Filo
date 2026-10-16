@@ -208,7 +208,7 @@ function fitView() {
   const r = Math.max(box.getSize(new THREE.Vector3()).length() / 2, 25);
   animateTo({ target: c, dist: clamp(r / Math.sin(BASE_FOV * D2R / 2) * 1.25, 60, 2500) }, 320, true);
 }
-const VIEWS = { front: { az: 0, el: 0, fov: ORTHO_FOV }, top: { az: 0, el: 89.9, fov: ORTHO_FOV }, right: { az: 90, el: 0, fov: ORTHO_FOV }, iso: { az: 145, el: 28, fov: BASE_FOV } }; // 3D: da dietro a destra, così X, Y e Z si vedono tutti e tre (X in basso a sinistra, Y in basso a destra)
+const VIEWS = { front: { az: 0, el: 0, fov: ORTHO_FOV }, top: { az: 0, el: 89.9, fov: ORTHO_FOV }, right: { az: 90, el: 0, fov: ORTHO_FOV }, iso: { az: 135, el: 35.264, fov: BASE_FOV } }; // 3D: da dietro a destra, così X, Y e Z si vedono tutti e tre (X in basso a sinistra, Y in basso a destra)
 
 let pixelRatio = 0;
 function wantPixelRatio() { return objects.some(o => o.userData.heavy) ? 1 : Math.min(window.devicePixelRatio || 1, 2); }
@@ -2632,7 +2632,7 @@ const groupOf = id => { const t = id && TOOL_AT[id] && toolOf(id); return t && t
 const grpCur = {};                                              // gruppo → id della variante mostrata
 Object.entries(TGROUPS).forEach(([g, d]) => { grpCur[g] = d.items[0]; });
 try { const sv = JSON.parse(localStorage.getItem('forma.grp') || '{}'); Object.entries(sv).forEach(([g, id]) => { if (TGROUPS[g] && TGROUPS[g].sticky && TGROUPS[g].items.includes(id)) grpCur[g] = id; }); } catch (_) {}
-const toolInner = (t, grp) => `<span class="ico"><svg viewBox="0 0 24 24">${I[t.icon]}</svg>${grp ? '<i class="gtri"></i>' : ''}</span><span class="t"><b>${t.name}</b><small>${t.desc}</small></span>${t.key ? `<kbd>${t.key}</kbd>` : ''}`;
+const toolInner = (t, grp) => `<span class="ico"><svg viewBox="0 0 24 24">${I[t.icon]}</svg>${grp ? '<i class="gtri"></i>' : ''}</span><span class="t"><b>${t.name}</b><small>${t.desc}</small></span>${t.key ? `<kbd data-k="${t.key}">${t.key}</kbd>` : ''}`;
 $('#tools').innerHTML = TOOLS.map(([title, items], si) =>
   `<h3>[${si + 1}] ${title}</h3>` + items.map((t, ii) => {
     if (t.grp) {
@@ -3207,10 +3207,25 @@ window.addEventListener('keydown', e => {
 }, true);
 
 /* ------------------------------------------------------------ tastiera */
+/* lampeggio del tasto nel menu laterale: premendo una scorciatoia, il suo chip si illumina d'arancione e svanisce */
+function flashKey(label, root) {
+  if (!label) return;
+  (root || document).querySelectorAll('#tools kbd, #help-open kbd').forEach(el => {
+    if (el.dataset.k !== label) return;
+    el.classList.remove('kflash'); void el.offsetWidth; el.classList.add('kflash');
+    el.addEventListener('animationend', () => el.classList.remove('kflash'), { once: true });
+  });
+}
+const keyLabel = e => {
+  if (['Shift', 'Control', 'Alt', 'Meta'].includes(e.key) || e.altKey) return '';
+  const k = e.key === 'Delete' || e.key === 'Backspace' ? '⌫' : e.key.length === 1 ? e.key.toUpperCase() : '';
+  return k && ((e.shiftKey ? '⇧' : '') + (e.metaKey || e.ctrlKey ? '⌘' : '') + k);
+};
 window.addEventListener('keydown', e => {
   const tag = e.target.tagName;
   if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || dlg.open || document.querySelector('dialog[open]:not(#dlg-check)')) return;
   const mod = e.metaKey || e.ctrlKey, k = e.key.toLowerCase();
+  flashKey(keyLabel(e));
   if (k === 'tab' && !mod && !e.altKey) { e.preventDefault(); setMini(!sideEl.classList.contains('mini')); return; }
   if (k === 'f7') { e.preventDefault(); setLayers(!layersOn); return; }
   if (k === 'f8') { e.preventDefault(); setHistory(!histOn); return; }
@@ -5134,7 +5149,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '0.10.0';
+const APP_VERSION = '0.10.7';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
@@ -6060,7 +6075,7 @@ function syncTextPanel() {
   window.addEventListener('keydown', e => {
     const t = e.target, typing = t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName);
     if (dlg.open && ((e.key === '/' && !typing) || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f'))) { e.preventDefault(); e.stopPropagation(); qEl.focus(); qEl.select(); return; }
-    if (e.key === 'F1' || (e.key === '?' && !typing && !e.metaKey && !e.ctrlKey)) { e.preventDefault(); e.stopPropagation(); dlg.open ? dlg.close() : open(); }
+    if (e.key === 'F1' || (e.key === '?' && !typing && !e.metaKey && !e.ctrlKey)) { flashKey('?'); e.preventDefault(); e.stopPropagation(); dlg.open ? dlg.close() : open(); }
   }, true);
   window.openHelp = open;
 })();
