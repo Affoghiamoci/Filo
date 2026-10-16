@@ -500,9 +500,10 @@ label.f.has-stp{position:relative;padding-right:4px}
 #p-rotq .rq .btn:hover{--bg:var(--hover)}
 #p-rotq .rq svg{width:32px;height:32px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 #p-rotq .rq .cb{fill:var(--bg)}
-#p-rotq .rq .ar{stroke:var(--accent);stroke-width:1.9}
+#p-rotq .rq .ar{stroke:var(--accent);stroke-width:1.6}
 #p-rotq .rq .bk{opacity:.45}
-#p-rotq .rq .hd{fill:var(--accent);stroke:var(--accent);stroke-width:.6}
+#p-rotq .rq .rb{fill:var(--accent);stroke:var(--accent);stroke-width:.7}
+#p-rotq .rq .bb{fill:var(--accent);stroke:none;opacity:.32}
 #p-rotq .rq b{font-weight:600}
 #p-rotq .rq [data-rq=x] b{color:var(--ax-x)}#p-rotq .rq [data-rq=y] b{color:var(--ax-y)}#p-rotq .rq [data-rq=z] b{color:var(--ax-z)}
 .seg3 button{font-size:10px;letter-spacing:.02em;white-space:nowrap}
