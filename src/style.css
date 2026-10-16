@@ -502,6 +502,7 @@ label.f.has-stp{position:relative;padding-right:4px}
 #p-rotq .rq .cb{fill:var(--bg)}
 #p-rotq .rq .ar{stroke:var(--accent);stroke-width:1.5}
 #p-rotq .rq .bk{opacity:.45}
+#p-rotq .rq .hd{fill:var(--accent);stroke:var(--accent);stroke-width:.6}
 .seg3 button{font-size:10px;letter-spacing:.02em;white-space:nowrap}
 .grid2 label.f{gap:4px;padding-left:6px;font-size:10px}
 .grid2 label.f input{font-size:12px}
