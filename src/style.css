@@ -847,7 +847,7 @@ dialog[open],dialog[open]::backdrop{animation:fade-in .16s ease}
 #p-scroll h4.ph.h-lock .lock{margin-left:auto}
 #p-scroll h4.ph.h-lock::after{margin-left:10px}
 #p-scroll h4.ph.pc{margin-bottom:0}
-.pfold{display:none!important}
+.pfold,#p-color-sw.pfold{display:none!important}
 #p-more,#t-more{position:absolute;left:0;right:0;bottom:0;height:36px;display:grid;place-items:end center;padding:0 0 6px;border:0;border-radius:0;background:linear-gradient(to top,var(--panel) 35%,transparent);color:var(--text);cursor:default;pointer-events:none}
 #p-more.hidden,#t-more.hidden{display:none}
 #p-more svg,#t-more svg{pointer-events:auto;width:26px;height:16px;padding:0 5px;box-sizing:border-box;border-radius:2px;background:var(--field);fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
