@@ -4,12 +4,13 @@ const r = await build({ entryPoints: ['src/main.js'], bundle: true, minify: true
 const js = r.outputFiles[0].text.replace(/<\/script/g, '<\\/script');
 let css = fs.readFileSync('src/style.css', 'utf8');
 /* variante con IBM Plex Mono al posto del mono di sistema: MONO=plex node build.mjs → dist/forma-plex.html (il build normale non cambia) */
-const PLEX = process.env.MONO === 'plex';
+const PLEX = process.env.MONO === 'plex' || process.env.MONO === 'plexall', PLEXALL = process.env.MONO === 'plexall';   // plexall: Plex Mono anche al posto del font dei testi
 if (PLEX) {
   const ff = w => `@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:${w};font-display:block;src:url(data:font/woff2;base64,${fs.readFileSync(`node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-${w}-normal.woff2`).toString('base64')}) format('woff2')}\n`;
   const before = css;
   css = [400, 500, 600, 700].map(ff).join('') + css.replace('--mono:ui-monospace,', '--mono:"IBM Plex Mono",ui-monospace,');
   css += '\n/* Plex: metriche verticali diverse, la pillola si ricentra */\n#side header .titles .beta{padding:4px 9px 5px}\n';
+  if (PLEXALL) css += ':root{--font:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;--sans:var(--font)}\n';
   if (css === before) throw new Error('--mono non trovato');
 }
 let html = fs.readFileSync('src/index.template.html', 'utf8');
@@ -36,5 +37,5 @@ if (!PLEX) fs.writeFileSync('THIRD_PARTY_LICENSES.md', LIC.map(l => `## ${l[0]} 
 html = html.replace('<!--LICENSES-->', () => licHtml);
 html = html.replace('<!--CSS-->', () => css).replace('<!--JS-->', () => js);
 fs.mkdirSync('dist', { recursive: true });
-fs.writeFileSync(PLEX ? 'dist/forma-plex.html' : 'dist/forma.html', html);
+fs.writeFileSync(PLEXALL ? 'dist/forma-plexall.html' : PLEX ? 'dist/forma-plex.html' : 'dist/forma.html', html);
 console.log('ok', (html.length / 1024).toFixed(0) + ' KB');
