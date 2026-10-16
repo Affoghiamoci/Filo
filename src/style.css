@@ -262,7 +262,7 @@ kbd{font-feature-settings:"zero" 1}
 #side.mini header{padding:12px 0 2px}
 #side.mini header .icon-btn{margin:4px 0 0}
 
-#expmenu{right:12px;top:58px;z-index:46;width:248px;display:flex;flex-direction:column;gap:4px;padding:6px;border-radius:2px;box-sizing:border-box}
+#expmenu{right:12px;top:58px;z-index:46;width:300px;display:flex;flex-direction:column;gap:4px;padding:6px;border-radius:2px;box-sizing:border-box}
 #expmenu .btn{display:flex;flex-direction:column;align-items:flex-start;gap:4px;height:auto;padding:8px 10px;text-align:left;white-space:normal}
 #expmenu .btn span{font-weight:600}
 #expmenu .btn i{font:500 9.5px var(--mono);font-style:normal;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-left:6px}
@@ -481,7 +481,7 @@ label.f input::-webkit-inner-spin-button,label.f input::-webkit-outer-spin-butto
 .grid2.hidden{display:none}
 
 label.f.has-stp{position:relative;padding-right:4px}
-.stp{display:flex;flex-direction:column;gap:1px;width:14px;height:24px;flex:none;margin-left:6px}
+.stp{display:flex;flex-direction:column;gap:1px;width:12px;height:24px;flex:none;margin-left:4px}
 .stp button{all:unset;flex:1;display:block;cursor:default;position:relative;border-radius:2px}
 .stp button:hover{background:var(--hover)}
 .stp button:active{background:var(--ink)}
@@ -489,9 +489,10 @@ label.f.has-stp{position:relative;padding-right:4px}
 .stp button[data-d="1"]::after{border-bottom:4px solid var(--muted);border-top:0}
 .stp button[data-d="-1"]::after{border-top:4px solid var(--muted);border-bottom:0}
 .stp button:active::after{filter:invert(1)}
-#props{width:264px}
-.grid3 label.f{gap:4px;padding-left:6px}
-.grid3 label.f input{font-size:12px}
+#props{width:300px}
+.grid3 label.f{gap:3px;padding-left:6px}
+.grid3 label.f input{font-size:11.5px}
+.grid3 label.f{padding-left:5px}.grid3 label.f.has-stp{padding-right:3px}.grid3 .stp{margin-left:3px}
 #p-rotq .rq .btn{justify-content:center;background:var(--field);padding:6px 0}
 #p-rotq .rq .btn:hover{background:var(--hover)}
 .seg3 button{font-size:10px;letter-spacing:.02em;white-space:nowrap}
@@ -558,9 +559,9 @@ label.f.has-stp{position:relative;padding-right:4px}
 :root{--barh:66px;--avail:calc(100vh - 12px - var(--barh) - 16px - 8px - 8px)}
 #layers{max-height:calc(var(--avail) / 2)}
 #history{bottom:calc(var(--barh) + 24px);max-height:calc(var(--avail) / 2)}
-#layers,#history{right:284px}
+#layers,#history{right:320px}
 #props{max-height:calc(100vh - 60px - var(--barh) - 24px)}
-#topbar{width:264px}
+#topbar{width:300px}
 
 /* pillola Beta accanto al logo */
 #side header .titles .beta{margin:2px 0 0 8px;padding:4px 6px 2px;border:1px solid var(--accent);border-radius:999px;background:var(--accent-weak);color:var(--accent);font:500 9.5px/1 var(--mono);letter-spacing:.04em;text-transform:none;white-space:nowrap;align-self:center}

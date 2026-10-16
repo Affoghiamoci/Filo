@@ -56,6 +56,22 @@ export function manifoldEvaluate(a, b, op, material) {
   finally { for (const x of [ma, mb, r]) { try { x && x.delete(); } catch (e) {} } }
 }
 
+// Combina in un colpo solo: tutti i solidi si uniscono (o si intersecano) e tutti i fori si tolgono insieme. Manifold unisce molti pezzi con un solo calcolo,
+// invece di rifare l'intera mesh a ogni coppia. Restituisce un Brush in coordinate mondo, o null (pezzo non chiuso, risultato vuoto): allora si usa il percorso a coppie.
+export function manifoldCombine(solids, holes, mode, material) {
+  if (!M || !solids.length) return null;
+  const objs = [], keep = o => { objs.push(o); return o; };
+  const conv = list => list.map(b => { const m = toManifold(b); if (!m) throw new Error('non chiuso'); return keep(m); });
+  try {
+    const ms = conv(solids);
+    let acc = ms.length === 1 ? ms[0] : mode === 'intersect' ? ms.slice(1).reduce((a, m) => keep(a.intersect(m)), ms[0]) : keep(M.Manifold.union(ms));
+    if (holes.length) { const hs = conv(holes); acc = keep(acc.subtract(hs.length === 1 ? hs[0] : keep(M.Manifold.union(hs)))); }
+    if (acc.status() !== 'NoError' || acc.isEmpty()) return null;
+    return toBrush(acc, material || solids[0].material);
+  } catch (e) { return null; }
+  finally { for (const x of objs) { try { x.delete(); } catch (e) {} } }
+}
+
 // Allunga/accorcia: taglia il pezzo sul piano, sposta la parte oltre il piano e riempie lo spazio con la sezione estrusa (delta > 0)
 // o lascia combaciare le due parti (delta < 0). Restituisce un Brush in coordinate mondo, o null.
 const TO_Z = { x: [0, -90, 0], y: [90, 0, 0], z: [0, 0, 0] }, FROM_Z = { x: [0, 90, 0], y: [-90, 0, 0], z: [0, 0, 0] };

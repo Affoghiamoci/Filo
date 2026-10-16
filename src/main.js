@@ -9,7 +9,7 @@ import { mergeVertices, mergeGeometries, toCreasedNormals } from 'three/addons/u
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { unzipSync, zipSync, strToU8 } from 'three/addons/libs/fflate.module.js';
 import { Brush, Evaluator, ADDITION, SUBTRACTION, INTERSECTION } from 'three-bvh-csg';
-import { initManifold, manifoldEvaluate, manifoldStretch, manifoldHalf, manifoldMod } from './mcsg.js';
+import { initManifold, manifoldEvaluate, manifoldCombine, manifoldStretch, manifoldHalf, manifoldMod } from './mcsg.js';
 import { ConvexHull } from 'three/addons/math/ConvexHull.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
@@ -43,6 +43,7 @@ renderer.setClearColor(0x000000, 0);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.shadowMap.autoUpdate = false;       // l'ombra si ridisegna solo quando cambia qualcosa che la proietta (vedi shadowCheck), non a ogni giro di camera
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(35, 1, 1, 6000);
@@ -95,7 +96,7 @@ function setBed(w, d, refit = true) {
   outline.geometry = new THREE.BufferGeometry().setFromPoints([[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([x, y]) => new THREE.Vector3(x * BEDX / 2, y * BEDY / 2, 0.05)));
   const R = Math.max(BEDX, BEDY) * 0.5 + 80;
   Object.assign(sun.shadow.camera, { left: -R, right: R, top: R, bottom: -R });
-  sun.shadow.camera.updateProjectionMatrix();
+  sun.shadow.camera.updateProjectionMatrix(); shadowForce = true;
   buildBedDots(dotStep);
   try { localStorage.setItem('forma.bed', JSON.stringify([BEDX, BEDY])); } catch (e) {}
   if (refit && typeof fitView === 'function' && !objects.length) fitView();
@@ -469,7 +470,15 @@ const EDGE = { normal: 0x5b5f6b, sel: 0xff6a00, key: 0xa855f7 };
 /* --------------------------------------------------------------- oggetti */
 // Spigoli "veri": solo dove due triangoli adiacenti formano un angolo netto.
 // Gli spigoli senza un vicino (T-junction lasciate dalla CSG) non vengono disegnati.
+const edgeArrCache = new WeakMap();                // geometria -> spigoli già calcolati (annulla/ripeti e copie con la stessa forma non ricalcolano)
 function featureEdges(geo, thr = 30) {
+  const pa = geo.attributes.position, key = pa.version + ':' + pa.count + ':' + (geo.index ? geo.index.count : 0) + ':' + thr, hit = edgeArrCache.get(geo);
+  if (hit && hit.key === key) return new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(hit.arr, 3));
+  const g = featureEdgesRaw(geo, thr);
+  edgeArrCache.set(geo, { key, arr: g.attributes.position.array });
+  return g;
+}
+function featureEdgesRaw(geo, thr = 30) {
   const pos = geo.attributes.position, idx = geo.index;
   const nTri = idx ? idx.count / 3 : pos.count / 3;
   const cos = Math.cos(thr * D2R);
@@ -885,6 +894,10 @@ function bakeResult(res, name) {
 function combineBrushes(solids, holes, mode = 'union') {
   solids.forEach(m => m.updateMatrixWorld(true));
   holes.forEach(m => m.updateMatrixWorld(true));
+  if (useManifold && !window.__noManifold && !window.__pairwise && solids.length + holes.length > 2) {          // molti pezzi: un solo calcolo di Manifold invece di tante coppie
+    const r = manifoldCombine(solids, holes, mode, solids[0].material);
+    if (r) { evaluator.last = 'manifold'; return r; }
+  }
   let acc = solids[0];
   const OP = mode === 'intersect' ? INTERSECTION : ADDITION;      // Interseca: resta solo la parte comune a tutti i solidi, poi i fori scavano
   for (let i = 1; i < solids.length; i++) acc = evaluator.evaluate(acc, solids[i], OP);
@@ -944,7 +957,8 @@ function combineNow(mode = 'union') {
   [...selection].forEach(removeMesh);
   const merged = addMerged(baked); lg('add');
   setSelection([merged]); lg('sel');
-  const parts = separateSelection(true); lg('sep');              // se il risultato è fatto di parti staccate, ognuna diventa un livello
+  const pg0 = pieceGroups(baked.geo);                            // un solo pezzo (il caso normale): niente da separare, si risparmia un secondo calcolo completo della mesh
+  const parts = pg0 && pg0.parts.length > 1 ? separateSelection(true) : 0; lg('sep');              // se il risultato è fatto di parti staccate, ognuna diventa un livello
   touch(); opHint = isect ? 'Intersecati' : null; try { commit(); } finally { opHint = null; }
   toast(isect
     ? (parts > 1 ? `Intersecati ${first} oggetti: il risultato è in ${parts} pezzi separati` : `Intersecati ${first} oggetti`)
@@ -4072,6 +4086,26 @@ function geometryFromPositions(arr) {
   g = toCreasedNormals(g, 30 * D2R);
   return mergeVertices(clean(g), 1e-4);
 }
+// legge vertici e triangoli di una <mesh> dal testo: percorso veloce con gli attributi nell'ordine abituale, altrimenti lettura generica
+function readMeshXml(xml) {
+  const nV = (xml.match(/<vertex\b/g) || []).length, nT = (xml.match(/<triangle\b/g) || []).length;
+  const v = new Float32Array(nV * 3), t = new Uint32Array(nT * 3);
+  let i = 0, m;
+  const rv = /<vertex\s+x="([^"]*)"\s+y="([^"]*)"\s+z="([^"]*)"/g;
+  while ((m = rv.exec(xml))) { v[i++] = +m[1]; v[i++] = +m[2]; v[i++] = +m[3]; }
+  if (i !== nV * 3) {                               // ordine diverso degli attributi
+    i = 0; const tag = /<vertex\b([^>]*)>/g, at = /(\w+)="([^"]*)"/g;
+    while ((m = tag.exec(xml))) { const a = {}; let k; at.lastIndex = 0; while ((k = at.exec(m[1]))) a[k[1]] = k[2]; v[i++] = +a.x; v[i++] = +a.y; v[i++] = +a.z; }
+  }
+  i = 0;
+  const rt = /<triangle\s+v1="(\d+)"\s+v2="(\d+)"\s+v3="(\d+)"/g;
+  while ((m = rt.exec(xml))) { t[i++] = +m[1]; t[i++] = +m[2]; t[i++] = +m[3]; }
+  if (i !== nT * 3) {
+    i = 0; const tag = /<triangle\b([^>]*)>/g, at = /(\w+)="([^"]*)"/g;
+    while ((m = tag.exec(xml))) { const a = {}; let k; at.lastIndex = 0; while ((k = at.exec(m[1]))) a[k[1]] = k[2]; t[i++] = +a.v1; t[i++] = +a.v2; t[i++] = +a.v3; }
+  }
+  return { v, t };
+}
 function parse3MF(buf) {
   const files = unzipSync(new Uint8Array(buf)), dec = new TextDecoder();
   const text = n => { if (!files[n]) throw new Error('Manca ' + n); return dec.decode(files[n]); };
@@ -4081,17 +4115,14 @@ function parse3MF(buf) {
   const load = path => {
     path = path.replace(/^\//, '');
     if (cache[path]) return cache[path];
-    const doc = new DOMParser().parseFromString(text(path), 'application/xml');
+    const meshTxt = [];                               // le mesh (decine di migliaia di righe) si leggono a parte, molto più in fretta che con il DOM; il DOM resta per la struttura
+    const stripped = text(path).replace(/<mesh\b[^>]*>[\s\S]*?<\/mesh>/g, m => '<mesh data-k="' + (meshTxt.push(m) - 1) + '"/>');
+    const doc = new DOMParser().parseFromString(stripped, 'application/xml');
     const objs = {};
     for (const o of doc.getElementsByTagName('object')) {
       const rec = { type: o.getAttribute('type') || 'model', comps: [...o.getElementsByTagName('component')].map(c => ({ id: c.getAttribute('objectid'), path: c.getAttribute('p:path'), tf: c.getAttribute('transform') })) };
       const mesh = o.getElementsByTagName('mesh')[0];
-      if (mesh) {
-        const vs = mesh.getElementsByTagName('vertex'), ts = mesh.getElementsByTagName('triangle');
-        rec.v = new Float32Array(vs.length * 3); rec.t = new Uint32Array(ts.length * 3);
-        for (let i = 0; i < vs.length; i++) rec.v.set([+vs[i].getAttribute('x'), +vs[i].getAttribute('y'), +vs[i].getAttribute('z')], i * 3);
-        for (let i = 0; i < ts.length; i++) rec.t.set([+ts[i].getAttribute('v1'), +ts[i].getAttribute('v2'), +ts[i].getAttribute('v3')], i * 3);
-      }
+      if (mesh && mesh.hasAttribute('data-k')) Object.assign(rec, readMeshXml(meshTxt[+mesh.getAttribute('data-k')]));
       objs[o.getAttribute('id')] = rec;
     }
     const items = [...doc.getElementsByTagName('item')].map(i => ({ id: i.getAttribute('objectid'), path: i.getAttribute('p:path'), tf: i.getAttribute('transform') }));
@@ -4115,14 +4146,23 @@ function parse3MF(buf) {
     if (!o || depth > 8) return;
     if (['other', 'support', 'surface'].includes(o.type)) return;   // volumi modificatori e supporti (Bambu/Orca): non sono geometria
     if (o.v) {
-      const P = new THREE.Vector3();
-      for (let i = 0; i < o.t.length; i++) { P.set(o.v[o.t[i] * 3], o.v[o.t[i] * 3 + 1], o.v[o.t[i] * 3 + 2]).applyMatrix4(M4).multiplyScalar(scale); out.push(P.x, P.y, P.z); }
+      const e = M4.elements, ch = new Float32Array(o.t.length * 3), V = o.v, T = o.t;
+      for (let i = 0, j = 0; i < T.length; i++, j += 3) {
+        const x = V[T[i] * 3], y = V[T[i] * 3 + 1], z = V[T[i] * 3 + 2];
+        ch[j] = (e[0] * x + e[4] * y + e[8] * z + e[12]) * scale; ch[j + 1] = (e[1] * x + e[5] * y + e[9] * z + e[13]) * scale; ch[j + 2] = (e[2] * x + e[6] * y + e[10] * z + e[14]) * scale;
+      }
+      out.push(ch);
     }
     for (const c of o.comps) emit(c.path || path, c.id, M4.clone().multiply(mat(c.tf)), out, depth + 1);
   };
   let list = rootModel.items;
   if (!list.length) list = Object.keys(rootModel.objs).filter(k => rootModel.objs[k].v).map(k => ({ id: k, path: null, tf: null }));
-  const res = list.map(it => { const out = []; emit(it.path || root, it.id, mat(it.tf), out); return { pos: Float32Array.from(out) }; }).filter(it => it.pos.length >= 9);
+  const res = list.map(it => {
+    const out = []; emit(it.path || root, it.id, mat(it.tf), out);
+    const pos = new Float32Array(out.reduce((n, c) => n + c.length, 0)); let o = 0;
+    out.forEach(c => { pos.set(c, o); o += c.length; });
+    return { pos };
+  }).filter(it => it.pos.length >= 9);
   res.print = pcfg;
   return res;
 }
@@ -4467,6 +4507,21 @@ function updateSilhouettes() {                     // Raggi X: contorno (i due l
     sx.material.color.copy(u.xray.material.color); sx.material.opacity = u.xray.material.opacity;
   }
 }
+let shadowSig = -1, shadowForce = true;
+function shadowCheck() {                           // impronta di ciò che proietta ombra: posizione, forma, visibilità. Se è uguale a prima, la mappa dell'ombra resta quella
+  let h = 2166136261 >>> 0;
+  const mix = v => { h = Math.imul(h ^ (Math.round(v * 1000) | 0), 16777619) >>> 0; };
+  for (const m of objects) {
+    if (!m.castShadow || !m.visible) continue;
+    m.updateMatrixWorld();
+    const e = m.matrixWorld.elements, g = m.geometry, p = g.attributes.position;
+    for (let i = 0; i < 16; i++) mix(e[i]);
+    mix(p.version); mix(p.count); mix(g.index ? g.index.count : 0);
+    for (let i = 0, u = g.uuid; i < 8; i++) mix(u.charCodeAt(i));
+    mix(m.userData.id);
+  }
+  if (h !== shadowSig || shadowForce) { shadowSig = h; shadowForce = false; renderer.shadowMap.needsUpdate = true; }
+}
 function render() {
   updateSilhouettes();
   edgeMat.resolution.set(canvas.clientWidth, canvas.clientHeight); edgeHoverMat.resolution.copy(edgeMat.resolution); crossHaloMat.resolution.copy(edgeMat.resolution); crossMat.resolution.copy(edgeMat.resolution);
@@ -4475,6 +4530,7 @@ function render() {
   updateDims();   // prima del disegno: la scatola e le linee delle misure compaiono subito, non al movimento successivo
   updateRuler();
   drawFaceCross();
+  shadowCheck();
   renderer.render(scene, camera);
   // le maniglie hanno dimensione costante sullo schermo: nulla da aggiornare
 }
@@ -5233,7 +5289,7 @@ scrollFade($('#tools')); scrollFade($('#p-scroll'));
 
 
 /* ---------------------------------------------------------- controlla stampa */
-const chk = { R: null, ov: null, plane: null, timer: 0, busy: false };
+const chk = { R: null, ov: null, plane: null, timer: 0, busy: false, again: false };
 const dlgChk = $('#dlg-check');
 const fmtMin = m => m < 60 ? `${Math.max(1, Math.round(m))} min` : `${Math.floor(m / 60)} h ${String(Math.round(m % 60)).padStart(2, '0')} min`;
 function chkClear() {
@@ -5276,13 +5332,19 @@ function chkShow() {
   } else $('#chk-est').innerHTML = '';
 }
 async function chkRun() {
-  if (chk.busy) return; chk.busy = true;
+  if (chk.busy) { chk.again = true; return; }          // cambiato qualcosa mentre analizzo: il calcolo in corso si ferma e riparte
+  chk.busy = true; chk.again = false;
   $('#chk-wait').classList.remove('hidden'); $('#chk-body').classList.add('hidden');
+  $('#chk-wait').textContent = tr('Sto analizzando…');
   await new Promise(r => setTimeout(r, 30));
   chkClear();
   const list = checkList();
   if (!list.length) { toast('Niente da controllare: aggiungi almeno un solido'); chk.busy = false; dlgChk.close(); return; }
-  try { chk.R = buildCheck(list, { layer: parseFloat($('#chk-lh').dataset.v), minWall: parseFloat($('#chk-mw').dataset.v) }); } catch (e) { console.warn(e); chk.R = { err: 'Non sono riuscito ad analizzare il pezzo', open: [] }; }
+  const hooks = { progress: f => { $('#chk-wait').textContent = tr('Sto analizzando…') + ' ' + Math.round(f * 100) + ' %'; }, cancelled: () => chk.again || !dlgChk.open };
+  let res;
+  try { res = await buildCheck(list, { layer: parseFloat($('#chk-lh').dataset.v), minWall: parseFloat($('#chk-mw').dataset.v) }, hooks); } catch (e) { console.warn(e); res = { err: 'Non sono riuscito ad analizzare il pezzo', open: [] }; }
+  if (!res) { chk.busy = false; if (chk.again && dlgChk.open) { chk.again = false; chkRun(); } return; }   // fermato: o il lavoro è cambiato o la finestra si è chiusa
+  chk.R = res;
   const R = chk.R;
   if (R.err) { toast(R.err); chk.busy = false; return; }
   $('#chk-wait').classList.add('hidden'); $('#chk-body').classList.remove('hidden');

@@ -51,7 +51,7 @@ Scala: **2, 4, 6, 8, 10, 12, 14, 16, 20, 24** (il 2 solo per il padding interno 
 - Spazio tra campi in griglia: **6 px**. Tra gruppi in una sezione: **10 to 12 px**.
 - Altezze: campo `label.f` **30 px**, icon-btn **30 px** (22 px nelle testate di lista), segmento interno **26 px** dentro un contenitore con padding 2, pulsante barra **34 px**.
 - Divisori: **1 px** `--line`; fra sezioni di un pannello, bordo inferiore di ogni sezione.
-- Larghezze: pannello proprietà 264, livelli e cronologia 232, finestre di dialogo 380 to 420 (Guida e Info fanno eccezione).
+- Larghezze: pannello proprietà 300 (i numeri a due decimali con segno devono starci interi), livelli e cronologia 232, finestre di dialogo 380 to 420 (Guida e Info fanno eccezione).
 - **Finestra Info**: orizzontale, 880 px al massimo. A sinistra le Novità (colonna di 290 px con filetto), a destra logo e versione, descrizione, Privacy, Codice (link al repository GitHub, licenza MIT), Licenze e Ko-fi. Sotto i 760 px diventa una colonna sola con le Novità in fondo.
 - Distanza dai bordi finestra: **12 px**. Barra in basso 16 px.
 
@@ -83,7 +83,7 @@ Transizioni **.12 to .22 s ease**, solo su colore, larghezza e opacità. Niente 
 - Nessun adattamento per `prefers-reduced-motion` per ora.
 
 ## 7. Posizioni
-Sidebar sinistra 12 px dai bordi; barra in alto a destra larga quanto il pannello proprietà e allineata; livelli e cronologia a sinistra delle proprietà; barra comandi in basso al centro; cubo in alto dopo la sidebar. Niente sovrapposizioni tra pannelli di default.
+Sidebar sinistra 12 px dai bordi; barra in alto a destra e menu Esporta larghi quanto il pannello proprietà e allineati; livelli e cronologia a sinistra delle proprietà; barra comandi in basso al centro; cubo in alto dopo la sidebar. Niente sovrapposizioni tra pannelli di default.
 
 ## 8. Tastiera: Esc
 Esc fa una cosa alla volta, nell'ordine: 1) in un campo numerico o nel nome annulla la modifica (torna al valore di partenza) ed esce dal campo; 2) chiude i menu aperti (varianti degli strumenti, menu del tasto destro, piatto, scatto, punti, elenco font); 3) interrompe il righello o la selezione di un lato; 4) deseleziona. Tab (sidebar) e Spazio (trascinare la vista) restano riservati alla scena, come in Photoshop. Le scorciatoie di Filo che il browser userebbe per altro (⌘G e ⇧⌘G cerca, ⌘E, ⌘D segnalibro, ⌘S, ⌘O, ⌘0, ⌘+, ⌘-) si bloccano a livello di pagina, anche con un campo o una finestra aperti; ⌘A, ⌘C, ⌘V, ⌘X e ⌘Z nei campi restano quelle del browser.
