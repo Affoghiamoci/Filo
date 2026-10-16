@@ -28,7 +28,7 @@ Stati e assi hanno un token fisso, uguale nei due temi: `--ok` verde `#2fa866`, 
 
 ## 3. Tipografia
 - **Mono** (`--mono`, SF Mono): titoli, etichette, valori numerici, tasti, pulsanti. Sempre maiuscolo con tracking.
-- **Sans** (`--font`, SF Pro): frasi e descrizioni. **VT323**: solo logo "Filo" e titoli grandi di benvenuto/avvisi.
+- **Sans** (`--font`, SF Pro): frasi e descrizioni. **VT323**: solo titoli grandi di benvenuto/avvisi. Il logo "Filo" non è testo ma un SVG: simbolo a pixel in `--accent` più scritta serif in tracciati, colorata con `--text` (si adatta al tema). Altezza 34 px nella sidebar e 40 px nella finestra Info; con la sidebar chiusa resta solo il simbolo a pixel (18 px). Il `shape-rendering: crispEdges` vale solo per il simbolo, non per la scritta.
 
 | Ruolo | Stile |
 |---|---|

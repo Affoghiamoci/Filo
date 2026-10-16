@@ -877,3 +877,12 @@ dialog[open],dialog[open]::backdrop{animation:fade-in .16s ease}
 #side:not(.mini) #foot{justify-content:space-between;gap:0}
 #side:not(.mini) #foot .ctl{display:contents}
 #side:not(.mini) #foot #lang button{min-width:0;width:42px;padding:0}
+
+/* logo intero (simbolo a pixel + scritta): il simbolo è `--accent`, la scritta segue il tema */
+.logo-full{display:block;height:34px;width:auto;flex:none;color:var(--text)}
+.logo-full .lf-px{fill:var(--accent)}
+.logo-full .lf-word{fill:currentColor}
+#side header .titles{gap:10px}
+#side:not(.mini) header .logo{display:none}
+.info-head .logo{display:none}
+.info-head .logo-full{height:40px}
