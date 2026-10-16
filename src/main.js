@@ -28,7 +28,8 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
 /* ------------------------------------------------------------------ stato */
-const state = { tool: 'move', space: false, snap: 1, dims: false, xray: false, magnet: true };
+const state = { tool: 'move', space: false, snap: 1, dims: false, xray: false, magnet: true, wheelZoom: false };
+try { state.wheelZoom = localStorage.getItem('filo.wheel') === 'zoom'; } catch (e) { /* ignora */ }
 const objects = [];
 let selection = [];
 let keyObj = null;
@@ -1978,6 +1979,8 @@ canvas.addEventListener('wheel', e => {
   if (e.altKey) return zoom(Math.exp((dy || dx) * 0.006)); // ⌥ + scorrimento: zoom con qualsiasi dispositivo
   const mouseWheel = e.deltaMode === 1 || (dx === 0 && Number.isInteger(dy) && Math.abs(dy) >= 50);
   if (mouseWheel && !e.shiftKey) return zoom(Math.exp(dy * 0.0012));
+  // rotellina forzata (pulsante nel blocco Mostra): su Mac molti mouse mandano scatti piccoli, indistinguibili da un trackpad
+  if (state.wheelZoom && !e.shiftKey && !state.space) return zoom(Math.exp((dy || dx) * 0.004));
   if (e.shiftKey || state.space) panPixels(-dx, -dy);
   else orbitPixels(-dx, -dy);
 }, { passive: false });
@@ -2156,7 +2159,7 @@ function syncPanel() {
     else if (nUnits < 2 && b.dataset.ax === 'z' && b.dataset.mode !== 'min') { off = true; why = 'Con un solo oggetto in altezza si può solo appoggiare al piatto'; }
     b.style.opacity = off ? '.38' : ''; b.title = off ? why : b.dataset.tip;
   });
-  $('#p-key').textContent = nUnits < 2 ? 'Allinea al piatto.'
+  $('#p-key').textContent = nUnits < 2 ? ''
     : keyObj ? `Oggetto chiave: ${keyObj.userData.name}. Clicca un altro oggetto selezionato per cambiarlo.`
     : 'Allineo alla selezione. Per scegliere un oggetto chiave, clicca uno degli oggetti selezionati.';
 }
@@ -5135,6 +5138,15 @@ const APP_VERSION = '0.10.0';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
+{
+  const bw = $('#b-wheel'), sync = () => { bw.classList.toggle('on', state.wheelZoom); bw.setAttribute('aria-pressed', String(state.wheelZoom)); };
+  bw.addEventListener('click', () => {
+    state.wheelZoom = !state.wheelZoom; sync();
+    try { localStorage.setItem('filo.wheel', state.wheelZoom ? 'zoom' : 'auto'); } catch (e) { /* ignora */ }
+    canvas.focus();
+  });
+  sync();
+}
 $('#info-close').addEventListener('click', () => infoDlg.close());
 { const det = infoDlg.querySelector('.cl details'), cl = infoDlg.querySelector('.cl');   // aprendo le versioni precedenti, la colonna scorre fino a loro
   if (det && cl) det.addEventListener('toggle', () => { if (det.open) cl.scrollTo({ top: Math.max(0, det.offsetTop - cl.offsetTop - 8), behavior: 'smooth' }); }); }

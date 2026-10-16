@@ -496,13 +496,10 @@ label.f.has-stp{position:relative;padding-right:4px}
 .grid3 label.f{padding-left:5px}.grid3 label.f.has-stp{padding-right:3px}.grid3 .stp{margin-left:3px}
 #p-rotq .rq .btn{justify-content:center;background:var(--field);padding:6px 0}
 #p-rotq .rq .btn:hover{background:var(--hover)}
-#p-rotq .rq .btn{gap:4px;padding:2px 0;--bg:var(--field)}
-#p-rotq .rq .btn:hover{--bg:var(--hover)}
-#p-rotq .rq svg{width:34px;height:34px;flex:none;fill:none;stroke:currentColor;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round}
-#p-rotq .rq .cb{fill:var(--bg)}
-#p-rotq .rq .ar{stroke:var(--accent);stroke-width:1.5}
-#p-rotq .rq .bk{opacity:.45}
-#p-rotq .rq .hd{fill:var(--accent);stroke:var(--accent);stroke-width:.6}
+#p-rotq .rq .btn{gap:6px;padding:6px 0}
+#p-rotq .rq svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+#p-rotq .rq b{font-weight:600}
+#p-rotq .rq [data-rq=x] b{color:var(--ax-x)}#p-rotq .rq [data-rq=y] b{color:var(--ax-y)}#p-rotq .rq [data-rq=z] b{color:var(--ax-z)}
 .seg3 button{font-size:10px;letter-spacing:.02em;white-space:nowrap}
 .grid2 label.f{gap:4px;padding-left:6px;font-size:10px}
 .grid2 label.f input{font-size:12px}
@@ -839,13 +836,13 @@ dialog[open],dialog[open]::backdrop{animation:fade-in .16s ease}
 
 /* barra proprietà: ogni sezione ha un'intestazione a barra che la comprime; la freccia in fondo dice che si può scorrere */
 #p-scroll{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
-#p-scroll h4.ph{display:flex;align-items:center;margin:12px -14px 8px;padding:7px 14px;background:var(--field);border-top:1px solid var(--line);color:var(--text);cursor:default;user-select:none}
-#p-scroll h4.ph::after{content:"";flex:none;margin-left:auto;width:6px;height:6px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:translateY(-2px) rotate(45deg);transition:transform .12s}
-#p-scroll h4.ph.pc::after{transform:translateX(-2px) rotate(-45deg)}
-#p-scroll h4.ph:hover::after{border-color:var(--accent)}
+#p-scroll h4.ph{display:flex;align-items:center;margin:12px -14px 8px;padding:7px 14px;background:none;border-bottom:1px dotted var(--line);color:var(--text);cursor:default;user-select:none}
+#p-scroll h4.ph::before{content:"";flex:none;width:7px;height:7px;margin-right:9px;border-radius:50%;background:var(--accent);box-shadow:inset 0 0 0 1.5px var(--accent);transition:background-color .12s,box-shadow .12s}
+#p-scroll h4.ph.pc{color:var(--muted)}
+#p-scroll h4.ph.pc::before{background:transparent;box-shadow:inset 0 0 0 1.5px var(--muted)}
+#p-scroll h4.ph:hover::before{box-shadow:inset 0 0 0 1.5px var(--accent)}
 #p-scroll h4.ph:focus-visible{outline:0;box-shadow:inset 0 0 0 2px var(--accent)}
 #p-scroll h4.ph.h-lock .lock{margin-left:auto}
-#p-scroll h4.ph.h-lock::after{margin-left:10px}
 #p-scroll h4.ph.pc{margin-bottom:0}
 .pfold,#p-color-sw.pfold{display:none!important}
 #p-more,#t-more{position:absolute;left:0;right:0;bottom:0;height:36px;display:grid;place-items:end center;padding:0 0 6px;border:0;border-radius:0;background:linear-gradient(to top,var(--panel) 35%,transparent);color:var(--text);cursor:default;pointer-events:none}
@@ -867,3 +864,5 @@ dialog[open],dialog[open]::backdrop{animation:fade-in .16s ease}
 #foot .ctl{gap:2px}
 #p-scroll h4.ph .u{margin-left:.6em}
 #ew-resume .ew-go{min-width:0}
+
+#p-key:empty{display:none}
