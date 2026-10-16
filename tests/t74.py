@@ -11,7 +11,7 @@ with sync_playwright() as p:
     pg.goto(URL);pg.wait_for_function("window.forma");pg.wait_for_timeout(800)
     pg.evaluate("(()=>{const f=forma;f.setSelection([f.createObject('box'),f.createObject('cylinder')])})()");pg.wait_for_timeout(400)
     hs=pg.evaluate(HEADS)
-    check('Posizione sta sopra Allinea (gruppo)',hs.index('posizione')<hs.index('allinea'))
+    check('Posizione sta sopra Allinea (gruppo)',hs.index("posizione")==hs.index("allinea")-1)
     check('la freccia "altro sotto" compare quando c\'è altro da scorrere',pg.evaluate("!document.querySelector('#p-more').classList.contains('hidden')"))
     pg.evaluate("document.querySelector('#p-scroll').scrollTop=9999");pg.wait_for_timeout(200)
     check('in fondo la freccia sparisce',pg.evaluate("document.querySelector('#p-more').classList.contains('hidden')"))
