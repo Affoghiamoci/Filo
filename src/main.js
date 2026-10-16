@@ -3089,7 +3089,7 @@ setDots(_d, false);
 })();
 /* piatto di stampa */
 const BEDS = [
-  ['A1 mini', 180, 180], ['A1 · P1S · X1C · P2S', 256, 256], ['H2S', 340, 320], ['H2D', 350, 320], ['Max (40 cm)', 400, 400]
+  ['A1 mini', 180, 180], ['A1 · P1S · X1C · P2S', 256, 256], ['H2S', 340, 320], ['H2D', 350, 320], ['Max', 400, 400]
 ];
 const bedMenu = $('#bedmenu');
 bedMenu.innerHTML = '<div class="mh">Piatto di stampa</div>' + BEDS.map(([n, w, d], i) => `<button class="btn" data-bed="${i}"><span>${n}</span><em>${w}×${d}</em></button>`).join('') +
