@@ -24,7 +24,7 @@ with sync_playwright() as p:
         check(lang+': cerchio: 5 sagome (6 copie)',pg.evaluate(CNT)==5 and not ('×' in pg.evaluate(INFO)))
         pg.fill('#rp-n','200');pg.wait_for_timeout(200)
         pg.click('#rp-mode [data-v="grid"]');pg.fill('#rp-nx','60');pg.fill('#rp-ny','60');pg.wait_for_timeout(300)
-        check(lang+': oltre il limite nessuna sagoma e avviso',pg.evaluate(CNT)==0 and ('600' in pg.evaluate(INFO)))
+        check(lang+': oltre il limite nessuna sagoma e avviso',pg.evaluate(CNT)==0 and ('1500' in pg.evaluate(INFO)))
         pg.fill('#rp-nx','2');pg.fill('#rp-ny','2');pg.wait_for_timeout(200)
         check(lang+': 2x2 = 3 sagome',pg.evaluate(CNT)==3)
         pg.mouse.move(700,400);pg.mouse.down();pg.mouse.move(740,420,steps=5);pg.mouse.up();pg.wait_for_timeout(200)   # orbita: le sagome restano

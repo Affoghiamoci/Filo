@@ -512,7 +512,7 @@ function featureEdgesRaw(geo, thr = 30) {
   edges.forEach(e => { if (e.sharp) out.push(P[e.p0 * 3], P[e.p0 * 3 + 1], P[e.p0 * 3 + 2], P[e.p1 * 3], P[e.p1 * 3 + 1], P[e.p1 * 3 + 2]); });
   return new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(out, 3));
 }
-const COLORS = [null, '#FF6A00', '#F2F2F2', '#26262B', '#E5383B', '#FFC400', '#22A45D', '#2F7BFF', '#8B5CF6'];
+const COLORS = [null, '#FF6A00', '#F2F2F2', '#26262B', '#E5383B', '#FFC400', '#22A45D', '#2F7BFF', '#8B5CF6', '#EC4899', '#8A8F98'];
 const colMats = new Map();
 function colMat(hex, sel) {
   const k = hex + (sel ? '*' : '');
@@ -1010,6 +1010,8 @@ addSteppers();
 
 /* ------------------------------------------------------------ ripeti: griglia, nido d'ape, cerchio */
 const RP = { mode: 'grid', ex: 10, ey: 10 };
+const REP_MAX = 1500;                                  // pezzi nuovi in tutto (copie × pezzi selezionati)
+const repMsg = (k, c) => k > 1 ? `Troppi pezzi: ${k} × ${c} = ${k * c}, il massimo è ${REP_MAX}` : `Troppe copie: ${c}, il massimo è ${REP_MAX}`;
 function honeyGapY() { const gx = parseFloat($('#rp-px').value) || 0; $('#rp-py').value = fmt(+(0.866 * (RP.ex + gx) - RP.ey).toFixed(2)); }
 async function repeatSelection(o) {
   const n = o.mode === 'polar' ? o.n : (o.nx || 1) * (o.ny || 1);
@@ -1039,7 +1041,7 @@ function repeatNow(o) {
   if (!src.length) return toast('Seleziona prima un oggetto');
   const spots = repeatSpots(o, src);
   if (!spots.length) return toast('Con questi numeri non c\'è nulla da copiare');
-  if (spots.length * src.length > 600) return toast('Troppe copie: il massimo è 600');
+  if (spots.length * src.length > REP_MAX) return toast(repMsg(src.length, spots.length));
   const all = src.slice(), qz = new THREE.Quaternion(), p = new THREE.Vector3();
   for (const sp of spots) {
     const gmap = new Map();
@@ -1094,7 +1096,7 @@ function updateRepeatInfo(spots, src) {
   const o = repeatOpts(); spots = spots || repeatSpots(o, src);
   const n = spots.length * src.length;
   if (!spots.length) { el.textContent = tr("Con questi numeri non c'è nulla da copiare"); return; }
-  if (n > 600) { el.textContent = tr('Troppe copie: il massimo è 600'); return; }
+  if (n > REP_MAX) { el.textContent = tr(repMsg(src.length, spots.length)); return; }
   let txt = `${n} ${tr(n === 1 ? 'copia in più' : 'copie in più')}`;
   if (o.mode !== 'polar') {
     const bb = new THREE.Box3(); src.forEach(m => bb.union(worldBox(m)));
@@ -1109,7 +1111,7 @@ function repeatPreview() {
   if (!src.length) return updateRepeatInfo();
   const o = repeatOpts(), spots = repeatSpots(o, src);
   updateRepeatInfo(spots, src);
-  if (!spots.length || spots.length * src.length > 600) return;
+  if (!spots.length || spots.length * src.length > REP_MAX) return;
   const disp = [], fill = new THREE.MeshBasicMaterial({ color: ACCENT_HEX, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide }), line = new THREE.LineBasicMaterial({ color: ACCENT_HEX, transparent: true, opacity: 0.75, depthTest: false });
   disp.push(fill, line);
   const g = new THREE.Group(), heavy = trisOf(src) * spots.length > 40000, qz = new THREE.Quaternion(), p = new THREE.Vector3();
@@ -1136,15 +1138,15 @@ function repeatPreview() {
 }
 {
   const sec = $('#p-repeat');
-  ['input', 'change', 'focusin'].forEach(ev => sec.addEventListener(ev, () => repeatPreview()));
+  ['input', 'change', 'focusin'].forEach(ev => sec.addEventListener(ev, e => { if (e.target.closest && e.target.closest('h4.ph')) return; repeatPreview(); }));   // l'intestazione che comprime la sezione non deve accendere l'anteprima
   sec.addEventListener('click', e => { if (e.target.closest('#rp-mode button')) repeatPreview(); });
 }
 $('#rp-px').addEventListener('input', () => { if (RP.mode === 'honey') honeyGapY(); });
-// i campi non superano mai i limiti: ogni campo resta nel suo min/max e il totale delle copie nuove non va oltre 600
+// i campi non superano mai i limiti: ogni campo resta nel suo min/max e il totale dei pezzi nuovi non va oltre REP_MAX
 function limitRepeatField(el) {
   let v = Math.round(parseFloat(el.value));
   if (!Number.isFinite(v)) return;
-  const k = Math.max(1, selection.length), room = Math.floor(600 / k) + 1;   // copie totali per oggetto, originale compreso
+  const k = Math.max(1, selection.length), room = Math.floor(REP_MAX / k) + 1;   // copie totali per oggetto, originale compreso
   let top = +el.max, why = '';
   if (el.id === 'rp-nx' || el.id === 'rp-ny') {
     const other = Math.max(1, Math.round(parseFloat($(el.id === 'rp-nx' ? '#rp-ny' : '#rp-nx').value)) || 1);
@@ -1152,7 +1154,7 @@ function limitRepeatField(el) {
   } else if (el.id === 'rp-n' && room < top) { top = room; why = 'total'; }
   const nv = clamp(v, +el.min || 1, top);
   if (nv !== v || String(nv) !== el.value) el.value = nv;
-  if (nv !== v && v > top) toast(why ? 'Massimo 600 copie in tutto' : `Massimo ${top}`);
+  if (nv !== v && v > top) toast(why ? `Massimo ${REP_MAX} pezzi in tutto` : `Massimo ${top}`);
 }
 ['rp-nx', 'rp-ny', 'rp-n', 'rp-arc'].forEach(id => $('#' + id).addEventListener('change', e => limitRepeatField(e.target)));
 $('#p-repeat').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') $('#rp-go').click(); });
@@ -1302,7 +1304,7 @@ function buildAlignPanel() {
   $('#p-align').innerHTML = rows.map(([ax, label, btns]) =>
     `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="width:14px;color:var(--muted);font-weight:600;font-size:11.5px">${label}</span>` +
     btns.map(([mode, tip]) => `<button class="btn" style="flex:1;justify-content:center;background:var(--field);padding:6px 0" data-ax="${ax}" data-mode="${mode}" data-tip="${tip}" title="${tip}">${alignIcon(ax, mode)}</button>`).join('') + '</div>').join('')
-    + '<h4 style="margin-top:10px">Distribuisci</h4><div style="display:flex;align-items:center;gap:6px">' + ['x', 'y', 'z'].map(ax =>
+    + '<div class="sub" style="margin-top:10px">Distribuisci</div><div style="display:flex;align-items:center;gap:6px">' + ['x', 'y', 'z'].map(ax =>
       `<button class="btn" style="flex:1;justify-content:center;background:var(--field);padding:6px 0;gap:4px" data-dist="${ax}" data-tip="Spazi uguali tra gli oggetti su ${ax.toUpperCase()}, tenendo fermi i due agli estremi" title="Spazi uguali tra gli oggetti su ${ax.toUpperCase()}, tenendo fermi i due agli estremi">${distIcon(ax)}<span style="font-size:11px;color:var(--muted)">${ax.toUpperCase()}</span></button>`).join('') + '</div>';
   $('#p-align').addEventListener('click', e => {
     const b = e.target.closest('button');
@@ -2123,10 +2125,7 @@ function syncPanel() {
   $('#p-face').classList.toggle('hidden', !faceSel);
   if (faceSel) { updateFacePanel(); return; }
   const m = single();
-  $('#p-single').classList.toggle('hidden', !m); $('#p-single2').classList.toggle('hidden', !m); if (m) $('#p-single2').before($('#p-rotq')); else $('#p-multi').after($('#p-rotq'));
-  $('#p-multi').classList.toggle('hidden', !!m); $('#p-multipos').classList.toggle('hidden', !!m);
-  const allHole = selection.every(o => o.userData.hole);
-  document.querySelectorAll('#p-type button').forEach(b => b.classList.toggle('on', (b.dataset.v === 'hole') === allHole));
+  [['#p-single', !m], ['#p-single2', !m], ['#p-size-s', !m], ['#p-pos-s', !m], ['#p-rot-s', !m], ['#p-multi', !!m], ['#p-pos-m', !!m]].forEach(([q, h]) => $(q).classList.toggle('hidden', h));
   syncColor(); syncTextPanel();
   const nameEl = $('#p-name');
   if (m) {
@@ -2137,9 +2136,10 @@ function syncPanel() {
     $('#p-r-wrap').classList.toggle('hidden', !ROUND_KINDS.includes(m.userData.kind));
     $('#p-r').parentElement.classList.toggle('hidden', !['box', 'prism'].includes(m.userData.kind));
     document.querySelectorAll('#p-rm button').forEach(b => b.classList.toggle('on', (m.userData.p.rm === 'chamfer') === (b.dataset.v === 'chamfer')));
-    $('#p-t-wrap').classList.toggle('hidden', !['box', 'cylinder', 'prism'].includes(m.userData.kind));
-    const qs = QSPEC[m.userData.kind];
+    const hasT = ['box', 'cylinder', 'prism'].includes(m.userData.kind), qs = QSPEC[m.userData.kind];
+    $('#p-t-wrap').classList.toggle('hidden', !hasT);
     $('#p-q-wrap').classList.toggle('hidden', !qs);
+    $('#p-shape').classList.toggle('hidden', !hasT && !qs);
     if (qs) { const lab = $('#p-q-lab'); if (lab.dataset.k !== m.userData.kind) { lab.dataset.k = m.userData.kind; lab.firstChild.data = qs[0]; F.q.min = qs[1]; F.q.max = qs[2]; F.q.step = m.userData.kind === 'prism' ? 1 : 5; } }
   } else {
     const gb = selBox(), gs = gb.getSize(new THREE.Vector3());
@@ -2247,13 +2247,6 @@ $('#p-name').addEventListener('input', e => { const m = single(); if (m) { m.use
 $('#p-name').addEventListener('change', commit);
 document.addEventListener('click', e => { if (e.target.closest('[data-lang]')) setTimeout(syncPanel, 0); });   // il nome nel pannello segue la lingua
 $('#p-name').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
-$('#p-type').addEventListener('click', e => {
-  const b = e.target.closest('button');
-  if (!b || !selection.length) return;
-  const wantHole = b.dataset.v === 'hole';
-  if (selection.every(m => m.userData.hole === wantHole)) return;
-  toggleHole();
-});
 
 /* ---------------------------------------------------- misure reali (M) */
 const labelsEl = $('#labels');
@@ -2907,7 +2900,7 @@ function setMini(on, save = true) {
   sideEl.classList.toggle('mini', on);
   if (!on && save) { sideEl.classList.add('opening'); clearTimeout(setMini.t); setMini.t = setTimeout(() => sideEl.classList.remove('opening'), 320); }
   if (on && save) { sideEl.classList.add('closing'); clearTimeout(setMini.t2); setMini.t2 = setTimeout(() => sideEl.classList.remove('closing'), 320); }
-  document.documentElement.style.setProperty('--sw', on ? '72px' : '312px');
+  document.documentElement.style.setProperty('--sw', on ? '72px' : '292px');
   hideTip();
   document.querySelectorAll('#tools .tool').forEach(b => {      // barra stretta: c'è già il nostro pop up, quindi niente tooltip del browser (si sovrapporrebbero)
     if (on) { if (b.hasAttribute('title')) { b.dataset.title = b.getAttribute('title'); b.removeAttribute('title'); } b.setAttribute('aria-label', b.querySelector('b')?.textContent || ''); }
@@ -3860,35 +3853,59 @@ function mergeFlush(arr, orig, n, dP) {
     paths.push(pl);
   }
   if (!count || !untouched || !paths.length) return null;
-  const cl = new C.Clipper(C.Clipper.ioPreserveCollinear), tree = new C.PolyTree();
+  // unione dei triangoli come elenco di contorni (non come albero: con centinaia di fori l'albero di Clipper diventa quadratico e blocca tutto); l'annidamento si ricostruisce qui
+  const cl = new C.Clipper(C.Clipper.ioPreserveCollinear), res = new C.Paths();
   cl.AddPaths(paths, C.PolyType.ptSubject, true);
-  cl.Execute(C.ClipType.ctUnion, tree, C.PolyFillType.pftNonZero, C.PolyFillType.pftNonZero);
+  cl.Execute(C.ClipType.ctUnion, res, C.PolyFillType.pftNonZero, C.PolyFillType.pftNonZero);
   const add = [], p3 = p => { const k = p.X + ',' + p.Y; return lookup.get(k) || n.clone().multiplyScalar(dP).addScaledVector(u, p.X / K).addScaledVector(v, p.Y / K).toArray(); };
   const thin = pl => { let a2 = 0, per = 0; for (let i = 0; i < pl.length; i++) { const p = pl[i], q = pl[(i + 1) % pl.length]; a2 += p.X * q.Y - q.X * p.Y; per += Math.hypot(q.X - p.X, q.Y - p.Y); } return per > 0 && Math.abs(a2) / per / K < 0.05; };   // spicchi sottilissimi lasciati dalle pareti curve collassate
-  const walk = node => {
-    for (const o of node.Childs()) {
-      if (o.IsHole()) { walk(o); continue; }
-      const contour = o.Contour(), holes = o.Childs().filter(h => !thin(h.Contour())).map(h => h.Contour());
-      const all = [...contour, ...holes.flat()];
-      const cv = contour.map(p => new THREE.Vector2(p.X / K, p.Y / K)), hv = holes.map(h => h.map(p => new THREE.Vector2(p.X / K, p.Y / K)));
-      for (const [i, j, k] of THREE.ShapeUtils.triangulateShape(cv, hv)) {
-        const a = p3(all[i]), b = p3(all[j]), c = p3(all[k]);
-        A.fromArray(a); B.fromArray(b); Cc.fromArray(c);
-        e1.subVectors(B, A).cross(e2.subVectors(Cc, A));
-        if (e1.length() / Math.max(1e-9, A.distanceTo(B), B.distanceTo(Cc), Cc.distanceTo(A)) < 2e-3) continue;   // punti quasi allineati: nessuna superficie
-        const flip = e1.dot(n) < 0;
-        add.push(...(flip ? [...a, ...c, ...b] : [...a, ...b, ...c]));
-      }
-      for (const h of o.Childs()) if (!thin(h.Contour())) walk(h);       // le isole dentro uno spicchio scartato sono già coperte dal riempimento
-    }
+  const items = res.filter(pl => pl.length >= 3).map(pl => {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const q of pl) { x0 = Math.min(x0, q.X); x1 = Math.max(x1, q.X); y0 = Math.min(y0, q.Y); y1 = Math.max(y1, q.Y); }
+    return { pl, hole: !C.Clipper.Orientation(pl), area: Math.abs(C.Clipper.Area(pl)), x0, y0, x1, y1, kids: [], up: null };
+  });
+  const inside = (it, ot) => {                       // it sta dentro ot (contorno più grande)? basta un vertice strettamente interno
+    if (it.x0 < ot.x0 || it.x1 > ot.x1 || it.y0 < ot.y0 || it.y1 > ot.y1) return false;
+    for (const q of it.pl) { const r = C.Clipper.PointInPolygon(q, ot.pl); if (r === 1) return true; if (r === 0) return false; }
+    return false;
   };
-  walk(tree);
+  const byArea = items.slice().sort((p, q) => p.area - q.area);
+  for (let i = 0; i < byArea.length; i++) {
+    const it = byArea[i];
+    for (let j = i + 1; j < byArea.length; j++) if (byArea[j].hole !== it.hole && inside(it, byArea[j])) { it.up = byArea[j]; byArea[j].kids.push(it); break; }
+  }
+  for (const o of items) {
+    if (o.hole) continue;
+    if (o.up && o.up.hole && thin(o.up.pl)) continue;                  // le isole dentro uno spicchio scartato sono già coperte dal riempimento
+    const contour = o.pl, holes = o.kids.filter(h => !thin(h.pl)).map(h => h.pl);
+    const all = [...contour, ...holes.flat()];
+    const cv = contour.map(p => new THREE.Vector2(p.X / K, p.Y / K)), hv = holes.map(h => h.map(p => new THREE.Vector2(p.X / K, p.Y / K)));
+    for (const [i, j, k] of THREE.ShapeUtils.triangulateShape(cv, hv)) {
+      const a = p3(all[i]), b = p3(all[j]), c = p3(all[k]);
+      A.fromArray(a); B.fromArray(b); Cc.fromArray(c);
+      e1.subVectors(B, A).cross(e2.subVectors(Cc, A));
+      if (e1.length() / Math.max(1e-9, A.distanceTo(B), B.distanceTo(Cc), Cc.distanceTo(A)) < 2e-3) continue;   // punti quasi allineati: nessuna superficie
+      const flip = e1.dot(n) < 0;
+      add.push(...(flip ? [...a, ...c, ...b] : [...a, ...b, ...c]));
+    }
+  }
   if (!add.length) return null;
   const out = new Float32Array((nT - count) * 9 + add.length);
   let w = 0;
   for (let t = 0; t < nT; t++) if (!inPlane[t]) { out.set(arr.subarray(t * 9, t * 9 + 9), w); w += 9; }
   out.set(add, w);
   return out;
+}
+// un triangolo spostato che si ribalta (la normale gira oltre ~90°) è una piega: lo spostamento dei vertici non basta più e serve il CSG
+function foldedTri(orig, arr, t) {
+  const o = t * 9;
+  const nrm = A => {
+    const ux = A[o + 3] - A[o], uy = A[o + 4] - A[o + 1], uz = A[o + 5] - A[o + 2], vx = A[o + 6] - A[o], vy = A[o + 7] - A[o + 1], vz = A[o + 8] - A[o + 2];
+    return [uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx];
+  };
+  const a = nrm(orig), b = nrm(arr), la = Math.hypot(...a), lb = Math.hypot(...b);
+  if (la < 1e-6) return false;                                           // triangolo già degenere
+  return lb < la * 1e-3 ? false : (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / (la * lb) < 0.2;
 }
 function pushOne(obj, faces, dist) {
   if (faces.length === 1 && faces[0].full && ['cylinder', 'cone'].includes(obj.userData.kind)) {   // lato intero di un cilindro: allarga o stringe il raggio
@@ -3967,6 +3984,7 @@ function pushOne(obj, faces, dist) {
     if (!touched) continue;
     const o = maxEdge(orig, t), nw = maxEdge(arr, t);
     if (nw > o * 2.5 && nw - o > 2) spiky = true;
+    if (foldedTri(orig, arr, t)) spiky = true;                          // triangolo ribaltato: i vertici vicini al bordo sono finiti dall'altra parte (crepe)
   }
   g.dispose();
   if (!moved) return { err: 'Impossibile spostare questo lato' };
@@ -5170,7 +5188,7 @@ function cutRefresh() {                                        // piano di antep
 var cutSec = null, cutSecTimer = 0, cutSecLast = 0;
 function cutSecEnsure() {
   if (cutSec) return cutSec;
-  const fill = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ color: 0x16161a, opacity: 0.72, transparent: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false }));
+  const fill = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ color: 0x16161a, opacity: 0.38, transparent: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false }));
   fill.renderOrder = 951; fill.frustumCulled = false; fill.raycast = () => {};
   const mat = new LineMaterial({ color: 0xff6a00, linewidth: 3, depthTest: false, transparent: true });
   const line = new LineSegments2(new LineSegmentsGeometry(), mat); line.renderOrder = 952; line.frustumCulled = false; line.raycast = () => {}; line.visible = false;
@@ -5412,7 +5430,7 @@ function scrollFade(el) {
 scrollFade($('#tools')); scrollFade($('#p-scroll'));
 /* barra proprietà: sezioni comprimibili (intestazione a barra) e freccia "altro sotto" */
 (function () {
-  const sc = $('#p-scroll'), more = $('#p-more');
+  const sc = $('#p-scroll');
   let fold = {};
   try { fold = JSON.parse(localStorage.getItem('filo.pfold') || '{}') || {}; } catch (e) { fold = {}; }
   const apply = h => {
@@ -5435,13 +5453,18 @@ scrollFade($('#tools')); scrollFade($('#p-scroll'));
   });
   sc.addEventListener('click', e => { const h = e.target.closest('h4.ph'); if (h && !e.target.closest('button')) toggle(h); });
   sc.addEventListener('keydown', e => { const h = e.target.closest && e.target.closest('h4.ph'); if (h && h === e.target && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle(h); } });
-  const upd = () => { more.classList.toggle('hidden', sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 4 || $('#props').classList.contains('hidden')); };
+})();
+/* freccia "altro sotto" per i pannelli che scorrono: compare solo se c'è altro da vedere, un clic scorre */
+function moreCue(sc, more, panel) {
+  const upd = () => { more.classList.toggle('hidden', sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 4 || panel.classList.contains('hidden')); };
   sc.addEventListener('scroll', upd, { passive: true });
   new ResizeObserver(upd).observe(sc);
   new MutationObserver(upd).observe(sc, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
   window.addEventListener('resize', upd); upd();
   more.addEventListener('click', () => sc.scrollBy({ top: Math.round(sc.clientHeight * .7), behavior: 'smooth' }));
-})();
+}
+moreCue($('#p-scroll'), $('#p-more'), $('#props'));
+moreCue($('#tools'), $('#t-more'), $('#side'));
 
 
 /* ---------------------------------------------------------- controlla stampa */
@@ -5544,11 +5567,11 @@ const idbSet = (k, v) => idb().then(db => new Promise((res, rej) => { const tx =
 const idbDel = k => idb().then(db => new Promise(res => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }));
 let saveTimer = 0;
 function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveLast, 1500); }
-/* Fino a 3 lavori nel browser. Ogni sessione aggiorna sempre la sua voce (histId), senza creare doppioni; oltre i 3 lavori o oltre il
+/* Fino a 5 lavori nel browser. Ogni sessione aggiorna sempre la sua voce (histId), senza creare doppioni; oltre i 5 lavori o oltre il
    limite di spazio (HIST_BYTES) spariscono i più vecchi. Il vecchio salvataggio unico ('last') viene letto una volta e poi sostituito. */
-const HIST_MAX = 3, HIST_BYTES = 100e6;
+const HIST_MAX = 5, HIST_BYTES = 100e6;
 let histId = 0, histCache = [];
-const histBytes = e => e.list.reduce((n, d) => n + 400 + (d.geo && d.geo.pos ? d.geo.pos.byteLength + (d.geo.nor ? d.geo.nor.byteLength : 0) + (d.geo.idx ? d.geo.idx.byteLength : 0) : 0), 0);
+const histBytes = e => (e.thumb ? e.thumb.length : 0) + e.list.reduce((n, d) => n + 400 + (d.geo && d.geo.pos ? d.geo.pos.byteLength + (d.geo.nor ? d.geo.nor.byteLength : 0) + (d.geo.idx ? d.geo.idx.byteLength : 0) : 0), 0);
 const histReady = (async () => {
   let h = [];
   try { h = (await idbGet('hist')) || []; } catch (e) {}
@@ -5565,8 +5588,48 @@ function histWrite() {
     if (histCache.length > 1) { histCache = histCache.slice(0, 1); return idbSet('hist', histCache).catch(() => {}); }   // spazio finito: tiene solo il più recente
   });
 }
+/* miniatura del lavoro per la scheda Riprendi: solo i pezzi, da un punto di vista fisso, su fondo chiaro (render fuori schermo, senza piatto, griglia, maniglie né selezione) */
+function snapThumb() {
+  const W = 176, H = 132;
+  const vis = objects.filter(m => !m.userData.hidden && !m.userData.hole);
+  if (!vis.length) return null;
+  const keep = [], mats = [];
+  let rt = null;
+  try {
+    const box = new THREE.Box3(); vis.forEach(m => box.union(worldBox(m)));
+    const c = box.getCenter(new THREE.Vector3()), R = Math.max(box.getSize(new THREE.Vector3()).length() / 2, 1);
+    const cam = new THREE.PerspectiveCamera(28, W / H, 1, R * 40 + 100);
+    cam.up.set(0, 0, 1);
+    cam.position.copy(c).addScaledVector(new THREE.Vector3(1, -1.25, 0.85).normalize(), R / Math.sin(THREE.MathUtils.degToRad(14)) * 0.8);
+    cam.lookAt(c); cam.updateMatrixWorld(true);
+    const mine = new Set(objects);
+    scene.children.forEach(o => { if (!o.isLight && !mine.has(o)) { keep.push([o, o.visible]); o.visible = false; } });
+    objects.forEach(m => {                                                      // senza evidenziazione di selezione e di oggetto chiave
+      mats.push(m); const u = m.userData;
+      m.material = u.hole ? M.hole : u.color ? colMat(u.color, false) : M.solid;
+      if (u.edges) { u.edges.material.color.setHex(EDGE.normal); u.edges.material.opacity = 0.55; }
+      if (u.xray) u.xray.visible = false;
+    });
+    rt = new THREE.WebGLRenderTarget(W, H, { samples: 4 }); rt.texture.colorSpace = THREE.SRGBColorSpace;
+    const cc = new THREE.Color(), ca = renderer.getClearAlpha(); renderer.getClearColor(cc);
+    renderer.setClearColor(0xe6e6ea, 1); renderer.setRenderTarget(rt); renderer.clear(); renderer.render(scene, cam); renderer.setRenderTarget(null); renderer.setClearColor(cc, ca);
+    const px = new Uint8Array(W * H * 4); renderer.readRenderTargetPixels(rt, 0, 0, W, H, px);
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d'), img = ctx.createImageData(W, H);
+    for (let y = 0; y < H; y++) img.data.set(px.subarray((H - 1 - y) * W * 4, (H - y) * W * 4), y * W * 4);
+    ctx.putImageData(img, 0, 0);
+    return cv.toDataURL('image/jpeg', 0.72);
+  } catch (e) { console.warn('miniatura', e); return null; }
+  finally {
+    if (rt) rt.dispose();
+    renderer.setRenderTarget(null);
+    keep.forEach(([o, v]) => { o.visible = v; });
+    mats.forEach(styleObject); dirty = true;
+  }
+}
 async function saveLast() {
   if (!objects.length) return;                                       // un'area vuota non cancella l'ultimo lavoro
+  const thumb = snapThumb();
   try {
     const list = objects.map(m => {
       const d = entryOf(m); d.hidden = !!m.userData.hidden; d.locked = !!m.userData.locked;
@@ -5574,7 +5637,7 @@ async function saveLast() {
       return d;
     });
     if (!histId) histId = Date.now();
-    const entry = { id: histId, t: Date.now(), n: objects.length, nextId, nextGid, list };
+    const entry = { id: histId, t: Date.now(), n: objects.length, nextId, nextGid, list, thumb };
     await histReady;
     histCache = [entry, ...histCache.filter(e => e.id !== histId)]; histTrim();
     await histWrite();
@@ -5624,11 +5687,13 @@ async function offerResume() {
     b.textContent = ask ? tr('Eliminare per sempre?') : `${s.n} ${tr(s.n === 1 ? 'pezzo' : 'pezzi')} · ${ago(s.t)}`;
     sp.textContent = ask ? tr('Il lavoro salvato sparirà e non si può recuperare.') : names;
     t.append(b, sp);
+    const img = document.createElement(s.thumb ? 'img' : 'div'); img.className = 'rs-img'; if (s.thumb) { img.src = s.thumb; img.alt = ''; img.draggable = false; }
+    const body = document.createElement('div'); body.className = 'rs-body';
     const btns = document.createElement('div'); btns.className = 'ew-resume-btns';
     const mk = (eh, label, cls) => { const x = document.createElement('button'); x.className = 'ew-tile ' + cls; x.dataset.eh = eh; x.dataset.id = s.id; x.textContent = tr(label); return x; };
     if (ask) btns.append(mk('resume-del-yes', 'Elimina', 'ew-go'), mk('resume-del-no', 'Annulla', 'ew-del'));
     else btns.append(mk('resume', 'Riprendi', 'ew-go'), mk('resume-del', 'Elimina', 'ew-del'));
-    row.append(t, btns); return row;
+    body.append(t, btns); row.append(img, body); return row;
   }));
 }
 window.addEventListener('beforeunload', e => { if (unsaved && objects.length) { e.preventDefault(); e.returnValue = ''; } });

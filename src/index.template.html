@@ -17,7 +17,7 @@
     <div class="titles"><b>Filo</b><span class="beta" title="Versione in sviluppo">Beta v<span id="beta-ver"></span></span></div>
     <button id="side-toggle" class="icon-btn" title="Riduci o espandi la barra (Tab)" aria-label="Riduci o espandi la barra laterale"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M9.5 4.5v15"/></svg></button>
   </header>
-  <div id="tools"></div>
+  <div id="tools-wrap"><div id="tools"></div><button id="t-more" class="more-cue hidden" aria-label="Scorri per vedere altro" title="Altro sotto: scorri"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>
   <button id="help-open" title="Guida (F1)"><span>Guida</span><kbd>?</kbd></button>
   <div id="foot">
     <div class="ctl"><div id="lang" role="group" aria-label="Language"><button data-lang="it">IT</button><button data-lang="en">EN</button></div>
@@ -34,7 +34,6 @@
 <div id="p-scroll">
 <div id="p-obj">
   <input id="p-name" spellcheck="false" autocomplete="off">
-  <div class="seg" id="p-type"><button data-v="solid">Solido</button><button data-v="hole">Foro</button></div>
   <section id="p-color">
     <h4>Colore</h4>
     <div id="p-color-sw"></div>
@@ -51,28 +50,53 @@
         <label class="f" title="Spaziatura tra le lettere">↔<input id="t-space" type="number" step="1"></label>
       </div>
     </div>
-    <h4>Posizione (mm)</h4>
-    <div class="grid3">
-      <label class="f">X<input id="p-x" type="number" step="0.5"></label>
-      <label class="f">Y<input id="p-y" type="number" step="0.5"></label>
-      <label class="f">Z<input id="p-z" type="number" step="0.5"></label>
-    </div>
+  </section>
+  <section id="p-pos">
+    <h4>Posizione <span class="u">(mm)</span></h4>
+    <div id="p-pos-s">
+      <div class="grid3">
+        <label class="f">X<input id="p-x" type="number" step="0.5"></label>
+        <label class="f">Y<input id="p-y" type="number" step="0.5"></label>
+        <label class="f">Z<input id="p-z" type="number" step="0.5"></label>
+      </div>
     <button class="btn" id="p-ground" title="Raddrizza sul lato piatto più vicino e porta l'oggetto a Z = 0">Appoggia sul piatto</button>
-    <h4 class="h-lock">Misure (mm) <button id="p-lock" class="lock" title="Blocca le proporzioni: le tre misure cambiano insieme. Con Maiusc trascini senza proporzioni" aria-label="Blocca le proporzioni"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9"/><path class="sh" d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></button></h4>
+    </div>
+    <div id="p-pos-m" class="hidden">
+      <div class="grid3">
+        <label class="f">X<input id="g-x" type="number" step="0.5"></label>
+        <label class="f">Y<input id="g-y" type="number" step="0.5"></label>
+        <label class="f">Z<input id="g-z" type="number" step="0.5"></label>
+      </div>
+    <button class="btn" id="g-ground" title="Raddrizza la selezione sul lato piatto più vicino e portala a Z = 0">Appoggia sul piatto</button>
+    </div>
+    <div class="sub">Allinea</div>
+    <div id="p-align"></div>
+    <p class="hint" id="p-key"></p>
+  </section>
+  <section id="p-size-s">
+    <h4 class="h-lock">Misure <span class="u">(mm)</span> <button id="p-lock" class="lock" title="Blocca le proporzioni: le tre misure cambiano insieme. Con Maiusc trascini senza proporzioni" aria-label="Blocca le proporzioni"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9"/><path class="sh" d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></button></h4>
     <div class="grid3">
       <label class="f">L<input id="p-w" type="number" step="0.5" min="0.1"></label>
       <label class="f">P<input id="p-d" type="number" step="0.5" min="0.1"></label>
       <label class="f">A<input id="p-h" type="number" step="0.5" min="0.1"></label>
     </div>
-    <h4>Rotazione (°)</h4>
+  </section>
+  <section id="p-multi" class="hidden">
+    <h4 class="h-lock">Misure <span class="u">(mm)</span> <button id="g-lock" class="lock" title="Blocca le proporzioni: le tre misure cambiano insieme. Con Maiusc trascini senza proporzioni" aria-label="Blocca le proporzioni"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9"/><path class="sh" d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></button></h4>
     <div class="grid3">
+      <label class="f">L<input id="g-w" type="number" step="0.5" min="0.1"></label>
+      <label class="f">P<input id="g-d" type="number" step="0.5" min="0.1"></label>
+      <label class="f">A<input id="g-h" type="number" step="0.5" min="0.1"></label>
+    </div>
+  </section>
+  <section id="p-rotq">
+    <h4>Rotazione (°)</h4>
+    <div class="grid3" id="p-rot-s">
       <label class="f">X<input id="p-rx" type="number" step="15"></label>
       <label class="f">Y<input id="p-ry" type="number" step="15"></label>
       <label class="f">Z<input id="p-rz" type="number" step="15"></label>
     </div>
-  </section>
-  <section id="p-rotq">
-    <h4 data-help="In alternativa usa lo strumento Ruota (R). Gli anelli scattano ogni 15°.">Ruota di 90°<i class="inf" aria-hidden="true">?</i></h4>
+    <div class="sub" data-help="In alternativa usa lo strumento Ruota (R). Gli anelli scattano ogni 15°.">Ruota di 90°<i class="inf" aria-hidden="true">?</i></div>
     <div class="grid3 rq"><button class="btn" data-rq="x" title="Ruota di 90° attorno a X (⇧ per il verso opposto)">X</button><button class="btn" data-rq="y" title="Ruota di 90° attorno a Y (⇧ per il verso opposto)">Y</button><button class="btn" data-rq="z" title="Ruota di 90° attorno a Z (⇧ per il verso opposto)">Z</button></div>
   </section>
   <section id="p-single2">
@@ -81,36 +105,11 @@
       <div class="seg" id="p-rm"><button data-v="fillet" class="on">Arrotondato</button><button data-v="chamfer">Smussato</button></div>
       <div class="grid1 rnd"><label class="f" title="Spigoli verticali">Angoli verticali<input id="p-r" type="number" step="0.5" min="0"></label><label class="f" title="Bordo superiore">Bordo alto<input id="p-ft" type="number" step="0.5" min="0"></label><label class="f" title="Bordo inferiore">Bordo basso<input id="p-fb" type="number" step="0.5" min="0"></label></div>
     </div>
-    <div id="p-t-wrap">
-      <h4>Cima</h4>
-      <div class="grid1"><label class="f">Cima %<input id="p-t" type="number" step="5" min="1" max="100"></label></div>
+    <div id="p-shape">
+      <h4>Parametri forma</h4>
+      <div id="p-t-wrap"><div class="grid1"><label class="f">Cima %<input id="p-t" type="number" step="5" min="1" max="100"></label></div></div>
+      <div id="p-q-wrap"><div class="grid1"><label class="f" id="p-q-lab">Cima %<input id="p-q" type="number" step="5" min="0"></label></div></div>
     </div>
-    <div id="p-q-wrap">
-      <h4>Forma</h4>
-      <div class="grid1"><label class="f" id="p-q-lab">Cima %<input id="p-q" type="number" step="5" min="0"></label></div>
-    </div>
-  </section>
-  <section id="p-multi" class="hidden">
-    <h4 class="h-lock">Misure (mm) <button id="g-lock" class="lock" title="Blocca le proporzioni: le tre misure cambiano insieme. Con Maiusc trascini senza proporzioni" aria-label="Blocca le proporzioni"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9"/><path class="sh" d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></button></h4>
-    <div class="grid3">
-      <label class="f">L<input id="g-w" type="number" step="0.5" min="0.1"></label>
-      <label class="f">P<input id="g-d" type="number" step="0.5" min="0.1"></label>
-      <label class="f">A<input id="g-h" type="number" step="0.5" min="0.1"></label>
-    </div>
-  </section>
-  <section id="p-multipos" class="hidden">
-    <h4>Posizione (mm)</h4>
-    <div class="grid3">
-      <label class="f">X<input id="g-x" type="number" step="0.5"></label>
-      <label class="f">Y<input id="g-y" type="number" step="0.5"></label>
-      <label class="f">Z<input id="g-z" type="number" step="0.5"></label>
-    </div>
-    <button class="btn" id="g-ground" title="Raddrizza la selezione sul lato piatto più vicino e portala a Z = 0">Appoggia sul piatto</button>
-  </section>
-  <section id="p-alignsec">
-    <h4>Allinea</h4>
-    <div id="p-align"></div>
-    <p class="hint" id="p-key"></p>
   </section>
   <section id="p-repeat">
     <h4 data-help="Copia la selezione in griglia, a nido d'ape o in cerchio. Con un foro puoi fare una griglia di fori e poi usare Combina.">Ripeti<i class="inf" aria-hidden="true">?</i></h4>
@@ -157,7 +156,7 @@
   </div>
 </div>
 </div>
-<button id="p-more" class="hidden" aria-label="Scorri per vedere altro" title="Altro sotto: scorri"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+<button id="p-more" class="more-cue hidden" aria-label="Scorri per vedere altro" title="Altro sotto: scorri"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
 </aside>
 
 <div id="ruler-card" class="panel hidden"></div>
@@ -263,10 +262,10 @@
     <div class="ew-head"><div class="ew-title"><i>[ ↺ ]</i><b>Riprendi</b></div></div>
     <div class="rs-list" id="rs-list"></div>
     <p class="rs-empty" id="rs-empty">I tuoi lavori salvati nella cache compariranno qui</p>
-    <p class="rs-note">Si salva da solo, fino a 3 lavori in questo browser.</p>
+    <p class="rs-note">Si salva da solo, fino a 5 lavori in questo browser.</p>
   </section>
 </div>
-<div id="hpop" class="panel hidden"><span id="hpop-chip" class="chip">X+</span><span class="lbl">allunga di</span><input id="hpop-val" type="number" step="1" placeholder="0" title="Valore negativo per accorciare. Invio per applicare"><span class="lbl">mm</span></div>
+<div id="hpop" class="panel hidden"><span id="hpop-chip" class="chip">X+</span><span class="lbl">allunga di</span><input id="hpop-val" type="number" step="1" placeholder="0" title="Valore negativo per accorciare. Invio per applicare"><span class="lbl u">mm</span></div>
 <div id="dropin"><div class="di-box"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg><b>Rilascia per importare</b><span>File 3MF, STL o SVG</span></div></div>
 <div id="toast"></div>
 <div id="perf-note" class="panel hidden"><span>Modello complesso: per tenerlo fluido ho ridotto risoluzione, ombre e bordi. Per modificarlo conviene semplificarlo prima (Bambu Studio: tasto destro, Semplifica modello).</span><button id="perf-x" class="icon-btn" aria-label="Chiudi"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
