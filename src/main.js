@@ -208,7 +208,7 @@ function fitView() {
   const r = Math.max(box.getSize(new THREE.Vector3()).length() / 2, 25);
   animateTo({ target: c, dist: clamp(r / Math.sin(BASE_FOV * D2R / 2) * 1.25, 60, 2500) }, 320, true);
 }
-const VIEWS = { front: { az: 0, el: 0, fov: ORTHO_FOV }, top: { az: 0, el: 89.9, fov: ORTHO_FOV }, right: { az: 90, el: 0, fov: ORTHO_FOV }, iso: { az: 35, el: 28, fov: BASE_FOV } };
+const VIEWS = { front: { az: 0, el: 0, fov: ORTHO_FOV }, top: { az: 0, el: 89.9, fov: ORTHO_FOV }, right: { az: 90, el: 0, fov: ORTHO_FOV }, iso: { az: 145, el: 28, fov: BASE_FOV } }; // 3D: da dietro a destra, così X, Y e Z si vedono tutti e tre (X in basso a sinistra, Y in basso a destra)
 
 let pixelRatio = 0;
 function wantPixelRatio() { return objects.some(o => o.userData.heavy) ? 1 : Math.min(window.devicePixelRatio || 1, 2); }

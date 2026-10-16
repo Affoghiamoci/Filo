@@ -1,4 +1,4 @@
-# Rotellina: con scatti piccoli (come un mouse su Mac) la vista ruota; col pulsante "Rotellina = zoom" zooma e la scelta resta. Intestazioni a pallino.
+# 3D da dietro a destra. Rotellina: con scatti piccoli (come un mouse su Mac) la vista ruota; col pulsante "Rotellina = zoom" zooma e la scelta resta. Intestazioni a pallino.
 from playwright.sync_api import sync_playwright
 ok=True
 def check(name,cond):
@@ -22,6 +22,8 @@ with sync_playwright() as p:
     pg.evaluate("forma.createObject('box')");pg.wait_for_timeout(300)
     check('intestazione: pallino pieno arancione se aperta',pg.evaluate("(()=>{const h=[...document.querySelectorAll('#p-scroll h4.ph')].find(h=>h.offsetParent);return getComputedStyle(h,'::before').borderRadius==='50%'&&getComputedStyle(h,'::after').content==='none'})()"))
     check('Allinea al piatto non compare più con un oggetto',pg.evaluate("document.querySelector('#p-key').offsetParent===null"))
+    pg.click('[data-view=iso]');pg.wait_for_timeout(900)
+    check('3D: guarda da dietro a destra (X, Y e Z visibili), stessa inclinazione di prima',pg.evaluate("Math.abs(forma.cam.az-145)<0.5&&Math.abs(forma.cam.el-28)<0.5"))
     check('nessun errore di pagina',not errs)
     b.close()
 print('TUTTO OK' if ok else 'ERRORI')
