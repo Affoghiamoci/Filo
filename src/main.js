@@ -701,6 +701,7 @@ function setSelection(list) {
   scheduleLayers();
   queueMicrotask(updateRotGizmo);
   selection = list.filter(m => m && m.visible && !m.userData.locked);
+  if (repPrevG) hideRepeatPreview();
   if (typeof hpop !== 'undefined' && hpop) closeHandlePopup();
   if (!selection.includes(keyObj)) keyObj = null;
   if (faceSel && !selection.includes(faceSel.obj)) clearFace(false);
@@ -989,10 +990,8 @@ async function repeatSelection(o) {
   if (n * selection.length > 40 || trisOf(selection) * n > 40000) return busyRun('Creo le copie…', () => repeatNow(o));
   return repeatNow(o);
 }
-function repeatNow(o) {
-  const src = selection.slice();
-  if (!src.length) return toast('Seleziona prima un oggetto');
-  const spots = [];                                   // per ogni copia: traslazione e rotazione attorno a Z
+function repeatSpots(o, src) {                       // per ogni copia: traslazione (dx, dy) oppure rotazione attorno a Z (th)
+  const spots = [];
   if (o.mode === 'polar') {
     const n = clamp(Math.round(o.n), 2, 200), arc = clamp(o.arc, 1, 360), step = arc >= 360 ? 360 / n : arc / (n - 1);
     for (let k = 1; k < n; k++) spots.push({ th: k * step * D2R });
@@ -1006,6 +1005,12 @@ function repeatNow(o) {
       spots.push({ dx: i * (ex + o.px) + (honey && j % 2 ? (ex + o.px) / 2 : 0), dy: j * (ey + py) });
     }
   }
+  return spots;
+}
+function repeatNow(o) {
+  const src = selection.slice();
+  if (!src.length) return toast('Seleziona prima un oggetto');
+  const spots = repeatSpots(o, src);
   if (!spots.length) return toast('Con questi numeri non c\'è nulla da copiare');
   if (spots.length * src.length > 600) return toast('Troppe copie: il massimo è 600');
   const all = src.slice(), qz = new THREE.Quaternion(), p = new THREE.Vector3();
@@ -1036,6 +1041,7 @@ function repeatDefaults() {                           // passo iniziale = ingomb
   if (RP.mode === 'honey') honeyGapY();
   const c = box.getCenter(new THREE.Vector3());
   if (RP.mode !== 'polar') { $('#rp-cx').value = fmt(c.x); $('#rp-cy').value = fmt(c.y); }
+  updateRepeatInfo();
 }
 document.querySelectorAll('#rp-mode button').forEach(b => b.addEventListener('click', () => {
   RP.mode = b.dataset.v;
@@ -1043,10 +1049,70 @@ document.querySelectorAll('#rp-mode button').forEach(b => b.addEventListener('cl
   if (RP.mode === 'honey') honeyGapY();
   $('#rp-grid').classList.toggle('hidden', RP.mode === 'polar'); $('#rp-polar').classList.toggle('hidden', RP.mode !== 'polar');
 }));
-$('#rp-go').addEventListener('click', () => {
+function repeatOpts() {
   const v = id => parseFloat($('#' + id).value);
-  repeatSelection({ mode: RP.mode, nx: v('rp-nx') || 1, ny: v('rp-ny') || 1, px: isNaN(v('rp-px')) ? 2 : v('rp-px'), py: isNaN(v('rp-py')) ? 2 : v('rp-py'), n: v('rp-n') || 6, arc: v('rp-arc') || 360, cx: v('rp-cx') || 0, cy: v('rp-cy') || 0 });
-});
+  return { mode: RP.mode, nx: v('rp-nx') || 1, ny: v('rp-ny') || 1, px: isNaN(v('rp-px')) ? 2 : v('rp-px'), py: isNaN(v('rp-py')) ? 2 : v('rp-py'), n: v('rp-n') || 6, arc: v('rp-arc') || 360, cx: v('rp-cx') || 0, cy: v('rp-cy') || 0 };
+}
+$('#rp-go').addEventListener('click', () => { hideRepeatPreview(); repeatSelection(repeatOpts()); });
+/* anteprima: le copie compaiono come sagome arancioni mentre si cambiano i numeri; spariscono uscendo dal pannello o col pulsante Ripeti */
+var repPrevG = null;
+function hideRepeatPreview() {
+  if (!repPrevG) return;
+  scene.remove(repPrevG); repPrevG.userData.disp.forEach(d => d.dispose()); repPrevG = null; dirty = true;
+}
+function updateRepeatInfo(spots, src) {
+  const el = $('#rp-info'); if (!el) return;
+  src = src || selection;
+  if (!src.length) { el.textContent = ''; return; }
+  const o = repeatOpts(); spots = spots || repeatSpots(o, src);
+  const n = spots.length * src.length;
+  if (!spots.length) { el.textContent = tr("Con questi numeri non c'è nulla da copiare"); return; }
+  if (n > 600) { el.textContent = tr('Troppe copie: il massimo è 600'); return; }
+  let txt = `${n} ${tr(n === 1 ? 'copia in più' : 'copie in più')}`;
+  if (o.mode !== 'polar') {
+    const bb = new THREE.Box3(); src.forEach(m => bb.union(worldBox(m)));
+    txt += ` · ${fmt(bb.max.x - bb.min.x + Math.max(...spots.map(p => p.dx)))} × ${fmt(bb.max.y - bb.min.y + Math.max(...spots.map(p => p.dy)))} mm`;
+  }
+  el.textContent = txt;
+}
+function repeatPreview() {
+  hideRepeatPreview();
+  const src = selection.slice();
+  if (!src.length) return updateRepeatInfo();
+  const o = repeatOpts(), spots = repeatSpots(o, src);
+  updateRepeatInfo(spots, src);
+  if (!spots.length || spots.length * src.length > 600) return;
+  const disp = [], fill = new THREE.MeshBasicMaterial({ color: ACCENT_HEX, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide }), line = new THREE.LineBasicMaterial({ color: ACCENT_HEX, transparent: true, opacity: 0.75, depthTest: false });
+  disp.push(fill, line);
+  const g = new THREE.Group(), heavy = trisOf(src) * spots.length > 40000, qz = new THREE.Quaternion(), p = new THREE.Vector3();
+  const add = (geo, edges, pos, q, sc) => { const h = new THREE.Object3D(); h.position.copy(pos); h.quaternion.copy(q); if (sc) h.scale.copy(sc); const m = new THREE.Mesh(geo, fill), l = new THREE.LineSegments(edges, line); m.raycast = l.raycast = () => {}; m.renderOrder = 4; l.renderOrder = 5; h.add(m, l); g.add(h); };
+  if (heavy) {                                       // pezzi molto pesanti: un riquadro per copia
+    const bb = new THREE.Box3(); src.forEach(m => bb.union(worldBox(m)));
+    const sz = bb.getSize(new THREE.Vector3()), c0 = bb.getCenter(new THREE.Vector3()), geo = new THREE.BoxGeometry(sz.x, sz.y, sz.z), eg = new THREE.EdgesGeometry(geo);
+    disp.push(geo, eg);
+    for (const sp of spots) {
+      if (sp.th !== undefined) { qz.setFromAxisAngle(new THREE.Vector3(0, 0, 1), sp.th); p.set(c0.x - o.cx, c0.y - o.cy, 0).applyQuaternion(qz); p.set(p.x + o.cx, p.y + o.cy, c0.z); }
+      else p.set(c0.x + sp.dx, c0.y + sp.dy, c0.z);
+      add(geo, eg, p, sp.th !== undefined ? qz : new THREE.Quaternion());
+    }
+  } else {
+    const edges = new Map(src.map(m => { const e = new THREE.EdgesGeometry(m.geometry, 30); disp.push(e); return [m, e]; }));
+    for (const sp of spots) for (const m of src) {
+      const q = m.quaternion.clone();
+      if (sp.th !== undefined) { qz.setFromAxisAngle(new THREE.Vector3(0, 0, 1), sp.th); p.set(m.position.x - o.cx, m.position.y - o.cy, 0).applyQuaternion(qz); p.set(p.x + o.cx, p.y + o.cy, m.position.z); q.premultiply(qz); }
+      else p.set(m.position.x + sp.dx, m.position.y + sp.dy, m.position.z);
+      add(m.geometry, edges.get(m), p, q, m.scale);
+    }
+  }
+  g.userData.disp = disp; repPrevG = g; scene.add(g); dirty = true;
+}
+{
+  const sec = $('#p-repeat');
+  ['input', 'change', 'focusin'].forEach(ev => sec.addEventListener(ev, () => repeatPreview()));
+  sec.addEventListener('click', e => { if (e.target.closest('#rp-mode button')) repeatPreview(); });
+  sec.addEventListener('focusout', e => { if (!e.relatedTarget || !sec.contains(e.relatedTarget)) hideRepeatPreview(); });
+  document.addEventListener('pointerdown', e => { if (repPrevG && !e.target.closest('#p-repeat')) hideRepeatPreview(); }, true);
+}
 $('#rp-px').addEventListener('input', () => { if (RP.mode === 'honey') honeyGapY(); });
 // i campi non superano mai i limiti: ogni campo resta nel suo min/max e il totale delle copie nuove non va oltre 600
 function limitRepeatField(el) {
@@ -5306,7 +5372,7 @@ $('#ew-resume').addEventListener('click', async e => {
 });
 offerResume();
 
-window.forma = { get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */
