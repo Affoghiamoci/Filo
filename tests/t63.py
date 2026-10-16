@@ -1,4 +1,4 @@
-# Spigolo: "Parete dritta" spenta di default; Riprendi come seconda scheda sotto Inizia
+# Spigolo: "Parete dritta" spenta di default; Riprendi: scheda a destra di Inizia, sempre visibile, con conferma su Elimina
 from playwright.sync_api import sync_playwright
 ok=True
 def check(name,cond):
@@ -9,7 +9,7 @@ with sync_playwright() as p:
     b=p.chromium.launch(args=["--use-gl=swiftshader"]); errs=[]
     ctx=b.new_context(viewport={'width':1440,'height':900}); pg=ctx.new_page(); pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.goto(URL);pg.wait_for_function("window.forma");pg.wait_for_timeout(800)
-    check('Riprendi nascosto se non c\'è niente da riprendere',pg.evaluate("getComputedStyle(document.querySelector('#ew-resume')).display")=='none')
+    check('Riprendi sempre visibile, con messaggio se vuota',pg.evaluate("getComputedStyle(document.querySelector('#ew-resume')).display")!='none' and pg.evaluate("!document.querySelector('#rs-empty').classList.contains('hidden')"))
     # prisma: spigolo orizzontale in basso, spostato in perpendicolare
     pg.evaluate("forma.createObject('box')");pg.wait_for_timeout(200)
     check('parete dritta spenta di default',pg.evaluate("document.querySelector('#e-mv-col').checked")==False)
@@ -33,14 +33,22 @@ with sync_playwright() as p:
     pg.evaluate("forma.saveLast()");pg.wait_for_timeout(300)
     pg.reload();pg.wait_for_function("window.forma");pg.wait_for_timeout(1200)
     hint=rect(pg,'#empty-hint .ew:not(#ew-resume)'); res=rect(pg,'#ew-resume')
-    check('Riprendi visibile come seconda scheda',pg.evaluate("getComputedStyle(document.querySelector('#ew-resume')).display")!='none')
-    check('subito sotto, a 24 px',abs(res[1]-hint[3]-24)<1.5 and abs(res[0]-hint[0])<1 and abs(res[2]-hint[2])<1)
-    check('dentro lo schermo e sopra la barra',res[3]<=900-12 and res[3]<=rect(pg,'#bar')[1]+1)
+    check('Riprendi visibile',pg.evaluate("getComputedStyle(document.querySelector('#ew-resume')).display")!='none' and pg.evaluate("document.querySelectorAll('#rs-list .rs-item').length")>=1)
+    N=pg.evaluate("document.querySelectorAll('#rs-list .rs-item').length")
+    check('a destra di Inizia, a 24 px, stessa altezza',abs(res[0]-hint[2]-24)<1.5 and abs(res[1]-hint[1])<1.5 and abs(res[3]-hint[3])<1.5)
+    check('dentro lo schermo e sopra la barra',res[3]<=900-12 and res[2]<=1440-12)
     check('la riga non è più dentro la scheda Inizia',pg.evaluate("!document.querySelector('#empty-hint .ew:not(#ew-resume) #ew-resume')"))
     pg.click('#ew-resume [data-eh=resume-del]');pg.wait_for_timeout(300)
-    check('Elimina nasconde la scheda',pg.evaluate("getComputedStyle(document.querySelector('#ew-resume')).display")=='none')
+    check('Elimina chiede conferma e non cancella',pg.evaluate("document.querySelectorAll('#rs-list .rs-item.ask').length")==1)
+    pg.click('#ew-resume [data-eh=resume-del-no]');pg.wait_for_timeout(300)
+    check('Annulla riporta la riga normale',pg.evaluate("document.querySelectorAll('#rs-list .rs-item').length")==N and pg.evaluate("document.querySelectorAll('#rs-list .rs-item.ask').length")==0)
+    pg.click('#ew-resume [data-eh=resume-del]');pg.click('#ew-resume [data-eh=resume-del-yes]');pg.wait_for_timeout(400)
+    check('Conferma: una riga in meno',pg.evaluate("document.querySelectorAll('#rs-list .rs-item').length")==N-1)
     pg.reload();pg.wait_for_function("window.forma");pg.wait_for_timeout(1000)
-    check('dopo Elimina non riappare',pg.evaluate("getComputedStyle(document.querySelector('#ew-resume')).display")=='none')
+    check('dopo Elimina non riappare',pg.evaluate("document.querySelectorAll('#rs-list .rs-item').length")==N-1)
+    while pg.evaluate("document.querySelectorAll('#rs-list .rs-item').length"):
+        pg.click('#ew-resume [data-eh=resume-del]');pg.click('#ew-resume [data-eh=resume-del-yes]');pg.wait_for_timeout(300)
+    check('vuota: resta il messaggio',pg.evaluate("!document.querySelector('#rs-empty').classList.contains('hidden')") and pg.evaluate("getComputedStyle(document.querySelector('#ew-resume')).display")!='none')
     check('nessun errore di pagina',not errs)
     if errs: print(errs)
     b.close()

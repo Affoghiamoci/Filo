@@ -4,7 +4,7 @@
   --text:#161618; --muted:#76767c; --panel:#f6f6f6;
   --line:rgba(0,0,0,.22); --hover:rgba(0,0,0,.05); --field:rgba(0,0,0,.05);
   --accent:#ff6a00; --accent-weak:rgba(255,106,0,.14); --on-accent:#fff;
-  --ok:#2fa866; --warn:#e0a100; --err:#e5484d; --ax-x:#e5484d; --ax-y:#30a46c; --ax-z:#3e63dd; --key:#a855f7; --swatch:#d9dce3;
+  --ok:#2fa866; --warn:#e0a100; --err:#e5484d; --ax-x:#e5484d; --ax-y:#30a46c; --ax-z:#3e63dd; --swatch:#d9dce3;
   --scene-bg:#dcdcdf; --dot:rgba(0,0,0,.11); --bed:#f4f4f5; --grid:#bdbdc5;
   --shadow:0 6px 0 rgba(0,0,0,.05);
   --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Helvetica,Arial,sans-serif;
@@ -204,7 +204,7 @@ kbd{font-feature-settings:"zero" 1}
 .lrow .ln{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lrow.hole .ln{font-style:italic;opacity:.8}
 .lrow.grp{font-weight:600}
-.lrow .key{font:500 9.5px var(--mono);font-style:normal;text-transform:uppercase;color:var(--key)}
+.lrow .key{font:500 9.5px var(--mono);font-style:normal;text-transform:uppercase;color:var(--accent)}
 .lrow .car{all:unset;width:12px;text-align:center;font-size:10px;transition:transform .12s;cursor:default}
 .lrow .car.open{transform:rotate(90deg)}
 .lrow .ung{all:unset;font:500 9.5px var(--mono);padding:4px 6px;border-radius:2px;background:rgba(127,127,127,.2);cursor:default;opacity:0}
@@ -599,7 +599,7 @@ label.f.has-stp{position:relative;padding-right:4px}
 .fade-t{-webkit-mask-image:linear-gradient(to top,#000 calc(100% - 34px),transparent);mask-image:linear-gradient(to top,#000 calc(100% - 34px),transparent)}
 .fade-t.fade-b{-webkit-mask-image:linear-gradient(to bottom,transparent,#000 34px,#000 calc(100% - 34px),transparent);mask-image:linear-gradient(to bottom,transparent,#000 34px,#000 calc(100% - 34px),transparent)}
 /* finestre basse: elenco strumenti compatto, la descrizione resta nel tooltip */
-@media (max-height:960px){ #side:not(.mini) .tool .t small{display:none} #side:not(.mini) .tool{padding-top:6px;padding-bottom:6px} }
+@media (max-height:960px){ #side:not(.mini) .tool .t small{display:none} #side:not(.mini) .tool{padding-top:4px;padding-bottom:4px} #side:not(.mini) #tools h3{margin:10px 10px 4px} }
 
 /* ---- guida ---- */
 #help-open{box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;width:calc(100% - 28px);margin:0 14px 8px;height:30px;padding:6px 10px;background:none;border:1px solid var(--line);border-radius:2px;cursor:pointer;color:var(--muted);font:500 10.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;transition:color .12s,border-color .12s}
@@ -726,7 +726,27 @@ mark.hp-hit.cur{background:color-mix(in srgb,var(--accent) 38%,transparent)}
 /* la barra si mostra quando i font sono pronti: niente testo che va a capo e poi si risistema */
 html:not(.ui-ready) #side{visibility:hidden}
 #side{transition:width .22s ease,opacity .15s}
-.ew-resume-btns{display:flex;gap:6px}.ew-del{min-width:0;color:var(--muted)}#empty-hint{display:flex;flex-direction:column;align-items:center;gap:24px}#ew-resume.ew{width:min(540px,calc(100vw - var(--sw,312px) - 48px))}@media (max-height:800px){#empty-hint{top:12px;transform:translateX(-50%)}}#ew-resume::before{display:none}#ew-resume .ew-sec{border-top:0}#ew-resume.ew{background:var(--ink);color:var(--on-ink);border-color:var(--ink);box-shadow:0 12px 0 rgba(0,0,0,.08),inset 0 -2px 0 var(--accent)}#ew-resume .ew-t b{color:var(--on-ink)}#ew-resume .ew-t span{color:color-mix(in srgb,var(--on-ink) 65%,transparent)}#ew-resume .ew-go{background:var(--on-ink);color:var(--ink)}#ew-resume .ew-del{background:transparent;color:color-mix(in srgb,var(--on-ink) 70%,transparent);border-color:color-mix(in srgb,var(--on-ink) 30%,transparent)}#ew-resume .ew-tile:hover{border-color:var(--accent);background:var(--on-ink);color:var(--ink)}#ew-resume .ew-del:hover{background:transparent;color:var(--on-ink)}
+/* scheda Riprendi: sta a destra di Inizia ed è sempre visibile; sotto i 1244 px di larghezza va sotto */
+#empty-hint{display:flex;flex-direction:row;flex-wrap:wrap;align-items:stretch;justify-content:center;gap:24px;width:calc(100vw - var(--sw,312px) - 48px);max-width:none}
+@media (max-height:800px){#empty-hint{top:12px;transform:translateX(-50%)}}
+#ew-resume.ew{display:flex;flex-direction:column;width:min(320px,calc(100vw - var(--sw,312px) - 48px));background:var(--ink);color:var(--on-ink);border-color:var(--ink);box-shadow:0 12px 0 rgba(0,0,0,.08),inset 0 -2px 0 var(--accent)}
+#ew-resume::before{display:none}
+#ew-resume .ew-title i{color:color-mix(in srgb,var(--on-ink) 55%,transparent)}
+.rs-item,.rs-empty,.rs-note{border-top:1px dotted color-mix(in srgb,var(--on-ink) 25%,transparent)}
+.rs-item{display:flex;flex-direction:column;gap:12px;padding:16px 24px}
+.rs-t b{display:block;font:600 13px/1.3 var(--sans,system-ui);color:var(--on-ink);margin-bottom:4px}
+.rs-t span{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;font:12px/1.45 var(--sans,system-ui);color:color-mix(in srgb,var(--on-ink) 65%,transparent)}
+.rs-item.ask{background:color-mix(in srgb,var(--err) 20%,transparent)}
+.rs-empty,.rs-note{margin:0;padding:16px 24px;font:12px/1.5 var(--sans,system-ui);color:color-mix(in srgb,var(--on-ink) 65%,transparent)}
+.rs-empty{margin:auto 0;border-top:0;text-align:center}
+.rs-note{margin-top:auto;font-size:11.5px;color:color-mix(in srgb,var(--on-ink) 50%,transparent)}
+.ew-resume-btns{display:flex;gap:6px}
+.ew-resume-btns .ew-tile{flex:1;min-width:0;justify-content:center;padding:8px 12px;font:500 11px var(--mono);letter-spacing:.05em;text-transform:uppercase}
+.ew-del{min-width:0;color:var(--muted)}
+#ew-resume .ew-go{background:var(--on-ink);color:var(--ink)}
+#ew-resume .ew-del{background:transparent;color:color-mix(in srgb,var(--on-ink) 70%,transparent);border-color:color-mix(in srgb,var(--on-ink) 30%,transparent)}
+#ew-resume .ew-tile:hover{border-color:var(--accent);background:var(--on-ink);color:var(--ink)}
+#ew-resume .ew-del:hover{background:transparent;color:var(--on-ink)}
 
 #topbar .btn.ic,#topbar .btn.ic.primary{flex:0 0 40px;height:34px;padding:0;justify-content:center}
 #topbar #b-check{height:34px;padding:0 10px}
@@ -806,3 +826,19 @@ dialog[open],dialog[open]::backdrop{animation:fade-in .16s ease}
   #dlg-info .info-news{contain:size;display:flex;flex-direction:column;min-height:0}
   #dlg-info .info-news .cl{flex:1;min-height:0;overflow:auto;padding-right:10px;margin-right:-6px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
 }
+
+/* barra proprietà: ogni sezione ha un'intestazione a barra che la comprime; la freccia in fondo dice che si può scorrere */
+#p-scroll{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+#p-scroll h4.ph{display:flex;align-items:center;margin:12px -14px 8px;padding:7px 14px;background:var(--field);border-top:1px solid var(--line);color:var(--text);cursor:default;user-select:none}
+#p-scroll h4.ph::after{content:"";flex:none;margin-left:auto;width:6px;height:6px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:translateY(-2px) rotate(45deg);transition:transform .12s}
+#p-scroll h4.ph.pc::after{transform:translateX(-2px) rotate(-45deg)}
+#p-scroll h4.ph:hover::after{border-color:var(--accent)}
+#p-scroll h4.ph:focus-visible{outline:0;box-shadow:inset 0 0 0 2px var(--accent)}
+#p-scroll h4.ph.h-lock .lock{margin-left:auto}
+#p-scroll h4.ph.h-lock::after{margin-left:10px}
+#p-scroll h4.ph.pc{margin-bottom:0}
+.pfold{display:none!important}
+#p-more{position:absolute;left:0;right:0;bottom:0;height:36px;display:grid;place-items:end center;padding:0 0 6px;border:0;border-radius:0;background:linear-gradient(to top,var(--panel) 35%,transparent);color:var(--text);cursor:default;pointer-events:none}
+#p-more.hidden{display:none}
+#p-more svg{pointer-events:auto;width:26px;height:16px;padding:0 5px;box-sizing:border-box;border-radius:2px;background:var(--field);fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#p-more:hover svg{background:var(--accent);color:var(--on-accent)}

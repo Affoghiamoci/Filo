@@ -85,8 +85,8 @@ export const HELP = {
       <p>I quadratini colorati intorno all'oggetto selezionato ridimensionano: rosso per X, verde per Y, blu per Z. Trascina per allungare o accorciare da quel lato. ${K('⇧')} inverte il lucchetto delle proporzioni (se è aperto mantiene le proporzioni, se è chiuso le scioglie), ${K('⌥')} ridimensiona dal centro. Con un clic senza trascinare compare una finestrella <i>allunga di</i> dove scrivi i mm (un numero negativo accorcia) e premi Invio.</p>
       <div class="tip">Lo scatto in basso decide di quanto salta ogni movimento; la calamita aggancia l'oggetto agli altri (vedi <i>Scatto e calamita</i>).</div>` },
     { id: 'marquee', g: 'select', t: 'Riquadro e Lazo', h: `
-      {{img:riquadro|Riquadro: seleziona tutto ciò che si vede nell'area}}
-      <p>${K('Q')} Riquadro e ${K('W')} Lazo selezionano trascinando. Prendono solo ciò che si vede davvero, non quelli coperti da altri oggetti.</p>
+      {{img:riquadro|Riquadro: seleziona tutto ciò che sta nell'area}}
+      <p>${K('Q')} Riquadro e ${K('W')} Lazo selezionano trascinando. Prendono tutto ciò che sta nell'area, anche i pezzi coperti da altri oggetti.</p>
       {{img:lazo|Lazo: disegni una linea libera attorno agli oggetti}}
       <ul><li>${K('⇧')} aggiunge alla selezione; ${K('⌘')} la toglie.</li><li>Un clic nel vuoto deseleziona.</li></ul>
       <div class="tip">Nella barra a sinistra gli strumenti con il triangolino nell'angolo hanno una seconda funzione (Riquadro e Lazo, Taglia e Allunga, Combina e Interseca). Per aprirla tieni premuto, fai clic destro o clicca il triangolino. Il pulsante ricorda l'ultimo strumento scelto, tranne Combina che resta sempre Combina. Le scorciatoie funzionano sempre in modo diretto.</div>` },

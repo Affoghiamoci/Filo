@@ -155,6 +155,7 @@
   </div>
 </div>
 </div>
+<button id="p-more" class="hidden" aria-label="Scorri per vedere altro" title="Altro sotto: scorri"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
 </aside>
 
 <div id="ruler-card" class="panel hidden"></div>
@@ -256,12 +257,11 @@
     <button class="ew-tile ew-go" data-eh="help" data-ic="help">Apri guida <kbd>?</kbd></button>
   </section>
 </div>
-  <section class="ew ew-resume hidden" id="ew-resume">
-    <div class="ew-sec">
-      <span class="ew-n">↺</span>
-      <div class="ew-t"><b>Riprendi</b><span id="ew-resume-t">Ultimo lavoro salvato in questo browser.</span></div>
-      <div class="ew-resume-btns"><button class="ew-tile ew-go" data-eh="resume">Riprendi</button><button class="ew-tile ew-del" data-eh="resume-del" aria-label="Elimina il lavoro salvato" title="Elimina il lavoro salvato">Elimina</button></div>
-    </div>
+  <section class="ew ew-resume" id="ew-resume">
+    <div class="ew-head"><div class="ew-title"><i>[ ↺ ]</i><b>Riprendi</b></div></div>
+    <div class="rs-list" id="rs-list"></div>
+    <p class="rs-empty" id="rs-empty">I tuoi lavori salvati nella cache compariranno qui</p>
+    <p class="rs-note">Si salva da solo, fino a 3 lavori in questo browser.</p>
   </section>
 </div>
 <div id="hpop" class="panel hidden"><span id="hpop-chip" class="chip">X+</span><span class="lbl">allunga di</span><input id="hpop-val" type="number" step="1" placeholder="0" title="Valore negativo per accorciare. Invio per applicare"><span class="lbl">mm</span></div>

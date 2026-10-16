@@ -465,7 +465,7 @@ const M = {
   hole: new THREE.MeshStandardMaterial({ color: 0xff7a45, transparent: true, opacity: 0.45, depthWrite: false, roughness: 0.7 }),
   holeSel: new THREE.MeshStandardMaterial({ color: 0xff7a45, transparent: true, opacity: 0.6, depthWrite: false, roughness: 0.7, emissive: 0xff7a45, emissiveIntensity: 0.2 }),
 };
-const EDGE = { normal: 0x5b5f6b, sel: 0xff6a00, key: 0xa855f7 };
+const EDGE = { normal: 0x5b5f6b, sel: 0xff6a00, key: 0xff6a00 };
 
 /* --------------------------------------------------------------- oggetti */
 // Spigoli "veri": solo dove due triangoli adiacenti formano un angolo netto.
@@ -524,9 +524,21 @@ function colMat(hex, sel) {
   }
   return m;
 }
+/* oggetto chiave: stesso colore, ma più scuro, così si riconosce subito tra quelli selezionati (i bordi restano arancioni come la selezione) */
+const keyMats = new Map();
+function keyMat(hex) {
+  let m = keyMats.get(hex);
+  if (!m) {
+    const c = new THREE.Color(hex).lerp(new THREE.Color(0x15151a), 0.55);
+    m = new THREE.MeshStandardMaterial({ color: c, roughness: 0.55, metalness: 0.05, emissive: 0xff6a00, emissiveIntensity: 0.1 });
+    keyMats.set(hex, m);
+  }
+  return m;
+}
 function matFor(m) {
   const sel = selection.includes(m);
   if (m.userData.hole) return sel ? M.holeSel : M.hole;
+  if (sel && m === keyObj && selection.length > 1) return keyMat(m.userData.color || '#cfe0f7');
   if (m.userData.color) return colMat(m.userData.color, sel);
   return sel ? M.solidSel : M.solid;
 }
@@ -819,7 +831,7 @@ function updatePerfNote() {
   $('#perf-note').classList.toggle('hidden', !heavy || perfDismissed);
 }
 $('#perf-x').addEventListener('click', () => { perfDismissed = true; updatePerfNote(); });
-function touch() { dirty = dimsDirty = true; if (repPrevG) repeatPreview(); if (window.__chkStale) window.__chkStale(); if (wantPixelRatio() !== pixelRatio) resize(); updatePerfNote(); $('#empty-hint').classList.toggle('hidden', objects.length > 0); scheduleLayers(); updateRotGizmo(); }
+function touch() { dirty = dimsDirty = true; if (repPrevG) repeatPreview(); if (window.__chkStale) window.__chkStale(); if (wantPixelRatio() !== pixelRatio) resize(); updatePerfNote(); $('#empty-hint').classList.toggle('hidden', objects.length > 0); if (rsOn && !objects.length !== rsWas) { rsWas = !objects.length; if (rsWas) offerResume(); } scheduleLayers(); updateRotGizmo(); }
 const bvhEval = new Evaluator();
 bvhEval.attributes = ['position', 'normal'];
 let useManifold = true;                                  // window.__noManifold = true per confrontare con il vecchio motore
@@ -1759,18 +1771,33 @@ function inPoly(x, y, pts) {
   return c;
 }
 // gli oggetti toccati dall'area: si lanciano raggi su una griglia di punti dentro l'area, quindi conta la forma vera e non l'ingombro.
-// Si prendono solo quelli visibili; con Raggi X acceso anche quelli coperti.
+// Il raggio attraversa tutto: contano anche i pezzi coperti da altri (come con Raggi X acceso, ma senza doverlo accendere).
+// I pezzi più piccoli del passo della griglia potrebbero sfuggire: per quelli basta che il centro cada nell'area.
 function pickInArea(inside, x0, y0, x1, y1) {
   const cand = objects.filter(o => o.visible && !o.userData.locked), found = new Set();
   const step = Math.max(5, Math.sqrt(Math.max(1, (x1 - x0) * (y1 - y0)) / 2500));
   const test = (x, y) => {
     if (!inside(x, y)) return;
     setRay({ clientX: x, clientY: y });
-    const hits = raycaster.intersectObjects(cand, false);
-    if (state.xray) hits.forEach(h => found.add(h.object)); else if (hits[0]) found.add(hits[0].object);
+    raycaster.intersectObjects(cand, false).forEach(h => found.add(h.object));
   };
   for (let y = y0; y <= y1; y += step) for (let x = x0; x <= x1; x += step) test(x, y);
   test(x1, y1); test((x0 + x1) / 2, (y0 + y1) / 2);
+  const r = canvas.getBoundingClientRect(), bb = new THREE.Box3(), c = new THREE.Vector3(), p = new THREE.Vector3();
+  for (const o of cand) {
+    if (found.has(o)) continue;
+    bb.copy(worldBox(o)); if (bb.isEmpty()) continue;
+    let mnx = Infinity, mny = Infinity, mxx = -Infinity, mxy = -Infinity;
+    for (let i = 0; i < 8; i++) {                                      // ingombro proiettato sullo schermo
+      p.set(i & 1 ? bb.max.x : bb.min.x, i & 2 ? bb.max.y : bb.min.y, i & 4 ? bb.max.z : bb.min.z).project(camera);
+      const sx = r.left + (p.x + 1) / 2 * r.width, sy = r.top + (1 - p.y) / 2 * r.height;
+      mnx = Math.min(mnx, sx); mxx = Math.max(mxx, sx); mny = Math.min(mny, sy); mxy = Math.max(mxy, sy);
+    }
+    if (mxx - mnx > step * 1.5 || mxy - mny > step * 1.5) continue;     // pezzo grande: l'avrebbe preso la griglia
+    c.copy(bb.getCenter(new THREE.Vector3())).project(camera);
+    const cx = r.left + (c.x + 1) / 2 * r.width, cy = r.top + (1 - c.y) / 2 * r.height;
+    if (cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1 && inside(cx, cy)) found.add(o);
+  }
   return [...found];
 }
 function mqFinish(d, e) {
@@ -2568,7 +2595,7 @@ const TOOLS = [
     { id: 'lasso', grp: 'sel', icon: 'lasso', name: 'Lazo', key: 'W', desc: 'Seleziona disegnando una linea libera', run: () => setTool('lasso') },
     { id: 'rotate', icon: 'rotate', name: 'Ruota', key: 'R', desc: 'Ruota con scatto a 15°', run: () => setTool('rotate') },
     { id: 'face', icon: 'face', name: 'Lato', key: 'L', desc: 'Spingi o tira un lato piatto', run: () => setTool('face') },
-    { id: 'edge', icon: 'edge', name: 'Spigolo', key: 'E', desc: 'Arrotonda o smussa uno spigolo', run: () => setTool('edge') },
+    { id: 'edge', icon: 'edge', name: 'Spigolo', key: 'E', desc: 'Arrotonda, smussa o sposta uno spigolo', run: () => setTool('edge') },
     { id: 'cut', grp: 'plane', icon: 'cut', name: 'Taglia', key: 'K', desc: 'Taglia un oggetto con un piano', run: () => setTool('cut') },
     { id: 'stretch', grp: 'plane', icon: 'stretch', name: 'Allunga', key: 'U', desc: 'Allunga o accorcia una parte, da un piano in poi', run: () => setTool('stretch') },
     { id: 'ruler', icon: 'dist', name: 'Metro', key: 'D', desc: 'Misura tra due punti o lati', run: () => setTool('ruler') },
@@ -2901,9 +2928,10 @@ function showTip(b) {
   tipEl.classList.add('show');
   tipOn = true;
 }
+const compactBar = matchMedia('(max-height:960px)');                  // finestre basse: niente descrizioni nell'elenco, le spiega lo stesso pop up della barra stretta
 $('#tools').addEventListener('pointerover', e => {
   const b = e.target.closest('.tool');
-  if (!b || !sideEl.classList.contains('mini')) return;
+  if (!b || !(sideEl.classList.contains('mini') || compactBar.matches)) return;
   clearTimeout(tipTimer);
   if (tipOn) showTip(b); else tipTimer = setTimeout(() => showTip(b), 550);
 });
@@ -4524,7 +4552,7 @@ function shadowCheck() {                           // impronta di ciò che proie
 }
 function render() {
   updateSilhouettes();
-  edgeMat.resolution.set(canvas.clientWidth, canvas.clientHeight); edgeHoverMat.resolution.copy(edgeMat.resolution); crossHaloMat.resolution.copy(edgeMat.resolution); crossMat.resolution.copy(edgeMat.resolution);
+  edgeMat.resolution.set(canvas.clientWidth, canvas.clientHeight); edgeHoverMat.resolution.copy(edgeMat.resolution); crossHaloMat.resolution.copy(edgeMat.resolution); crossMat.resolution.copy(edgeMat.resolution); if (cutSec) cutSec.mat.resolution.copy(edgeMat.resolution);
   if (rotGizmo.visible) updateRotGizmo();
   updateHandleFacing();
   updateDims();   // prima del disegno: la scatola e le linee delle misure compaiono subito, non al movimento successivo
@@ -5129,12 +5157,108 @@ function cutEnsurePlane() {
 function cutRefresh() {                                        // piano di anteprima: segue asse, posizione e ingombro della selezione
   const g = cutEnsurePlane(), on = planeTool() && selection.length > 0;
   g.visible = on; dirty = true;
-  if (!on) return;
+  if (!on) { cutSecSchedule(); return; }
   const b = selBox(), c = b.getCenter(new THREE.Vector3()), sz = b.getSize(new THREE.Vector3()), ax = CUT.ax, m = 8;
   g.rotation.set(0, 0, 0);
   if (ax === 'x') { g.rotation.y = Math.PI / 2; g.scale.set(sz.z + m, sz.y + m, 1); g.position.set(CUT.pos, c.y, c.z); }
   else if (ax === 'y') { g.rotation.x = Math.PI / 2; g.scale.set(sz.x + m, sz.z + m, 1); g.position.set(c.x, CUT.pos, c.z); }
   else { g.scale.set(sz.x + m, sz.y + m, 1); g.position.set(c.x, c.y, CUT.pos); }
+  cutSecSchedule();
+}
+/* Sezione sul piano: dove l'oggetto incontra il piano compare un'area scura con il contorno arancione in evidenza,
+   così si vede in anticipo dove cade il taglio (o da dove parte l'allungamento). Si calcola affettando i triangoli sul piano. */
+var cutSec = null, cutSecTimer = 0, cutSecLast = 0;
+function cutSecEnsure() {
+  if (cutSec) return cutSec;
+  const fill = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ color: 0x16161a, opacity: 0.72, transparent: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false }));
+  fill.renderOrder = 951; fill.frustumCulled = false; fill.raycast = () => {};
+  const mat = new LineMaterial({ color: 0xff6a00, linewidth: 3, depthTest: false, transparent: true });
+  const line = new LineSegments2(new LineSegmentsGeometry(), mat); line.renderOrder = 952; line.frustumCulled = false; line.raycast = () => {}; line.visible = false;
+  const g = new THREE.Group(); g.add(fill, line); g.visible = false; scene.add(g);
+  return (cutSec = { g, fill, line, mat });
+}
+function cutSecSchedule() {
+  const on = planeTool() && selection.length > 0;
+  if (!on) { if (cutSec) { cutSec.g.visible = false; dirty = true; } return; }
+  const big = trisOf(selection) > 150000, now = performance.now();
+  clearTimeout(cutSecTimer);
+  if (!big || now - cutSecLast > 90) { cutSecLast = now; cutSecUpdate(); }
+  else cutSecTimer = setTimeout(() => { cutSecLast = performance.now(); cutSecUpdate(); }, 90);
+}
+// segmenti in cui il piano (asse k, posizione pos) taglia la mesh m: [x1,y1,z1,x2,y2,z2, ...] in coordinate del mondo
+function cutSecSegments(m, k, pos) {
+  const geo = m.geometry, P = geo.attributes.position, I = geo.index; if (!P) return [];
+  m.updateMatrixWorld(true); const e = m.matrixWorld.elements, n = P.count, W = new Float64Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const x = P.getX(i), y = P.getY(i), z = P.getZ(i);
+    W[i * 3] = e[0] * x + e[4] * y + e[8] * z + e[12]; W[i * 3 + 1] = e[1] * x + e[5] * y + e[9] * z + e[13]; W[i * 3 + 2] = e[2] * x + e[6] * y + e[10] * z + e[14];
+  }
+  const nt = I ? I.count / 3 : n / 3, out = [], ia = [0, 0, 0], pt = [0, 0, 0, 0, 0, 0];
+  const cross = (a, b, o) => {                                       // punto sullo spigolo a-b; sempre calcolato nello stesso ordine, così i due triangoli vicini ottengono lo stesso punto
+    let ax = W[a * 3], ay = W[a * 3 + 1], az = W[a * 3 + 2], bx = W[b * 3], by = W[b * 3 + 1], bz = W[b * 3 + 2];
+    if (ax > bx || (ax === bx && (ay > by || (ay === by && az > bz)))) { [ax, ay, az, bx, by, bz] = [bx, by, bz, ax, ay, az]; }
+    const ak = k === 0 ? ax : k === 1 ? ay : az, bk = k === 0 ? bx : k === 1 ? by : bz, t = (pos - ak) / (bk - ak);
+    pt[o] = ax + t * (bx - ax); pt[o + 1] = ay + t * (by - ay); pt[o + 2] = az + t * (bz - az);
+  };
+  for (let t = 0; t < nt; t++) {
+    if (I) { ia[0] = I.getX(t * 3); ia[1] = I.getX(t * 3 + 1); ia[2] = I.getX(t * 3 + 2); } else { ia[0] = t * 3; ia[1] = t * 3 + 1; ia[2] = t * 3 + 2; }
+    const s0 = W[ia[0] * 3 + k] > pos, s1 = W[ia[1] * 3 + k] > pos, s2 = W[ia[2] * 3 + k] > pos;
+    if (s0 === s1 && s1 === s2) continue;
+    let c = 0;
+    if (s0 !== s1) { cross(ia[0], ia[1], c * 3); c++; }
+    if (s1 !== s2) { cross(ia[1], ia[2], c * 3); c++; }
+    if (c < 2 && s2 !== s0) { cross(ia[2], ia[0], c * 3); c++; }
+    if (c === 2) out.push(pt[0], pt[1], pt[2], pt[3], pt[4], pt[5]);
+  }
+  return out;
+}
+// da segmenti sparsi ai contorni chiusi (liste di punti [x,y,z]); i contorni aperti restano solo come linea
+function cutSecLoops(segs) {
+  const key = (x, y, z) => Math.round(x * 1000) + '_' + Math.round(y * 1000) + '_' + Math.round(z * 1000), nodes = new Map();
+  for (let i = 0; i < segs.length; i += 6) {
+    const a = key(segs[i], segs[i + 1], segs[i + 2]), b = key(segs[i + 3], segs[i + 4], segs[i + 5]);
+    if (a === b) continue;
+    if (!nodes.has(a)) nodes.set(a, { p: [segs[i], segs[i + 1], segs[i + 2]], nb: [] });
+    if (!nodes.has(b)) nodes.set(b, { p: [segs[i + 3], segs[i + 4], segs[i + 5]], nb: [] });
+    nodes.get(a).nb.push(b); nodes.get(b).nb.push(a);
+  }
+  const seen = new Set(), loops = [];
+  for (const [k0, n0] of nodes) {
+    if (seen.has(k0)) continue;
+    const loop = [n0.p]; seen.add(k0); let cur = k0, prev = null, closed = false;
+    for (;;) {
+      const nb = nodes.get(cur).nb.filter(x => x !== prev);
+      let nx = nb.find(x => !seen.has(x));
+      if (nx === undefined) { closed = nb.includes(k0) && loop.length > 2; break; }
+      prev = cur; cur = nx; seen.add(cur); loop.push(nodes.get(cur).p);
+    }
+    if (closed) loops.push(loop);
+  }
+  return loops;
+}
+function cutSecUpdate() {
+  const S = cutSecEnsure(), k = 'xyz'.indexOf(CUT.ax), pos = CUT.pos, all = [], loops = [];
+  for (const m of selection) { const sg = cutSecSegments(m, k, pos); for (let i = 0; i < sg.length; i++) all.push(sg[i]); }
+  S.g.visible = all.length > 0; dirty = true;
+  if (!all.length) return;
+  S.line.geometry.dispose(); S.line.geometry = new LineSegmentsGeometry(); S.line.geometry.setPositions(all); S.line.visible = true;
+  // area scura: contorni chiusi, con i fori dentro i contorni che li contengono
+  const u = (k + 1) % 3, v = (k + 2) % 3, L = cutSecLoops(all);
+  S.fill.visible = false; if (!L.length || L.length > 300) return;
+  const poly = L.map(l => l.map(p => new THREE.Vector2(p[u], p[v]))), area = poly.map(pl => Math.abs(THREE.ShapeUtils.area(pl)));
+  const inside = (pt, pl) => { let c = false; for (let i = 0, j = pl.length - 1; i < pl.length; j = i++) { const a = pl[i], b = pl[j]; if ((a.y > pt.y) !== (b.y > pt.y) && pt.x < (b.x - a.x) * (pt.y - a.y) / (b.y - a.y) + a.x) c = !c; } return c; };
+  const depth = poly.map((pl, i) => poly.reduce((d, q, j) => d + (j !== i && area[j] > area[i] && inside(pl[0], q) ? 1 : 0), 0));
+  const pos3 = [], idx = [];
+  poly.forEach((pl, i) => {
+    if (depth[i] % 2) return;                                        // i fori si aggiungono al contorno che li contiene
+    const holes = poly.filter((q, j) => depth[j] === depth[i] + 1 && inside(q[0], pl));
+    const verts = pl.concat(...holes), base = pos3.length / 3;
+    let tris; try { tris = THREE.ShapeUtils.triangulateShape(pl, holes); } catch (e) { return; }
+    verts.forEach(q => { const p = [0, 0, 0]; p[k] = pos; p[u] = q.x; p[v] = q.y; pos3.push(...p); });
+    tris.forEach(t => idx.push(base + t[0], base + t[1], base + t[2]));
+  });
+  if (!idx.length) return;
+  S.fill.geometry.dispose(); const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos3, 3)); g.setIndex(idx); S.fill.geometry = g; S.fill.visible = true;
 }
 function cutReset() { CUT.pos = Math.round(cutAxisCenter() * 100) / 100; $('#cut-pos').value = fmt(CUT.pos); cutRefresh(); }
 function cutToolChanged() {
@@ -5286,6 +5410,38 @@ function scrollFade(el) {
   window.addEventListener('resize', upd); upd();
 }
 scrollFade($('#tools')); scrollFade($('#p-scroll'));
+/* barra proprietà: sezioni comprimibili (intestazione a barra) e freccia "altro sotto" */
+(function () {
+  const sc = $('#p-scroll'), more = $('#p-more');
+  let fold = {};
+  try { fold = JSON.parse(localStorage.getItem('filo.pfold') || '{}') || {}; } catch (e) { fold = {}; }
+  const apply = h => {
+    const off = !!fold[h.dataset.k];
+    h.classList.toggle('pc', off); h.setAttribute('aria-expanded', String(!off));
+    for (let n = h.nextElementSibling; n && n.tagName !== 'H4'; n = n.nextElementSibling) n.classList.toggle('pfold', off);
+  };
+  const toggle = h => {
+    fold[h.dataset.k] = !fold[h.dataset.k]; if (!fold[h.dataset.k]) delete fold[h.dataset.k];
+    apply(h);
+    /* Posizione e Misure esistono due volte (oggetto singolo e gruppo): restano in sincronia */
+    sc.querySelectorAll('h4.ph').forEach(o => { if (o.dataset.k === h.dataset.k) apply(o); });
+    try { localStorage.setItem('filo.pfold', JSON.stringify(fold)); } catch (e) { /* ignora */ }
+  };
+  sc.querySelectorAll('h4').forEach(h => {
+    if (h.closest('#p-align') || !h.nextElementSibling) return;
+    h.classList.add('ph'); h.tabIndex = 0; h.setAttribute('role', 'button');
+    h.dataset.k = h.textContent.replace(/\(.*?\)|\?/g, '').trim().toLowerCase();
+    apply(h);
+  });
+  sc.addEventListener('click', e => { const h = e.target.closest('h4.ph'); if (h && !e.target.closest('button')) toggle(h); });
+  sc.addEventListener('keydown', e => { const h = e.target.closest && e.target.closest('h4.ph'); if (h && h === e.target && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle(h); } });
+  const upd = () => { more.classList.toggle('hidden', sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 4 || $('#props').classList.contains('hidden')); };
+  sc.addEventListener('scroll', upd, { passive: true });
+  new ResizeObserver(upd).observe(sc);
+  new MutationObserver(upd).observe(sc, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+  window.addEventListener('resize', upd); upd();
+  more.addEventListener('click', () => sc.scrollBy({ top: Math.round(sc.clientHeight * .7), behavior: 'smooth' }));
+})();
 
 
 /* ---------------------------------------------------------- controlla stampa */
@@ -5388,7 +5544,28 @@ const idbSet = (k, v) => idb().then(db => new Promise((res, rej) => { const tx =
 const idbDel = k => idb().then(db => new Promise(res => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }));
 let saveTimer = 0;
 function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveLast, 1500); }
-function saveLast() {
+/* Fino a 3 lavori nel browser. Ogni sessione aggiorna sempre la sua voce (histId), senza creare doppioni; oltre i 3 lavori o oltre il
+   limite di spazio (HIST_BYTES) spariscono i più vecchi. Il vecchio salvataggio unico ('last') viene letto una volta e poi sostituito. */
+const HIST_MAX = 3, HIST_BYTES = 100e6;
+let histId = 0, histCache = [];
+const histBytes = e => e.list.reduce((n, d) => n + 400 + (d.geo && d.geo.pos ? d.geo.pos.byteLength + (d.geo.nor ? d.geo.nor.byteLength : 0) + (d.geo.idx ? d.geo.idx.byteLength : 0) : 0), 0);
+const histReady = (async () => {
+  let h = [];
+  try { h = (await idbGet('hist')) || []; } catch (e) {}
+  if (!h.length) { try { const l = await idbGet('last'); if (l && l.list && l.list.length) h = [{ id: l.t, ...l }]; } catch (e) {} }
+  histCache = h.filter(e => e && e.list && e.list.length).sort((a, b) => b.t - a.t).slice(0, HIST_MAX);
+})();
+function histTrim() {
+  histCache = histCache.sort((a, b) => b.t - a.t).slice(0, HIST_MAX);
+  let tot = histCache.reduce((n, e) => n + histBytes(e), 0);
+  while (histCache.length > 1 && tot > HIST_BYTES) tot -= histBytes(histCache.pop());     // il più recente resta sempre
+}
+function histWrite() {
+  return idbSet('hist', histCache).then(() => idbDel('last')).catch(() => {
+    if (histCache.length > 1) { histCache = histCache.slice(0, 1); return idbSet('hist', histCache).catch(() => {}); }   // spazio finito: tiene solo il più recente
+  });
+}
+async function saveLast() {
   if (!objects.length) return;                                       // un'area vuota non cancella l'ultimo lavoro
   try {
     const list = objects.map(m => {
@@ -5396,7 +5573,11 @@ function saveLast() {
       if (d.kind === 'merged' && d.geo) { const g = d.geo; d.geo = { pos: g.attributes.position.array.slice(), nor: g.attributes.normal ? g.attributes.normal.array.slice() : null, idx: g.index ? g.index.array.slice() : null }; }
       return d;
     });
-    idbSet('last', { t: Date.now(), n: objects.length, nextId, nextGid, list }).catch(() => {});
+    if (!histId) histId = Date.now();
+    const entry = { id: histId, t: Date.now(), n: objects.length, nextId, nextGid, list };
+    await histReady;
+    histCache = [entry, ...histCache.filter(e => e.id !== histId)]; histTrim();
+    await histWrite();
   } catch (e) { console.warn('salvataggio', e); }
 }
 function geoFromSaved(s) {
@@ -5407,12 +5588,14 @@ function geoFromSaved(s) {
   g.computeBoundingBox(); g.computeBoundingSphere();
   return g;
 }
-async function restoreLast() {
-  let s; try { s = await idbGet('last'); } catch (e) { return false; }
+async function restoreLast(id) {
+  await histReady;
+  const s = id == null ? histCache[0] : histCache.find(e => e.id === id);
   if (!s || !s.list || !s.list.length) return false;
   [...objects].forEach(removeMesh);
-  s.list.forEach(d => { if (d.kind === 'merged') d.geo = geoFromSaved(d.geo); makeMesh(d); });
+  s.list.forEach(d => { const c = d.kind === 'merged' ? { ...d, geo: geoFromSaved(d.geo) } : d; makeMesh(c); });
   nextId = Math.max(nextId, s.nextId || 1, ...objects.map(o => o.userData.id + 1)); nextGid = Math.max(nextGid, s.nextGid || 1);
+  histId = s.id;                                                      // da qui in poi le modifiche aggiornano questo lavoro
   setSelection([]); touch(); commit(); fitView();
   unsaved = false;
   toast(`${tr("Ripreso l'ultimo lavoro")}: ${s.n} ${tr(s.n === 1 ? 'pezzo' : 'pezzi')}`);
@@ -5426,23 +5609,45 @@ function ago(t) {
   if (h < 36) return `${h} ${tr(h === 1 ? 'ora fa' : 'ore fa')}`;
   return new Date(t).toLocaleDateString(getLang() === 'en' ? 'en-GB' : 'it-IT', { day: 'numeric', month: 'short' });
 }
+var rsOn = false, rsWas = true;
+let rsAsk = null;                                                    // id del lavoro per cui si sta chiedendo conferma di eliminazione
 async function offerResume() {
-  let s; try { s = await idbGet('last'); } catch (e) { return; }
-  const sec = $('#ew-resume');
-  if (!s || !s.list || !s.list.length || objects.length) { sec.classList.add('hidden'); return; }
-  const names = s.list.slice(0, 3).map(d => d.name).join(', ') + (s.list.length > 3 ? '…' : '');
-  $('#ew-resume-t').textContent = `${s.n} ${tr(s.n === 1 ? 'pezzo' : 'pezzi')} · ${ago(s.t)} · ${names}`;
-  sec.classList.remove('hidden');
+  await histReady;
+  const list = $('#rs-list'), empty = !histCache.length;
+  $('#rs-empty').classList.toggle('hidden', !empty);
+  list.replaceChildren(...histCache.map(s => {
+    const row = document.createElement('div'), ask = rsAsk === s.id;
+    row.className = 'rs-item' + (ask ? ' ask' : ''); row.dataset.id = s.id;
+    const names = s.list.slice(0, 3).map(d => d.name).join(', ') + (s.list.length > 3 ? '…' : '');
+    const t = document.createElement('div'); t.className = 'rs-t';
+    const b = document.createElement('b'), sp = document.createElement('span');
+    b.textContent = ask ? tr('Eliminare per sempre?') : `${s.n} ${tr(s.n === 1 ? 'pezzo' : 'pezzi')} · ${ago(s.t)}`;
+    sp.textContent = ask ? tr('Il lavoro salvato sparirà e non si può recuperare.') : names;
+    t.append(b, sp);
+    const btns = document.createElement('div'); btns.className = 'ew-resume-btns';
+    const mk = (eh, label, cls) => { const x = document.createElement('button'); x.className = 'ew-tile ' + cls; x.dataset.eh = eh; x.dataset.id = s.id; x.textContent = tr(label); return x; };
+    if (ask) btns.append(mk('resume-del-yes', 'Elimina', 'ew-go'), mk('resume-del-no', 'Annulla', 'ew-del'));
+    else btns.append(mk('resume', 'Riprendi', 'ew-go'), mk('resume-del', 'Elimina', 'ew-del'));
+    row.append(t, btns); return row;
+  }));
 }
 window.addEventListener('beforeunload', e => { if (unsaved && objects.length) { e.preventDefault(); e.returnValue = ''; } });
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && unsaved) saveLast(); });
 $('#ew-resume').addEventListener('click', async e => {
   const b = e.target.closest('[data-eh]'); if (!b) return;
   e.stopPropagation();
-  if (b.dataset.eh === 'resume') { if (!(await restoreLast())) toast('Non c\'è niente da riprendere'); }
-  else if (b.dataset.eh === 'resume-del') { await idbDel('last'); $('#ew-resume').classList.add('hidden'); toast('Lavoro salvato eliminato'); }
+  const id = Number(b.dataset.id);
+  if (b.dataset.eh === 'resume') { if (!(await restoreLast(id))) toast('Non c\'è niente da riprendere'); }
+  else if (b.dataset.eh === 'resume-del') { rsAsk = id; offerResume(); }
+  else if (b.dataset.eh === 'resume-del-no') { rsAsk = null; offerResume(); }
+  else if (b.dataset.eh === 'resume-del-yes') {
+    rsAsk = null; await histReady; histCache = histCache.filter(x => x.id !== id);
+    if (histId === id) histId = 0;
+    await (histCache.length ? idbSet('hist', histCache) : idbDel('hist')).catch(() => {}); await idbDel('last');
+    offerResume(); toast('Lavoro salvato eliminato');
+  }
 });
-offerResume();
+offerResume(); rsOn = true;
 
 window.forma = { get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 

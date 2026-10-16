@@ -16,7 +16,7 @@ with sync_playwright() as p:
     errs=[];pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.goto('file:///tmp/forma/dist/forma.html');pg.wait_for_function("window.forma");pg.wait_for_timeout(900)
     # vuoto
-    pg.mouse.click(450,400,button='right');pg.wait_for_timeout(200)
+    pg.mouse.click(1360,300,button='right');pg.wait_for_timeout(200)
     check('vuoto: menu corto',menu(pg)==['Incolla(off)','Seleziona tutto(off)','Inquadra tutto','Raggi X','Misure'])
     pg.keyboard.press('Escape');pg.wait_for_timeout(100);check('Esc chiude',menu(pg) is None)
     # orbita col destro: trascinando non si apre

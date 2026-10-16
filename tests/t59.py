@@ -21,7 +21,7 @@ with sync_playwright() as p:
     pg.locator('#tools .grp[data-g=comb]').click(button='right');pg.wait_for_timeout(200)
     check('clic destro: Combina e Interseca',fly()==['Combina','Interseca'])
     pg.keyboard.press('Escape');pg.wait_for_timeout(100);check('Esc chiude il menu',fly() is None)
-    pg.locator('#tools .grp[data-g=comb]').click(button='right');pg.mouse.click(900,400);pg.wait_for_timeout(100);check('clic fuori chiude',fly() is None)
+    pg.locator('#tools .grp[data-g=comb]').click(button='right');pg.mouse.click(1360,300);pg.wait_for_timeout(100);check('clic fuori chiude',fly() is None)
     check('Combina resta sempre Combina',G('comb')[0]=='Combina')
     bx=pg.locator('#tools .grp[data-g=sel]').bounding_box();pg.mouse.move(bx['x']+60,bx['y']+15);pg.mouse.down();pg.wait_for_timeout(600);pg.mouse.up();pg.wait_for_timeout(150)
     check('pressione lunga apre il menu senza lanciare lo strumento',fly()==['Riquadro','Lazo'] and pg.evaluate('forma.state.tool')=='stretch')
