@@ -496,6 +496,12 @@ label.f.has-stp{position:relative;padding-right:4px}
 .grid3 label.f{padding-left:5px}.grid3 label.f.has-stp{padding-right:3px}.grid3 .stp{margin-left:3px}
 #p-rotq .rq .btn{justify-content:center;background:var(--field);padding:6px 0}
 #p-rotq .rq .btn:hover{background:var(--hover)}
+#p-rotq .rq .btn{gap:4px;padding:2px 0;--bg:var(--field)}
+#p-rotq .rq .btn:hover{--bg:var(--hover)}
+#p-rotq .rq svg{width:34px;height:34px;flex:none;fill:none;stroke:currentColor;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round}
+#p-rotq .rq .cb{fill:var(--bg)}
+#p-rotq .rq .ar{stroke:var(--accent);stroke-width:1.5}
+#p-rotq .rq .bk{opacity:.45}
 .seg3 button{font-size:10px;letter-spacing:.02em;white-space:nowrap}
 .grid2 label.f{gap:4px;padding-left:6px;font-size:10px}
 .grid2 label.f input{font-size:12px}

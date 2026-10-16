@@ -95,3 +95,4 @@ Esc fa una cosa alla volta, nell'ordine: 1) in un campo numerico o nel nome annu
 
 ## 9. Controllo prima di consegnare
 1. Tutti i colori sono token? 2. Raggio 2 px? 3. Spaziature nella scala a 4? 4. Etichette mono maiuscole, frasi in sans? 5. Chiaro e scuro guardati entrambi? 6. Nessun elemento tagliato o sovrapposto a 1280 px di larghezza? 7. Testi IT e chiavi EN presenti?
+- **Pulsanti Ruota di 90°**: ogni pulsante mostra un cubo isometrico (Z in alto, X in basso a sinistra, Y in basso a destra; tratto 1,2, estremi tondi, `currentColor`, riempimento = sfondo del pulsante) con un anello di rotazione in `--accent` attorno all'asse: metà anteriore piena con punta di freccia, metà posteriore al 45% di opacità, due piccoli segmenti per indicare l'asse. La lettera X, Y o Z sta accanto. ⇧ inverte il verso.
