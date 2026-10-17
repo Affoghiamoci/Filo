@@ -49,7 +49,7 @@ with sync_playwright() as p:
     pg.evaluate("(()=>{const w=forma.worldBox(forma.objects[0]).getSize(new forma.THREE.Vector3()).x;forma.objects.forEach((o,i)=>{o.position.set(i*w*0.3,0,o.position.z);o.updateMatrixWorld(true)})})()")
     pg.evaluate("forma.setSelection(forma.objects)")
     pg.evaluate("forma.intersect()");pg.wait_for_function("forma.objects.length===1",timeout=120000);pg.wait_for_timeout(300)
-    vi=pg.evaluate(VOL);check('Interseca di tre solidi: resta la parte comune (volume 7200)',abs(vi-7200)<1)
+    vi=pg.evaluate(VOL);check('Interseca di tre solidi: resta la parte comune (volume 10800)',abs(vi-10800)<1)
     check('nessun errore di pagina',not errs)
     if errs: print(errs)
     b.close()

@@ -19,8 +19,8 @@ with sync_playwright() as p:
     def again(pg): pg.evaluate("forma.setTool('move')");pg.evaluate("forma.setTool('edge')");pg.wait_for_timeout(100)
     # 1) scatola, raggio grande: si riseleziona cliccando sulla curva (0,414 r dallo spigolo vivo)
     pg=fresh('box'); sh=7*(math.sqrt(2)-1)/math.sqrt(2)
-    sel(pg,[0,-15,20]); apply(pg,'fillet',7); again(pg)
-    check('scatola r=7: riseleziona sulla curva',sel(pg,[0,-15+sh,20-sh])==1)
+    sel(pg,[0,-15,30]); apply(pg,'fillet',7); again(pg)
+    check('scatola r=7: riseleziona sulla curva',sel(pg,[0,-15+sh,30-sh])==1)
     check('scatola r=7: misura già scritta',pg.evaluate("document.querySelector('#e-size').value")=='7')
     # 2) prisma: spigolo verticale
     pg=fresh('prism'); sel(pg,[10,0,10]); apply(pg,'fillet',3)

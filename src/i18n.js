@@ -447,7 +447,8 @@ function tr0(s, ctx) {
   if (ctx === 'label' && { L: 'W', P: 'D', A: 'H' }[t]) return s.replace(t, { L: 'W', P: 'D', A: 'H' }[t]);
   let out = EN[t];
   if (out === undefined) for (const [re, f] of RULES) { const m = t.match(re); if (m) { out = f(m); break; } }
-  return out === undefined ? s : s.replace(t, out);
+  const dec = x => x.replace(/(\d),(\d)/g, '$1.$2');                   // in inglese i decimali hanno il punto (0,5 → 0.5)
+  return dec(out === undefined ? s : s.replace(t, out));
 }
 const SKIP = new Set(['SCRIPT', 'STYLE']);
 const ATTRS = ['title', 'placeholder', 'aria-label'];

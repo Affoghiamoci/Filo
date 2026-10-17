@@ -27,6 +27,22 @@ const fmt = v => String(+Number(v).toFixed(2));
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
+/* La virgola come separatore decimale: un browser in inglese, nei campi numerici, scarta la virgola e "4,5" diventa "45" senza avvisi.
+   Qui la virgola (e il punto del tastierino) diventa sempre un punto, anche incollando. */
+document.addEventListener('keydown', e => {
+  const t = e.target;
+  if (e.key !== ',' || e.metaKey || e.ctrlKey || e.altKey || !(t instanceof HTMLInputElement) || t.type !== 'number') return;
+  e.preventDefault(); e.stopPropagation();
+  document.execCommand('insertText', false, '.');
+}, true);
+document.addEventListener('paste', e => {
+  const t = e.target, txt = e.clipboardData && e.clipboardData.getData('text');
+  if (!(t instanceof HTMLInputElement) || t.type !== 'number' || !txt || !/\d,\d/.test(txt)) return;
+  e.preventDefault(); document.execCommand('insertText', false, txt.trim().replace(/\s/g, '').replace(',', '.'));
+}, true);
+
+document.addEventListener('dblclick', e => { const t = e.target; if (t instanceof HTMLInputElement && (t.type === 'number' || t.type === 'text')) t.select(); });   // doppio clic su un campo: evidenzia tutto il valore
+
 /* ------------------------------------------------------------------ stato */
 const state = { tool: 'move', space: false, snap: 1, dims: false, xray: false, magnet: true, wheelZoom: false };
 try { state.wheelZoom = localStorage.getItem('filo.wheel') === 'zoom'; } catch (e) { /* ignora */ }
@@ -590,7 +606,7 @@ const triCount = g => g.index ? g.index.count / 3 : g.attributes.position.count 
 function heavyGuard(list) {
   const n = list.reduce((a, m) => a + triCount(m.geometry), 0);
   if (n < (window.__noManifold ? 400000 : 1500000)) return false;
-  return !confirm(tr('Modello molto pesante') + ` (${n.toLocaleString('it-IT')}). ` + tr('Questa operazione può bloccare il browser per diversi minuti. Conviene semplificarlo prima (in Bambu Studio: tasto destro, Semplifica modello). Continuare lo stesso?'));
+  return !confirm(tr('Modello molto pesante') + ` (${n.toLocaleString(getLang() === 'en' ? 'en-US' : 'it-IT')}). ` + tr('Questa operazione può bloccare il browser per diversi minuti. Conviene semplificarlo prima (in Bambu Studio: tasto destro, Semplifica modello). Continuare lo stesso?'));
 }
 function makeMesh(d) {
   const geo = d.kind === 'merged' ? d.geo : buildGeometry(d.kind, d.p);
@@ -680,7 +696,7 @@ function worldBox(m) {
   return box;
 }
 function defaultsFor(kind) {
-  return { box: { w: 30, d: 30, h: 20, r: 0 }, cone: { w: 20, d: 20, h: 20, q: 0 }, prism: { w: 20, d: 20, h: 20, q: 6 }, torus: { w: 30, d: 30, h: 8, q: 25 } }[kind] || { w: 20, d: 20, h: 20 };
+  return { box: { w: 30, d: 30, h: 30, r: 0 }, cone: { w: 20, d: 20, h: 20, q: 0 }, prism: { w: 20, d: 20, h: 20, q: 6 }, torus: { w: 30, d: 30, h: 8, q: 25 } }[kind] || { w: 20, d: 20, h: 20 };
 }
 const NAMES = { box: 'Scatola', cylinder: 'Cilindro', sphere: 'Sfera', cone: 'Cono', prism: 'Prisma', torus: 'Toro', merged: 'Pezzo' };
 function createObject(kind) {
@@ -4411,7 +4427,7 @@ async function importFiles(files) {
       touch(); commit(); fitView();
       if (nParts) { toast(`Importato ${f.name}: diviso in ${nParts} pezzi separati`); continue; }
       const tris = made.reduce((s, m) => s + m.geometry.index.count / 3, 0);
-      toast(`Importato ${f.name}: ${made.length} ${made.length === 1 ? 'oggetto' : 'oggetti'}, ${tris.toLocaleString('it-IT')} triangoli`);
+      toast(`Importato ${f.name}: ${made.length} ${made.length === 1 ? 'oggetto' : 'oggetti'}, ${tris.toLocaleString(getLang() === 'en' ? 'en-US' : 'it-IT')} triangoli`);
     } catch (err) { console.error(err); toast(`Impossibile leggere ${f.name}`); }
   }
 }
@@ -4724,7 +4740,7 @@ function frame() {
 
 /* ------------------------------------------- spigoli: raccordi e smussi */
 const edgeMat = new LineMaterial({ color: 0xff6a00, linewidth: 4, depthTest: false, transparent: true });
-const edgeHoverMat = new LineMaterial({ color: 0xff6a00, linewidth: 3, depthTest: false, transparent: true, opacity: 0.45 });
+const edgeHoverMat = new LineMaterial({ color: 0x3e63dd, linewidth: 3, depthTest: false, transparent: true, opacity: 0.95 });   // spigolo sotto il mouse: blu (--ax-z), distinto dall'arancione dello spigolo scelto
 let edgeSel = [];            // [{obj, chain}]
 let edgeLines = null, edgeHoverLine = null, edgeHoverKey = null;
 const edgeCache = new WeakMap();
