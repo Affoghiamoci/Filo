@@ -1583,6 +1583,7 @@ function groundPoint(e) {
   setRay(e);
   return raycaster.ray.intersectPlane(ground, new THREE.Vector3());
 }
+const magOff = e => (e.metaKey || e.ctrlKey) && e.altKey;      // ⌘+⌥ (Ctrl+Alt) insieme: calamita spenta solo per questo trascinamento
 const snapV = v => state.snap ? Math.round(v / state.snap) * state.snap : v;   // snap 0 = Libero
 
 let drag = null;
@@ -1720,7 +1721,7 @@ canvas.addEventListener('pointermove', e => {
     let dxs = snapV(base.x + raw.x) - base.x, dys = snapV(base.y + raw.y) - base.y;
     // ⇧ = blocca sull'asse X o Y (quello in cui ti sei mosso di più)
     if (e.shiftKey) { if (Math.abs(raw.x) >= Math.abs(raw.y)) dys = 0; else dxs = 0; }
-    const mag = state.magnet && !e.metaKey && !e.ctrlKey;     // ⌘ premuto = calamita spenta solo per questo trascinamento
+    const mag = state.magnet && !magOff(e);     // ⌘+⌥ premuti insieme = calamita spenta solo per questo trascinamento
     const free = e.shiftKey ? (Math.abs(raw.x) >= Math.abs(raw.y) ? 'x' : 'y') : null;   // con ⇧ la calamita lavora solo sull'asse in cui ti muovi
     const sh = new THREE.Vector3(dxs, dys, 0), SI = !mag ? null : ensureSnap(drag, 'snap', drag.start);
     const sv = SI ? snapVerts(SI, sh, free) : null, sn = SI && !sv ? snapFaces(SI, sh, 'xy', free) : null;
@@ -2013,7 +2014,7 @@ function moveVertical(e) {
   const dz = hit && d.vz0 !== null ? hit.z - d.vz0 : -(e.clientY - d.vy0) * worldPerPixel();
   const base = d.vstart.get(d.hit) ?? [...d.vstart.values()][0];
   let ddz = snapV(base.z + dz) - base.z;
-  const shz = new THREE.Vector3(0, 0, ddz), snz = state.magnet ? snapFaces(ensureSnap(d, 'snapz', d.vstart), shz, 'z') : null;
+  const shz = new THREE.Vector3(0, 0, ddz), snz = state.magnet && !magOff(e) ? snapFaces(ensureSnap(d, 'snapz', d.vstart), shz, 'z') : null;
   if (snz) ddz += snz.c.z;
   showSnap(snz, shz, e);
   d.vstart.forEach((p0, m) => { m.position.z = p0.z + ddz; m.updateMatrixWorld(true); });
@@ -4124,7 +4125,7 @@ function handlePlanes(dir) {
   return [...set.values()];
 }
 function handleMagnet(h, dir, base, delta, e) {
-  if (!state.magnet || e.metaKey || e.ctrlKey) { if (guide.visible || dragRead.style.display !== 'none') { dragRead.style.display = 'none'; dirty = true; } return null; }
+  if (!state.magnet || magOff(e)) { if (guide.visible || dragRead.style.display !== 'none') { dragRead.style.display = 'none'; dirty = true; } return null; }
   if (!h.planes) h.planes = handlePlanes(dir);
   const tol = Math.min(6, worldPerPixel() * 8), pos = base + delta;
   let best = null;
@@ -4963,7 +4964,7 @@ function moveEdgeScale(e, es) {
   f = Math.round(clamp(f, 0.01, 10) * 100) / 100;
   let tag = '';
   if (Math.abs(f - 1) < 0.03) { f = 1; tag = 'come prima'; }
-  if (state.magnet && !e.metaKey && !e.ctrlKey) {
+  if (state.magnet && !magOff(e)) {
     let bd = Math.max(0.03, 0.6 / ri.r0);
     for (const c of es.cands) if (Math.abs(f - c) < bd && c > 0.01) { bd = Math.abs(f - c); f = Math.round(c * 1000) / 1000; tag = 'uguale all\'altro anello'; }
   }
@@ -5117,7 +5118,7 @@ function moveEdgeMove(e, em) {
   }
   const d = em.dirs[em.ax];
   let mm = dv.dot(d) / (d.lengthSq()) * 10, tag = '';
-  if (state.magnet && !e.metaKey && !e.ctrlKey) {       // calamita: torna com'era, si allinea ai vertici paralleli del pezzo o agli altri oggetti
+  if (state.magnet && !magOff(e)) {       // calamita: torna com'era, si allinea ai vertici paralleli del pezzo o agli altri oggetti
     if (!em.targets) em.targets = edgeMoveTargets(em);
     const cv = em.ax === 'n' ? em.mi.c.dot(em.mi.n) : em.mi.c[em.ax], thr = Math.min(6, 90 / d.length()), cur = cv + mm;
     let best = null, bd = thr;

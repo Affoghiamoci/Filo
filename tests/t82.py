@@ -44,5 +44,16 @@ with sync_playwright() as p:
     pg.mouse.move((a[0]+tx[0])/2,(a[1]+tx[1])/2,steps=4); pg.mouse.move(*tx,steps=4); pg.wait_for_timeout(150)
     bx=pg.evaluate("forma.worldBox(forma.objects[1]).min.x"); pg.mouse.up()
     check('calamita spenta: nessun aggancio',abs(bx-10)>0.2)
+    # ⌘+⌥ (Ctrl+Alt) insieme spengono la calamita; ⌘ da solo no
+    for mods,expect in [(['Control','Alt'],True),(['Control'],False)]:
+        pg.evaluate("forma.undo()");pg.wait_for_timeout(200)
+        pg.evaluate("forma.state.magnet=true;forma.setSelection([forma.objects[1]])");pg.wait_for_timeout(200)
+        h=pg.evaluate("(()=>{const h=forma.HANDLES.find(h=>h.userData.axis==='x'&&h.userData.sign===-1);return h.position.toArray()})()")
+        a=scr(h); pg.mouse.move(*a); pg.mouse.down(); tx=scr([h[0]-39.3,h[1],h[2]])
+        for m in mods: pg.keyboard.down(m)
+        pg.mouse.move((a[0]+tx[0])/2,(a[1]+tx[1])/2,steps=4); pg.mouse.move(*tx,steps=4); pg.wait_for_timeout(150)
+        bx=pg.evaluate("forma.worldBox(forma.objects[1]).min.x"); pg.mouse.up()
+        for m in mods: pg.keyboard.up(m)
+        check('+'.join(mods)+(': calamita spenta' if expect else ': calamita ancora attiva'),(abs(bx-10)>0.2)==expect)
     check('nessun errore',not errs); print('errs',errs); b.close()
 print('TUTTO OK' if ok else 'ERRORI'); raise SystemExit(0 if ok else 1)
