@@ -9,7 +9,7 @@ import { mergeVertices, mergeGeometries, toCreasedNormals } from 'three/addons/u
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { unzipSync, zipSync, strToU8 } from 'three/addons/libs/fflate.module.js';
 import { Brush, Evaluator, ADDITION, SUBTRACTION, INTERSECTION } from 'three-bvh-csg';
-import { buildTopo, triangulateTopo, soupVolume, moveFace, extrudeFace, topoFaceFor } from './topo.js';
+import { buildTopo, triangulateTopo, soupVolume, moveFace, extrudeFace, topoFaceFor, filletEdge, topoEdgeFor } from './topo.js';
 import { initManifold, manifoldEvaluate, manifoldCombine, manifoldStretch, manifoldHalf, manifoldMod, simplifyGeo, geoIsClosed } from './mcsg.js';
 import { ConvexHull } from 'three/addons/math/ConvexHull.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
@@ -5348,6 +5348,29 @@ $('#e-mv-go').addEventListener('click', () => {
 });
 $('#e-mv').addEventListener('keydown', e => { if (e.key === 'Enter') $('#e-mv-go').click(); });
 
+function topoEdges(obj, chains, mode, size) {
+  if (window.__noTopo || chains.some(c => c.closed)) return null;
+  let P = worldPositions(obj);
+  if (P.length / 9 > 60000) return null;
+  // gli spigoli scelti non devono toccarsi: dove si incontrano due raccordi serve il metodo di prima
+  const ends = chains.flatMap(c => [c.pts[0], c.pts[c.pts.length - 1]]);
+  for (let i = 0; i < ends.length; i++) for (let j = i + 1; j < ends.length; j++) if ((i >> 1) !== (j >> 1) && ends[i].distanceTo(ends[j]) < 1e-3) return null;
+  try {
+    for (const c of chains) {
+      const tp = buildTopo(P);
+      if (!tp.stats.closed || tp.stats.pinched) return null;
+      const eid = topoEdgeFor(tp, c.pts);
+      if (eid < 0) return null;
+      const out = filletEdge(tp, eid, mode, size);
+      if (!out) return null;
+      P = out;
+    }
+  } catch (e) { return null; }
+  const baked = bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(P) }, obj.userData.name);
+  if (!baked || isFlat(baked) || geoIsClosed(baked.geo) === false) return null;
+  if (window.__topoLog) window.__topoLog.push('edge-' + mode);
+  return baked;
+}
 function applyEdges() {
   const size = parseFloat(String(EF.size.value).replace(',', '.'));
   if (!edgeSel.length) return;
@@ -5435,6 +5458,17 @@ function applyEdges() {
   const nConc = edgeSel.filter(x => x.chain.concave).length;
   if (nConc && nConc < edgeSel.length) return toast('Spigoli esterni e interni insieme: applica prima gli uni, poi gli altri');
   const concave = nConc > 0;
+  {   // motore 1.0: raccordo o smusso fatti sulla struttura del pezzo (niente booleane); se il caso non è semplice, si usa il metodo di prima
+    const tr = topoEdges(obj, edgeSel.map(x => x.chain), edgeMode.v, size);
+    if (tr) {
+      const n = edgeSel.length;
+      clearEdges();
+      const nm = replaceWithMerged(obj, tr);
+      nm.userData.color = obj.userData.color ?? null;
+      EF.size.value = '';
+      return toast(`${edgeMode.v === 'fillet' ? 'Arrotondamento' : 'Smusso'} di ${fmt(size)} mm su ${n} ${n === 1 ? 'spigolo' : 'spigoli'}`);
+    }
+  }
   const cutters = edgeSel.map(x => cutter(x.chain, edgeMode.v, size));
   if (cutters.some(g => !g)) return toast('Questo spigolo è troppo particolare per arrotondarlo');
   obj.updateMatrixWorld(true);

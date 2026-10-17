@@ -363,3 +363,130 @@ export function topoFaceFor(topo, n, world) {
   }
   return -1;
 }
+
+/* ------------------------------------------------------------ fase 3: raccordo e smusso di uno spigolo */
+
+// triangoli di una faccia piana data come contorni di punti (il primo è l'esterno), girati come la normale n
+function triPolys(n, outer, holes, out) {
+  const [u, w] = planeBasis(n);
+  const to2 = l => l.map(p => new THREE.Vector2(p.dot(u), p.dot(w)));
+  let tris;
+  try { tris = THREE.ShapeUtils.triangulateShape(to2(outer), holes.map(to2)); } catch (e) { return false; }
+  if (!tris || !tris.length) return false;
+  const all = [outer, ...holes].flat();
+  for (const [a, b, c] of tris) {
+    const A = all[a], B = all[b], C = all[c];
+    const [x, y, z] = B.clone().sub(A).cross(C.clone().sub(A)).dot(n) >= 0 ? [A, B, C] : [A, C, B];
+    out.push(x.x, x.y, x.z, y.x, y.y, y.z, z.x, z.y, z.z);
+  }
+  return true;
+}
+// contorni piani validi: area non nulla e nessun lato che ne incrocia un altro
+function polysOk(n, loops) {
+  const [u, w] = planeBasis(n);
+  const segs = [];
+  for (const l of loops) {
+    const P = l.map(p => [p.dot(u), p.dot(w)]);
+    let a = 0; for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length]; a += p[0] * q[1] - q[0] * p[1]; }
+    if (Math.abs(a / 2) < 1e-4) return false;
+    for (let i = 0; i < P.length; i++) segs.push([P[i], P[(i + 1) % P.length]]);
+  }
+  if (segs.length > 600) return true;
+  const cr = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  const same = (x, y) => Math.abs(x[0] - y[0]) < 1e-6 && Math.abs(x[1] - y[1]) < 1e-6;
+  for (let i = 0; i < segs.length; i++) for (let j = i + 1; j < segs.length; j++) {
+    const [p, q] = segs[i], [r, s] = segs[j];
+    if (same(p, r) || same(p, s) || same(q, r) || same(q, s)) continue;
+    const d1 = cr(p, q, r), d2 = cr(p, q, s), d3 = cr(r, s, p), d4 = cr(r, s, q);
+    if (d1 * d2 < -1e-12 && d3 * d4 < -1e-12) return false;
+  }
+  return true;
+}
+
+// Raccordo ("fillet") o smusso ("chamfer") di uno spigolo dritto tra due facce piane, fatto sulla struttura:
+// le due facce si accorciano, le facce di testa prendono il profilo e nasce la striscia del raccordo. Funziona anche sugli
+// spigoli interni (aggiunge materiale). null se il caso non è semplice (estremi condivisi da più di tre facce, misura troppo grande...).
+export function filletEdge(topo, eid, mode, size, ARC = 18) {
+  const e = topo.edges[eid], V = topo.V, vf = vertFaces(topo);
+  if (!e || !e.sharp || e.mixed || !(size > 0)) return null;
+  const [f1, f2] = e.faces, F1 = topo.faces[f1], F2 = topo.faces[f2];
+  // catena ordinata dei vertici dello spigolo
+  const adj = new Map();
+  for (const [a, b] of e.segs) { (adj.get(a) || adj.set(a, []).get(a)).push(b); (adj.get(b) || adj.set(b, []).get(b)).push(a); }
+  const ends = [...adj].filter(([, l]) => l.length === 1).map(([v]) => v);
+  if (ends.length !== 2 || [...adj.values()].some(l => l.length > 2)) return null;
+  const path = [ends[0]]; for (let prev = -1, cur = ends[0]; path.length <= adj.size;) { const nx = adj.get(cur).find(x => x !== prev); if (nx === undefined) break; path.push(nx); prev = cur; cur = nx; if (nx === ends[1]) break; }
+  if (path[path.length - 1] !== ends[1]) return null;
+  const a = path[0], b = path[path.length - 1], A = vec(V, a), B = vec(V, b), dir = B.clone().sub(A).normalize();
+  for (const v of path.slice(1, -1)) {
+    const p = vec(V, v), t = p.clone().sub(A).dot(dir);
+    if (p.distanceTo(A.clone().addScaledVector(dir, t)) > 1e-4) return null;
+    if (vf[v].size !== 2) return null;
+  }
+  const endFace = v => { const s = [...vf[v]].filter(g => g !== f1 && g !== f2); return vf[v].size === 3 && s.length === 1 ? topo.faces[s[0]] : null; };
+  const Ea = endFace(a), Eb = endFace(b);
+  if (!Ea || !Eb || Math.abs(Ea.n.dot(dir)) < 0.05 || Math.abs(Eb.n.dot(dir)) < 0.05) return null;
+  const n1 = F1.n, n2 = F2.n, cv = e.convex;
+  const u1 = new THREE.Vector3().crossVectors(n1, dir).normalize(); if (cv ? u1.dot(n2) > 0 : u1.dot(n2) < 0) u1.negate();
+  const u2 = new THREE.Vector3().crossVectors(n2, dir).normalize(); if (cv ? u2.dot(n1) > 0 : u2.dot(n1) < 0) u2.negate();
+  const th = Math.acos(Math.max(-1, Math.min(1, u1.dot(u2))));
+  if (!(th > 0.3 && th < 3.0)) return null;
+  // profilo nella sezione (spostamenti dallo spigolo): dal lato di F1 al lato di F2
+  let prof, Cc = null;
+  if (mode === 'chamfer') prof = [u1.clone().multiplyScalar(size), u2.clone().multiplyScalar(size)];
+  else {
+    const t = size / Math.tan(th / 2), T1 = u1.clone().multiplyScalar(t), T2 = u2.clone().multiplyScalar(t);
+    Cc = u1.clone().add(u2).normalize().multiplyScalar(size / Math.sin(th / 2));
+    const a0 = T1.clone().sub(Cc), b0 = T2.clone().sub(Cc), ang = Math.acos(Math.max(-1, Math.min(1, a0.dot(b0) / (a0.length() * b0.length())))), ax = a0.clone().cross(b0).normalize();
+    prof = []; for (let k = 0; k <= ARC; k++) prof.push(a0.clone().applyAxisAngle(ax, ang * k / ARC).add(Cc));
+  }
+  const onPlane = (P0, E) => prof.map(o => { const q = P0.clone().add(o), s = (E.d - E.n.dot(q)) / E.n.dot(dir); return q.addScaledVector(dir, s); });
+  const PA = onPlane(A, Ea), PB = onPlane(B, Eb);
+  // contorni nuovi delle quattro facce toccate
+  const pos = v => vec(V, v);
+  const rebuild = (F, sub) => F.loops.map(l => l.verts.flatMap((v, i) => {
+    if (!sub.has(v)) return [pos(v)];
+    const r = sub.get(v); if (typeof r !== 'function') return r;
+    return r(l.verts[(i + l.verts.length - 1) % l.verts.length]);
+  }));
+  const inner = new Map(path.slice(1, -1).map(v => [v, []]));
+  const L1 = rebuild(F1, new Map([...inner, [a, [PA[0]]], [b, [PB[0]]]]));
+  const L2 = rebuild(F2, new Map([...inner, [a, [PA[PA.length - 1]]], [b, [PB[PB.length - 1]]]]));
+  const order = (P, prev) => Math.abs(n1.dot(pos(prev)) - F1.d) < 1e-4 ? P : P.slice().reverse();     // dal lato che arriva dal contorno
+  const LA = rebuild(Ea, new Map([[a, prev => order(PA, prev)]]));
+  const LB = rebuild(Eb, new Map([[b, prev => order(PB, prev)]]));
+  for (const [F, L] of [[F1, L1], [F2, L2], [Ea, LA], [Eb, LB]]) if (!polysOk(F.n, L)) return null;
+  // tutto il resto com'era, più le quattro facce rifatte e la striscia
+  const keep = new Set([f1, f2, Ea.id, Eb.id]);
+  const out = Array.from(triangulateTopo({ ...topo, faces: topo.faces.filter(f => !keep.has(f.id)) }));
+  for (const [F, L] of [[F1, L1], [F2, L2], [Ea, LA], [Eb, LB]]) {
+    const outer = L[F.loops.findIndex(l => l.outer)], holes = L.filter((_, i) => !F.loops[i].outer);
+    if (!outer || !triPolys(F.n, outer, holes, out)) return null;
+  }
+  for (let k = 0; k < PA.length - 1; k++) {
+    const q = [PA[k], PA[k + 1], PB[k + 1], PB[k]], M = q.reduce((s, p) => s.add(p), new THREE.Vector3()).multiplyScalar(0.25);
+    let outw;
+    if (Cc) { const cpt = A.clone().add(Cc).addScaledVector(dir, M.clone().sub(A).dot(dir)); outw = cv ? M.clone().sub(cpt) : cpt.sub(M); }
+    else outw = u1.clone().add(u2).multiplyScalar(cv ? -1 : 1);
+    for (const [x, y, z] of [[q[0], q[1], q[2]], [q[0], q[2], q[3]]]) {
+      const nn = y.clone().sub(x).cross(z.clone().sub(x));
+      if (nn.lengthSq() < 1e-16) continue;
+      const [p0, p1, p2] = nn.dot(outw) >= 0 ? [x, y, z] : [x, z, y];
+      out.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+    }
+  }
+  return new Float32Array(out);
+}
+
+// lo spigolo della topologia che corrisponde a una catena di Filo (stessi estremi)
+export function topoEdgeFor(topo, pts) {
+  if (!pts || pts.length < 2) return -1;
+  const A = pts[0], B = pts[pts.length - 1];
+  for (const e of topo.edges) {
+    const deg = new Map(); for (const [a, b] of e.segs) { deg.set(a, (deg.get(a) || 0) + 1); deg.set(b, (deg.get(b) || 0) + 1); }
+    const ends = [...deg].filter(([, d]) => d === 1).map(([v]) => vec(topo.V, v));
+    if (ends.length !== 2) continue;
+    if ((ends[0].distanceTo(A) < 1e-3 && ends[1].distanceTo(B) < 1e-3) || (ends[0].distanceTo(B) < 1e-3 && ends[1].distanceTo(A) < 1e-3)) return e.id;
+  }
+  return -1;
+}
