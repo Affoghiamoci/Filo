@@ -45,9 +45,9 @@
       <div id="t-font" class="fsel"><button type="button" id="t-font-b"><span></span><em>▾</em></button><div id="t-font-l" class="hidden"></div></div>
       <input type="file" id="font-in" accept=".ttf,.otf,.woff,.TTF,.OTF,.WOFF" hidden>
       <div class="grid3">
-        <label class="f" title="Dimensione (mm)">T<input id="t-size" type="number" step="1" min="1"></label>
-        <label class="f" title="Spessore (mm)">S<input id="t-depth" type="number" step="0.5" min="0.2"></label>
-        <label class="f" title="Spaziatura tra le lettere">↔<input id="t-space" type="number" step="1"></label>
+        <label class="f" title="Dimensione (mm)">T<input id="t-size" type="text" data-num autocomplete="off" step="1" min="1"></label>
+        <label class="f" title="Spessore (mm)">S<input id="t-depth" type="text" data-num autocomplete="off" step="0.5" min="0.2"></label>
+        <label class="f" title="Spaziatura tra le lettere">↔<input id="t-space" type="text" data-num autocomplete="off" step="1"></label>
       </div>
     </div>
   </section>
@@ -55,17 +55,17 @@
     <h4>Posizione <span class="u">(mm)</span></h4>
     <div id="p-pos-s">
       <div class="grid3">
-        <label class="f">X<input id="p-x" type="number" step="0.5"></label>
-        <label class="f">Y<input id="p-y" type="number" step="0.5"></label>
-        <label class="f">Z<input id="p-z" type="number" step="0.5"></label>
+        <label class="f">X<input id="p-x" type="text" data-num autocomplete="off" step="0.5"></label>
+        <label class="f">Y<input id="p-y" type="text" data-num autocomplete="off" step="0.5"></label>
+        <label class="f">Z<input id="p-z" type="text" data-num autocomplete="off" step="0.5"></label>
       </div>
     <button class="btn" id="p-ground" title="Raddrizza sul lato piatto più vicino e porta l'oggetto a Z = 0">Appoggia sul piatto</button>
     </div>
     <div id="p-pos-m" class="hidden">
       <div class="grid3">
-        <label class="f">X<input id="g-x" type="number" step="0.5"></label>
-        <label class="f">Y<input id="g-y" type="number" step="0.5"></label>
-        <label class="f">Z<input id="g-z" type="number" step="0.5"></label>
+        <label class="f">X<input id="g-x" type="text" data-num autocomplete="off" step="0.5"></label>
+        <label class="f">Y<input id="g-y" type="text" data-num autocomplete="off" step="0.5"></label>
+        <label class="f">Z<input id="g-z" type="text" data-num autocomplete="off" step="0.5"></label>
       </div>
     <button class="btn" id="g-ground" title="Raddrizza la selezione sul lato piatto più vicino e portala a Z = 0">Appoggia sul piatto</button>
     </div>
@@ -76,25 +76,25 @@
   <section id="p-size-s">
     <h4 class="h-lock">Misure <span class="u">(mm)</span> <button id="p-lock" class="lock" title="Blocca le proporzioni: le tre misure cambiano insieme. Con Maiusc trascini senza proporzioni" aria-label="Blocca le proporzioni"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9"/><path class="sh" d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></button></h4>
     <div class="grid3">
-      <label class="f">L<input id="p-w" type="number" step="0.5" min="0.1"></label>
-      <label class="f">P<input id="p-d" type="number" step="0.5" min="0.1"></label>
-      <label class="f">A<input id="p-h" type="number" step="0.5" min="0.1"></label>
+      <label class="f">L<input id="p-w" type="text" data-num autocomplete="off" step="0.5" min="0.1"></label>
+      <label class="f">P<input id="p-d" type="text" data-num autocomplete="off" step="0.5" min="0.1"></label>
+      <label class="f">A<input id="p-h" type="text" data-num autocomplete="off" step="0.5" min="0.1"></label>
     </div>
   </section>
   <section id="p-multi" class="hidden">
     <h4 class="h-lock">Misure <span class="u">(mm)</span> <button id="g-lock" class="lock" title="Blocca le proporzioni: le tre misure cambiano insieme. Con Maiusc trascini senza proporzioni" aria-label="Blocca le proporzioni"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9"/><path class="sh" d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></button></h4>
     <div class="grid3">
-      <label class="f">L<input id="g-w" type="number" step="0.5" min="0.1"></label>
-      <label class="f">P<input id="g-d" type="number" step="0.5" min="0.1"></label>
-      <label class="f">A<input id="g-h" type="number" step="0.5" min="0.1"></label>
+      <label class="f">L<input id="g-w" type="text" data-num autocomplete="off" step="0.5" min="0.1"></label>
+      <label class="f">P<input id="g-d" type="text" data-num autocomplete="off" step="0.5" min="0.1"></label>
+      <label class="f">A<input id="g-h" type="text" data-num autocomplete="off" step="0.5" min="0.1"></label>
     </div>
   </section>
   <section id="p-rotq">
     <h4>Rotazione (°)</h4>
     <div class="grid3" id="p-rot-s">
-      <label class="f">X<input id="p-rx" type="number" step="15"></label>
-      <label class="f">Y<input id="p-ry" type="number" step="15"></label>
-      <label class="f">Z<input id="p-rz" type="number" step="15"></label>
+      <label class="f">X<input id="p-rx" type="text" data-num autocomplete="off" step="15"></label>
+      <label class="f">Y<input id="p-ry" type="text" data-num autocomplete="off" step="15"></label>
+      <label class="f">Z<input id="p-rz" type="text" data-num autocomplete="off" step="15"></label>
     </div>
     <div class="sub" data-help="In alternativa usa lo strumento Ruota (R). Gli anelli scattano ogni 15°.">Ruota di 90°<i class="inf" aria-hidden="true">?</i></div>
     <div class="grid3 rq"><button class="btn" data-rq="x" title="Ruota di 90° attorno a X (⇧ per il verso opposto)"><svg viewBox="0 0 28 28" aria-hidden="true"><path class="ar bk" d="M21.43 9.71L16.88 12.34"/><path class="bb" d="M12.09 6.10A9.86 5.69 60.00 1 0 16.82 23.53L18.88 22.34A9.86 5.69 60.00 1 1 14.15 4.91z"/><path class="cb" d="M10.00 11.69 14.00 9.38 18.00 11.69 18.00 16.31 14.00 18.62 10.00 16.31z"/><path d="M14.00 14.00L14.00 18.62M14.00 14.00L18.00 11.69M14.00 14.00L10.00 11.69"/><path class="ar" d="M11.12 15.66L6.57 18.29"/><path class="rb" d="M17.10 23.46A9.86 5.69 60.00 0 0 16.98 10.33L15.34 11.28L13.96 5.92L20.69 8.19L19.05 9.14A9.86 5.69 60.00 0 1 19.16 22.27z"/></svg><b>X</b></button><button class="btn" data-rq="y" title="Ruota di 90° attorno a Y (⇧ per il verso opposto)"><svg viewBox="0 0 28 28" aria-hidden="true"><path class="ar bk" d="M6.57 9.71L11.12 12.34"/><path class="bb" d="M8.11 19.60A9.86 5.69 -60.00 1 0 20.84 6.80L18.78 5.61A9.86 5.69 -60.00 1 1 6.05 18.41z"/><path class="cb" d="M10.00 11.69 14.00 9.38 18.00 11.69 18.00 16.31 14.00 18.62 10.00 16.31z"/><path d="M14.00 14.00L14.00 18.62M14.00 14.00L18.00 11.69M14.00 14.00L10.00 11.69"/><path class="ar" d="M16.88 15.66L21.43 18.29"/><path class="rb" d="M20.64 6.58A9.86 5.69 -60.00 0 0 9.33 13.25L10.98 14.20L7.03 18.08L5.62 11.11L7.27 12.06A9.86 5.69 -60.00 0 1 18.58 5.39z"/></svg><b>Y</b></button><button class="btn" data-rq="z" title="Ruota di 90° attorno a Z (⇧ per il verso opposto)"><svg viewBox="0 0 28 28" aria-hidden="true"><path class="ar bk" d="M14.00 22.58L14.00 17.32"/><path class="bb" d="M21.79 16.30A9.86 5.69 0.00 1 0 4.34 11.67L4.34 14.05A9.86 5.69 0.00 1 1 21.79 18.68z"/><path class="cb" d="M10.00 11.69 14.00 9.38 18.00 11.69 18.00 16.31 14.00 18.62 10.00 16.31z"/><path d="M14.00 14.00L14.00 18.62M14.00 14.00L18.00 11.69M14.00 14.00L10.00 11.69"/><path class="ar" d="M14.00 10.68L14.00 5.42"/><path class="rb" d="M4.25 11.95A9.86 5.69 0.00 0 0 15.68 18.42L15.68 16.51L21.02 18.00L15.68 22.70L15.68 20.80A9.86 5.69 0.00 0 1 4.25 14.33z"/></svg><b>Z</b></button></div>
@@ -103,28 +103,28 @@
     <div id="p-r-wrap">
       <h4>Angoli e bordi</h4>
       <div class="seg" id="p-rm"><button data-v="fillet" class="on">Arrotondato</button><button data-v="chamfer">Smussato</button></div>
-      <div class="grid1 rnd"><label class="f" title="Spigoli verticali">Angoli verticali<input id="p-r" type="number" step="0.5" min="0"></label><label class="f" title="Bordo superiore">Bordo alto<input id="p-ft" type="number" step="0.5" min="0"></label><label class="f" title="Bordo inferiore">Bordo basso<input id="p-fb" type="number" step="0.5" min="0"></label></div>
+      <div class="grid1 rnd"><label class="f" title="Spigoli verticali">Angoli verticali<input id="p-r" type="text" data-num autocomplete="off" step="0.5" min="0"></label><label class="f" title="Bordo superiore">Bordo alto<input id="p-ft" type="text" data-num autocomplete="off" step="0.5" min="0"></label><label class="f" title="Bordo inferiore">Bordo basso<input id="p-fb" type="text" data-num autocomplete="off" step="0.5" min="0"></label></div>
     </div>
     <div id="p-shape">
       <h4>Parametri forma</h4>
-      <div id="p-t-wrap"><div class="grid1"><label class="f">Cima %<input id="p-t" type="number" step="5" min="1" max="100"></label></div></div>
-      <div id="p-q-wrap"><div class="grid1"><label class="f" id="p-q-lab">Cima %<input id="p-q" type="number" step="5" min="0"></label></div></div>
+      <div id="p-t-wrap"><div class="grid1"><label class="f">Cima %<input id="p-t" type="text" data-num autocomplete="off" step="5" min="1" max="100"></label></div></div>
+      <div id="p-q-wrap"><div class="grid1"><label class="f" id="p-q-lab">Cima %<input id="p-q" type="text" data-num autocomplete="off" step="5" min="0"></label></div></div>
     </div>
   </section>
   <section id="p-repeat">
     <h4 data-help="Copia la selezione in griglia, a nido d'ape o in cerchio. Con un foro puoi fare una griglia di fori e poi usare Combina.">Ripeti<i class="inf" aria-hidden="true">?</i></h4>
     <div class="seg seg3" id="rp-mode"><button data-v="grid" class="on">Griglia</button><button data-v="honey" title="Le righe dispari sono spostate di mezzo passo">Nido d'ape</button><button data-v="polar">Cerchio</button></div>
     <div class="grid2" id="rp-grid">
-      <label class="f">Colonne<input id="rp-nx" type="number" step="1" min="1" max="60" value="3"></label>
-      <label class="f">Righe<input id="rp-ny" type="number" step="1" min="1" max="60" value="3"></label>
-      <label class="f">Spazio X<input id="rp-px" type="number" step="0.5" value="2"></label>
-      <label class="f">Spazio Y<input id="rp-py" type="number" step="0.5" value="2"></label>
+      <label class="f">Colonne<input id="rp-nx" type="text" data-num autocomplete="off" step="1" min="1" max="60" value="3"></label>
+      <label class="f">Righe<input id="rp-ny" type="text" data-num autocomplete="off" step="1" min="1" max="60" value="3"></label>
+      <label class="f">Spazio X<input id="rp-px" type="text" data-num autocomplete="off" step="0.5" value="2"></label>
+      <label class="f">Spazio Y<input id="rp-py" type="text" data-num autocomplete="off" step="0.5" value="2"></label>
     </div>
     <div class="grid2 hidden" id="rp-polar">
-      <label class="f">Copie<input id="rp-n" type="number" step="1" min="2" max="200" value="6"></label>
-      <label class="f">Angolo<input id="rp-arc" type="number" step="5" min="1" max="360" value="360"></label>
-      <label class="f">Centro X<input id="rp-cx" type="number" step="0.5" value="0"></label>
-      <label class="f">Centro Y<input id="rp-cy" type="number" step="0.5" value="0"></label>
+      <label class="f">Copie<input id="rp-n" type="text" data-num autocomplete="off" step="1" min="2" max="200" value="6"></label>
+      <label class="f">Angolo<input id="rp-arc" type="text" data-num autocomplete="off" step="5" min="1" max="360" value="360"></label>
+      <label class="f">Centro X<input id="rp-cx" type="text" data-num autocomplete="off" step="0.5" value="0"></label>
+      <label class="f">Centro Y<input id="rp-cy" type="text" data-num autocomplete="off" step="0.5" value="0"></label>
     </div>
     <p class="hint" id="rp-info" style="min-height:1.3em;margin:8px 2px 0"></p>
     <button class="btn primary" id="rp-go" style="width:100%;margin-top:6px">Ripeti</button>
@@ -133,7 +133,7 @@
 <div id="p-face" class="hidden">
   <div class="p-title">Lato <span id="f-info"></span></div>
   <h4 data-help="Trascina il quadratino arancione sul lato (si aggancia ai piani vicini) oppure scrivi i mm. Positivo tira fuori, negativo spinge dentro. Maiusc + clic per scegliere più lati.">Spingi / tira<i class="inf" aria-hidden="true">?</i></h4>
-  <div class="row2"><label class="f">Di<input id="f-push" type="number" step="0.5" placeholder="0"><em>mm</em></label><button class="btn primary" id="f-push-go">Applica</button></div>
+  <div class="row2"><label class="f">Di<input id="f-push" type="text" data-num autocomplete="off" step="0.5" placeholder="0"><em>mm</em></label><button class="btn primary" id="f-push-go">Applica</button></div>
 </div>
 <div id="p-edge" class="hidden">
   <div class="p-title">Spigolo <span id="e-info"></span></div>
@@ -142,17 +142,17 @@
   <h4 data-help="Arrotondato fa uno spigolo tondo. Smussato lo taglia in diagonale a 45°.">Tipo<i class="inf" aria-hidden="true">?</i></h4>
   <div class="seg" id="e-type"><button data-v="fillet" class="on">Arrotondato</button><button data-v="chamfer">Smussato</button></div>
   <h4>Misura</h4>
-  <div class="row2"><label class="f">Di<input id="e-size" type="number" step="0.5" min="0.1" placeholder="2"><em>mm</em></label><button class="btn primary" id="e-go">Applica</button></div>
+  <div class="row2"><label class="f">Di<input id="e-size" type="text" data-num autocomplete="off" step="0.5" min="0.1" placeholder="2"><em>mm</em></label><button class="btn primary" id="e-go">Applica</button></div>
   </div>
   <div id="e-move-box">
     <h4 data-help="Trascina il quadratino sullo spigolo, oppure scrivi di quanto spostarlo (un numero negativo lo sposta dall'altra parte). Con un cubo puoi ottenere un trapezio. Dopo la modifica il pezzo non è più parametrico.">Sposta lo spigolo<i class="inf" aria-hidden="true">?</i></h4>
     <div class="ax-row"><span>Direzione</span><div class="seg seg4" id="e-mv-ax"><button data-v="x">X</button><button data-v="y">Y</button><button data-v="z">Z</button><button data-v="n" title="Perpendicolare allo spigolo, verso l'esterno">⊥</button></div></div>
     <label class="chk-sw" id="e-mv-colw"><input type="checkbox" id="e-mv-col"> Parete dritta (sposta anche sopra e sotto)</label>
-    <div class="row2"><label class="f">Di<input id="e-mv" type="number" step="0.5" placeholder="5"><em>mm</em></label><button class="btn primary" id="e-mv-go">Applica</button></div>
+    <div class="row2"><label class="f">Di<input id="e-mv" type="text" data-num autocomplete="off" step="0.5" placeholder="5"><em>mm</em></label><button class="btn primary" id="e-mv-go">Applica</button></div>
   </div>
   <div id="e-scale-box">
     <h4 data-help="Trascina il quadratino arancione sull'anello oppure scrivi la scala in percentuale. Va bene su un cerchio o su tutti gli spigoli di una faccia (Maiusc + clic per sceglierli). Su un cilindro, 50 % sul bordo alto lo trasforma in un cono tronco.">Ridimensiona<i class="inf" aria-hidden="true">?</i></h4>
-    <div class="row2"><label class="f">Scala<input id="e-scale" type="number" step="5" min="1" placeholder="100"><em>%</em></label><button class="btn primary" id="e-scale-go">Applica</button></div>
+    <div class="row2"><label class="f">Scala<input id="e-scale" type="text" data-num autocomplete="off" step="5" min="1" placeholder="100"><em>%</em></label><button class="btn primary" id="e-scale-go">Applica</button></div>
   </div>
 </div>
 </div>
@@ -164,8 +164,8 @@
 <div id="cut-card" class="panel hidden">
   <div class="rc-main" id="cut-title" data-help="">Taglia<i class="inf" aria-hidden="true">?</i></div>
   <div class="seg seg3" id="cut-ax"><button data-v="x">X</button><button data-v="y">Y</button><button data-v="z" class="on">Z</button></div>
-  <label class="f">Posizione (mm)<input id="cut-pos" type="number" step="0.5" value="0"></label>
-  <label class="f hidden" id="cut-delta-wrap">Sposta di (mm)<input id="cut-delta" type="number" step="1" value="10"></label>
+  <label class="f">Posizione (mm)<input id="cut-pos" type="text" data-num autocomplete="off" step="0.5" value="0"></label>
+  <label class="f hidden" id="cut-delta-wrap">Sposta di (mm)<input id="cut-delta" type="text" data-num autocomplete="off" step="1" value="10"></label>
   <button class="btn primary" id="cut-go">Taglia</button>
 </div>
 <svg id="mq" class="hidden" aria-hidden="true"><rect id="mq-r"/><polygon id="mq-p"/></svg>
@@ -266,7 +266,7 @@
     <p class="rs-note">Si salva da solo, fino a 5 lavori in questo browser.</p>
   </section>
 </div>
-<div id="hpop" class="panel hidden"><span id="hpop-chip" class="chip">X+</span><span class="lbl">allunga di</span><input id="hpop-val" type="number" step="1" placeholder="0" title="Valore negativo per accorciare. Invio per applicare"><span class="lbl u">mm</span></div>
+<div id="hpop" class="panel hidden"><span id="hpop-chip" class="chip">X+</span><span class="lbl">allunga di</span><input id="hpop-val" type="text" data-num autocomplete="off" step="1" placeholder="0" title="Valore negativo per accorciare. Invio per applicare"><span class="lbl u">mm</span></div>
 <div id="dropin"><div class="di-box"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg><b>Rilascia per importare</b><span>File 3MF, STL o SVG</span></div></div>
 <div id="toast"></div>
 <div id="perf-note" class="panel hidden"><span>Modello complesso: per tenerlo fluido ho ridotto risoluzione, ombre e bordi. Per modificarlo conviene semplificarlo prima (Bambu Studio: tasto destro, Semplifica modello).</span><button id="perf-x" class="icon-btn" aria-label="Chiudi"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
@@ -339,7 +339,7 @@
     <button id="info-close" class="icon-btn" aria-label="Chiudi"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     <div class="info-news"><span class="lbl">Novità</span><div class="cl">
       <b>0.10.10</b>
-      <ul><li>Spigoli interni dei pezzi combinati: si scelgono e si raccordano o smussano, aggiungendo materiale</li><li>Lo spigolo sotto il mouse è blu, quello scelto arancione</li><li>La scatola nasce cubo</li><li>Doppio clic su un campo: evidenzia il valore</li><li>Nei campi la virgola diventa punto (prima in un browser inglese "4,5" diventava 45); in inglese i decimali hanno il punto</li></ul>
+      <ul><li>Spigoli interni dei pezzi combinati: si scelgono e si raccordano o smussano, aggiungendo materiale</li><li>Lo spigolo sotto il mouse è blu, quello scelto arancione</li><li>La scatola nasce cubo</li><li>Doppio clic su un campo: evidenzia il valore</li><li>Nei campi numerici si possono scrivere i conti: 10+1, 2*5, (3+2)/2</li><li>Nei campi la virgola diventa punto (prima in un browser inglese "4,5" diventava 45); in inglese i decimali hanno il punto</li></ul>
       <details><summary>Versioni precedenti</summary>
         <b>0.10.9</b>
         <ul><li>La calamita funziona anche con ⇧ premuto e con le maniglie di ridimensionamento</li><li>Combina, Interseca e Stampo: il pulsante ricorda l'ultimo scelto</li><li>La calamita si spegne con ⌘+⌥ insieme, così resta attiva anche negli spostamenti verticali</li></ul>
@@ -386,12 +386,12 @@
     <p class="hint">Corpo e coperchio vengono affiancati, pronti da stampare sul piatto.</p>
     <div id="bx-prev"></div>
     <div class="rows">
-      <label class="f">Larghezza<input name="w" type="number" value="60" step="1" min="10"></label>
-      <label class="f">Profondità<input name="d" type="number" value="40" step="1" min="10"></label>
-      <label class="f">Altezza<input name="h" type="number" value="30" step="1" min="6"></label>
-      <label class="f" title="Spessore delle pareti, a passi di 0,4 mm (una linea dell'ugello)">Pareti<input name="t" type="number" value="2" step="0.4" min="0.8"></label>
-      <label class="f" title="Spazio tra coperchio e corpo: 0,3 mm per un incastro che scorre">Gioco<input name="g" type="number" value="0.3" step="0.05" min="0.1" max="0.6"></label>
-      <label class="f" title="Raggio degli angoli verticali. 0 = spigoli vivi">Angoli<input name="r" type="number" value="4" step="1" min="0"></label>
+      <label class="f">Larghezza<input name="w" type="text" data-num autocomplete="off" value="60" step="1" min="10"></label>
+      <label class="f">Profondità<input name="d" type="text" data-num autocomplete="off" value="40" step="1" min="10"></label>
+      <label class="f">Altezza<input name="h" type="text" data-num autocomplete="off" value="30" step="1" min="6"></label>
+      <label class="f" title="Spessore delle pareti, a passi di 0,4 mm (una linea dell'ugello)">Pareti<input name="t" type="text" data-num autocomplete="off" value="2" step="0.4" min="0.8"></label>
+      <label class="f" title="Spazio tra coperchio e corpo: 0,3 mm per un incastro che scorre">Gioco<input name="g" type="text" data-num autocomplete="off" value="0.3" step="0.05" min="0.1" max="0.6"></label>
+      <label class="f" title="Raggio degli angoli verticali. 0 = spigoli vivi">Angoli<input name="r" type="text" data-num autocomplete="off" value="4" step="1" min="0"></label>
     </div>
     <div class="exp-actions">
       <button type="button" class="btn" id="box-cancel">Annulla</button>

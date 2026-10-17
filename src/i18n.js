@@ -295,6 +295,7 @@ const EN = {
   'La scatola nasce cubo': 'The box starts as a cube',
   'Doppio clic su un campo: evidenzia il valore': 'Double-click a field to highlight its value',
   'Nei campi la virgola diventa punto (prima in un browser inglese "4,5" diventava 45); in inglese i decimali hanno il punto': 'In fields a comma now becomes a period (before, in an English browser "4,5" turned into 45); in English, decimals use a period',
+  'Nei campi numerici si possono scrivere i conti: 10+1, 2*5, (3+2)/2': 'Number fields accept sums: 10+1, 2*5, (3+2)/2',
   'Stampo': 'Mold', 'Dal primo oggetto selezionato toglie tutti gli altri: resta solo il vuoto': 'Cuts every other object out of the first selected one: only the void is left', 'Ricavo lo stampo…': 'Making the mold…', 'Stampo ricavato': 'Mold made',
   'Seleziona il blocco, poi (⇧ + clic) gli oggetti da cui ricavare lo stampo': 'Select the block, then (⇧ + click) the objects to make the mold from',
   'Il primo oggetto selezionato è un foro: serve un solido, il blocco da cui togliere gli altri': 'The first selected object is a hole: it must be a solid, the block to cut the others out of',

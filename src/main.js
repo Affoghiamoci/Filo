@@ -27,21 +27,58 @@ const fmt = v => String(+Number(v).toFixed(2));
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
-/* La virgola come separatore decimale: un browser in inglese, nei campi numerici, scarta la virgola e "4,5" diventa "45" senza avvisi.
-   Qui la virgola (e il punto del tastierino) diventa sempre un punto, anche incollando. */
+/* Campi numerici (input[data-num], testo e non type=number): accettano la virgola decimale e le espressioni, come 10+1, 2*5, (3+2)/2.
+   Un browser in inglese, con type=number, scarta la virgola ("4,5" diventava 45) e non lascia scrivere gli operatori. */
+function evalNum(str) {
+  const src = String(str).replace(/\s+/g, '').replace(/,/g, '.').replace(/[×x*]/g, '*').replace(/[÷:]/g, '/').replace(/[−–]/g, '-');
+  if (!src || /[^0-9.+\-*/()]/.test(src)) return null;
+  let p = 0;
+  const peek = () => src[p];
+  function atom() {
+    if (peek() === '(') { p++; const v = sum(); if (peek() !== ')') throw 0; p++; return v; }
+    const m = /^\d*\.?\d+|^\d+\.?/.exec(src.slice(p)); if (!m) throw 0;
+    p += m[0].length; return parseFloat(m[0]);
+  }
+  function unary() { if (peek() === '-') { p++; return -unary(); } if (peek() === '+') { p++; return unary(); } return atom(); }
+  function prod() { let v = unary(); while (peek() === '*' || peek() === '/') { const o = src[p++], r = unary(); v = o === '*' ? v * r : v / r; } return v; }
+  function sum() { let v = prod(); while (peek() === '+' || peek() === '-') { const o = src[p++], r = prod(); v = o === '+' ? v + r : v - r; } return v; }
+  try { const v = sum(); return p === src.length && Number.isFinite(v) ? v : null; } catch (e) { return null; }
+}
+const isNumField = t => t instanceof HTMLInputElement && t.hasAttribute('data-num');
+const PLAIN = /^[-+]?\d*[.,]?\d*$/;
+function settleNum(t) {                                 // se il campo contiene un'espressione, la sostituisce con il risultato
+  const raw = t.value; if (PLAIN.test(raw.trim())) { if (/,/.test(raw)) t.value = raw.trim().replace(',', '.'); return; }
+  const v = evalNum(raw);
+  t.value = v === null ? '' : String(+v.toFixed(4));
+  t.dispatchEvent(new Event('input', { bubbles: true }));
+}
 document.addEventListener('keydown', e => {
-  const t = e.target;
-  if (e.key !== ',' || e.metaKey || e.ctrlKey || e.altKey || !(t instanceof HTMLInputElement) || t.type !== 'number') return;
-  e.preventDefault(); e.stopPropagation();
-  document.execCommand('insertText', false, '.');
+  const t = e.target; if (!isNumField(t) || e.isComposing) return;
+  if (e.key === ',' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); e.stopPropagation(); document.execCommand('insertText', false, '.'); return; }   // la virgola diventa punto
+  if (e.key === 'Enter') settleNum(t);
+  else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); e.stopPropagation(); stepNum(t, e.key === 'ArrowUp' ? 1 : -1, e.shiftKey); }
 }, true);
+document.addEventListener('input', e => {               // a metà di un'espressione ("10+") il resto dell'app non deve vedere un valore a metà
+  const t = e.target; if (isNumField(t) && !PLAIN.test(t.value.trim())) e.stopImmediatePropagation();
+}, true);
+document.addEventListener('change', e => { const t = e.target; if (isNumField(t)) settleNum(t); }, true);
 document.addEventListener('paste', e => {
   const t = e.target, txt = e.clipboardData && e.clipboardData.getData('text');
-  if (!(t instanceof HTMLInputElement) || t.type !== 'number' || !txt || !/\d,\d/.test(txt)) return;
-  e.preventDefault(); document.execCommand('insertText', false, txt.trim().replace(/\s/g, '').replace(',', '.'));
+  if (!isNumField(t) || !txt || !/\d,\d/.test(txt)) return;
+  e.preventDefault(); document.execCommand('insertText', false, txt.trim().replace(/,/g, '.'));
 }, true);
+function stepNum(inp, d, big) {                         // frecce su/giù e pulsanti: un passo (con ⇧ dieci)
+  settleNum(inp);
+  const st = parseFloat(inp.step) || 0.5, mn = inp.min !== '' ? parseFloat(inp.min) : -Infinity, mx = inp.max !== '' ? parseFloat(inp.max) : Infinity;
+  const cur = parseFloat(String(inp.value).replace(',', '.')) || 0, k = big ? 10 : 1;
+  let v = Math.round((cur + d * st * k) / st * 1000) / 1000 * st;
+  v = Math.min(mx, Math.max(mn, +v.toFixed(3)));
+  inp.value = String(v);
+  inp.dispatchEvent(new Event('input', { bubbles: true }));
+  inp.dispatchEvent(new Event('change', { bubbles: true }));
+}
 
-document.addEventListener('dblclick', e => { const t = e.target; if (t instanceof HTMLInputElement && (t.type === 'number' || t.type === 'text')) t.select(); });   // doppio clic su un campo: evidenzia tutto il valore
+document.addEventListener('dblclick', e => { const t = e.target; if (t instanceof HTMLInputElement && (t.hasAttribute('data-num') || t.type === 'text')) t.select(); });   // doppio clic su un campo: evidenzia tutto il valore
 
 /* ------------------------------------------------------------------ stato */
 const state = { tool: 'move', space: false, snap: 1, dims: false, xray: false, magnet: true, wheelZoom: false };
@@ -1035,7 +1072,7 @@ function combineNow(mode = 'union') {
 }
 /* ------------------------------------------------------------ frecce su/giù nei campi numerici */
 function addSteppers() {
-  document.querySelectorAll('label.f > input[type=number]').forEach(inp => {
+  document.querySelectorAll('label.f > input[data-num]').forEach(inp => {
     const lab = inp.parentElement;
     if (lab.querySelector('.stp')) return;
     const short = (lab.firstChild?.textContent || '').trim().length <= 2;
@@ -1044,15 +1081,7 @@ function addSteppers() {
     box.innerHTML = '<button type="button" tabindex="-1" aria-label="Aumenta" data-d="1"></button><button type="button" tabindex="-1" aria-label="Diminuisci" data-d="-1"></button>';
     lab.appendChild(box);
     let timer = null, rep = null;
-    const bump = (d, big) => {
-      const st = parseFloat(inp.step) || 0.5, mn = inp.min !== '' ? parseFloat(inp.min) : -Infinity, mx = inp.max !== '' ? parseFloat(inp.max) : Infinity;
-      const cur = parseFloat(String(inp.value).replace(',', '.')) || 0, k = big ? 10 : 1;
-      let v = Math.round((cur + d * st * k) / st * 1000) / 1000 * st;
-      v = Math.min(mx, Math.max(mn, +v.toFixed(3)));
-      inp.value = String(v);
-      inp.dispatchEvent(new Event('input', { bubbles: true }));
-      inp.dispatchEvent(new Event('change', { bubbles: true }));
-    };
+    const bump = (d, big) => stepNum(inp, d, big);
     const stop = () => { clearTimeout(timer); clearInterval(rep); };
     box.addEventListener('pointerdown', e => {
       const b = e.target.closest('button'); if (!b) return;
@@ -3201,7 +3230,7 @@ const BEDS = [
 ];
 const bedMenu = $('#bedmenu');
 bedMenu.innerHTML = '<div class="mh">Piatto di stampa</div>' + BEDS.map(([n, w, d], i) => `<button class="btn" data-bed="${i}"><span>${n}</span><em>${w}×${d}</em></button>`).join('') +
-  `<div class="cust"><label class="f">L<input id="bed-w" type="number" min="20" max="400" step="1"></label><label class="f">P<input id="bed-d" type="number" min="20" max="400" step="1"></label><button class="btn primary" id="bed-go">OK</button></div>`;
+  `<div class="cust"><label class="f">L<input id="bed-w" type="text" data-num autocomplete="off" min="20" max="400" step="1"></label><label class="f">P<input id="bed-d" type="text" data-num autocomplete="off" min="20" max="400" step="1"></label><button class="btn primary" id="bed-go">OK</button></div>`;
 function syncBedUI() {
   $('#b-bed').firstChild.textContent = 'Piatto ';
   $('#b-bed em').textContent = `${BEDX}×${BEDY}`;
@@ -3290,7 +3319,7 @@ window.addEventListener('keydown', e => {
   if (e.key !== 'Escape' || e.isComposing) return;
   const t = e.target;
   if (repPrevG && !(t.closest && t.closest('#p-repeat'))) { hideRepeatPreview(); e.preventDefault(); e.stopPropagation(); return; }   // Esc fuori dai campi: prima l'anteprima di Ripeti
-  if (t.tagName === 'INPUT' && (t.type === 'number' || t.id === 'p-name') && !t.closest('dialog, #hpop') && fieldStart.has(t)) {
+  if (t.tagName === 'INPUT' && (t.hasAttribute('data-num') || t.id === 'p-name') && !t.closest('dialog, #hpop') && fieldStart.has(t)) {
     e.preventDefault(); e.stopPropagation();
     const v0 = fieldStart.get(t);
     if (t.value !== v0) {

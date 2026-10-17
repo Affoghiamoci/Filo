@@ -421,8 +421,8 @@ kbd.kflash{animation:kflash .7s ease-out}
 
 .ew-head .langsw{align-self:flex-start}
 /* campi numerici: niente frecce che coprono i decimali (restano le frecce da tastiera) */
-input[type=number]{-moz-appearance:textfield;appearance:textfield}
-input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;appearance:none;margin:0;display:none}
+input[data-num]{-moz-appearance:textfield;appearance:textfield}
+input[data-num]::-webkit-inner-spin-button,input[data-num]::-webkit-outer-spin-button{-webkit-appearance:none;appearance:none;margin:0;display:none}
 label.f input{text-overflow:clip}
 /* selettore tema: stesso stile della lingua, icone con più respiro */
 #theme{gap:4px;padding:2px;border:0;background:var(--field);border-radius:2px;overflow:visible}
@@ -439,7 +439,7 @@ label.f input{text-overflow:clip}
 .mob-t{display:block;font:400 34px/.9 'VT323',var(--mono);margin-bottom:12px;color:var(--text)}
 .mob-card .info-actions{border-top:0;padding-top:4px}
 .mob-card .btn{flex:1}
-label.f input[type=number]{-webkit-appearance:textfield;-moz-appearance:textfield;appearance:textfield}
+label.f input[data-num]{-webkit-appearance:textfield;-moz-appearance:textfield;appearance:textfield}
 label.f input::-webkit-inner-spin-button,label.f input::-webkit-outer-spin-button{-webkit-appearance:none;appearance:none;margin:0;display:none;width:0}
 /* piede barra laterale: lingua, tema e info con la stessa altezza e lo stesso stile */
 #foot #lang,#foot #theme{box-sizing:border-box;height:30px;padding:2px;gap:2px;align-items:stretch;background:var(--field);border:0;border-radius:2px}
