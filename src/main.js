@@ -3636,12 +3636,12 @@ function inRegion(fs, x, y) {
   }
   return false;
 }
-function makeOverlay(fs, opacity) {
+function makeOverlay(fs, opacity, color = ACCENT_HEX) {
   const g = new THREE.BufferGeometry();
   const arr = Float32Array.from(fs.world);
   for (let i = 0; i < arr.length; i += 3) { arr[i] += fs.vn[i] * 0.08; arr[i + 1] += fs.vn[i + 1] * 0.08; arr[i + 2] += fs.vn[i + 2] * 0.08; }
   g.setAttribute('position', new THREE.BufferAttribute(arr, 3));
-  const mesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: ACCENT_HEX, transparent: true, opacity, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  const mesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
   mesh.renderOrder = 3;
   mesh.raycast = () => {};
   return mesh;
@@ -3663,7 +3663,7 @@ function updateHover(e) {
   hideHover();
   const fs = computeFace(hit.object, hit.faceIndex);
   if (!fs) return;
-  hoverFs = fs; hoverMesh = makeOverlay(fs, 0.22);
+  hoverFs = fs; hoverMesh = makeOverlay(fs, 0.3, 0x3e63dd);      // lato sotto il mouse: blu, come lo spigolo; quello scelto resta arancione
   scene.add(hoverMesh); dirty = true;
 }
 // lati complanari (stessa normale e stesso piano) degli altri oggetti dello stesso gruppo
