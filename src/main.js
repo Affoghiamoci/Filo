@@ -200,9 +200,10 @@ function orbitPixels(dx, dy) {
   cam.el = clamp(cam.el + dy * 0.3, -89.9, 89.9);
   applyCamera();
 }
-function fitView() {
+function fitView(onlySel = false) {                 // onlySel: se c'è una selezione inquadra quella (pulsante Adatta e ⌘0), altrimenti tutto
   const box = new THREE.Box3();
-  if (objects.length) objects.forEach(m => box.union(worldBox(m)));
+  const sel = onlySel === true ? selection.filter(m => m.visible) : [], list = sel.length ? sel : objects;
+  if (list.length) list.forEach(m => box.union(worldBox(m)));
   else box.set(new THREE.Vector3(-BEDX / 2, -BEDY / 2, 0), new THREE.Vector3(BEDX / 2, BEDY / 2, 0));
   const c = box.getCenter(new THREE.Vector3());
   const r = Math.max(box.getSize(new THREE.Vector3()).length() / 2, 25);
@@ -3047,7 +3048,7 @@ function setXray(on) {   // contorni delle parti coperte, attivabile e disattiva
 }
 $('#b-xray').addEventListener('click', () => setXray());
 try { if (localStorage.getItem('forma.xray') === '1') setXray(true); } catch (e) {}
-$('#b-fit').addEventListener('click', fitView);
+$('#b-fit').addEventListener('click', () => fitView(true));
 const SNAPS = [0, 0.1, 0.5, 1, 5, 10];
 const snapLabel = v => v ? String(v).replace('.', ',') + ' mm' : 'Libero';
 const snapMenu = $('#snapmenu');
@@ -3283,7 +3284,7 @@ window.addEventListener('keydown', e => {
     else if (k === 'a') { stop(); setSelection([...objects]); }
     else if (k === 'e') { stop(); e.shiftKey ? intersect() : combine(); }
     else if (k === 'g') { stop(); e.shiftKey ? ungroupSelection() : groupSelection(); }
-    else if (k === '0') { stop(); fitView(); }
+    else if (k === '0') { stop(); fitView(true); }
     else if (k === 's') { stop(); askExport(expFmt); }
     else if (k === 'o') { stop(); $('#file-in').click(); }
     else if (k === '=' || k === '+') { stop(); zoom(1 / 1.2); }

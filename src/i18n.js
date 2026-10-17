@@ -184,7 +184,7 @@ const EN = {
   // barra bassa
   'Davanti': 'Front', 'Sopra': 'Top', 'Destra': 'Right', 'Misure': 'Size', 'Adatta': 'Fit', 'Griglia': 'Grid',
   'Piatto': 'Plate', 'Importa': 'Import', 'Esporta STL': 'Export STL',
-  'Mostra le dimensioni reali': 'Show real dimensions', 'Adatta alla vista': 'Fit to view', 'Passo della griglia': 'Grid step',
+  'Mostra le dimensioni reali': 'Show real dimensions', 'Adatta alla vista (al pezzo selezionato, se c’è)': 'Fit to view (to the selected piece, if any)', 'Passo della griglia': 'Grid step',
   'Mostra o nascondi i livelli (F7)': 'Show or hide layers (F7)', 'Dimensione del piatto di stampa': 'Print plate size',
   'Importa un file 3MF o STL (⌘O)': 'Import a 3MF or STL file (⌘O)',
   'Valore negativo per accorciare. Invio per applicare': 'Negative to shorten. Press Enter to apply',
