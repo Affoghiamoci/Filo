@@ -9,8 +9,8 @@ import { mergeVertices, mergeGeometries, toCreasedNormals } from 'three/addons/u
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { unzipSync, zipSync, strToU8 } from 'three/addons/libs/fflate.module.js';
 import { Brush, Evaluator, ADDITION, SUBTRACTION, INTERSECTION } from 'three-bvh-csg';
-import { buildTopo, triangulateTopo, soupVolume } from './topo.js';
-import { initManifold, manifoldEvaluate, manifoldCombine, manifoldStretch, manifoldHalf, manifoldMod, simplifyGeo } from './mcsg.js';
+import { buildTopo, triangulateTopo, soupVolume, moveFace, extrudeFace, topoFaceFor } from './topo.js';
+import { initManifold, manifoldEvaluate, manifoldCombine, manifoldStretch, manifoldHalf, manifoldMod, simplifyGeo, geoIsClosed } from './mcsg.js';
 import { ConvexHull } from 'three/addons/math/ConvexHull.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
@@ -4101,7 +4101,29 @@ function foldedTri(orig, arr, t) {
   if (la < 1e-6) return false;                                           // triangolo già degenere
   return lb < la * 1e-3 ? false : (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / (la * lb) < 0.2;
 }
+// Motore 1.0: Sposta ed Estrudi di un lato piatto lavorano direttamente sulla struttura del pezzo (facce, contorni, vicini),
+// senza booleane. Se il caso non è sicuro le funzioni restituiscono null e si usa il metodo di prima.
+function topoPushOne(obj, f, dist) {
+  if (window.__noTopo || f.curved) return null;
+  const extrude = faceMode.v === 'extrude';
+  if (extrude && !(dist > 0)) return null;
+  const P = worldPositions(obj);
+  if (P.length / 9 > 60000) return null;
+  let tp; try { tp = buildTopo(P); } catch (e) { return null; }
+  if (!tp.stats.closed || tp.stats.pinched) return null;
+  const fid = topoFaceFor(tp, f.n, f.world);
+  if (fid < 0) return null;
+  let out = null;
+  try { out = extrude ? extrudeFace(tp, fid, dist, faceMode.taper) : moveFace(tp, fid, dist); } catch (e) { out = null; }
+  if (!out || !out.length) return null;
+  const baked = bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(out) }, obj.userData.name);
+  if (!baked || isFlat(baked)) return null;
+  if (geoIsClosed(baked.geo) === false) return null;
+  if (window.__topoLog) window.__topoLog.push(extrude ? 'extrude' : 'move');
+  return { mesh: replaceWithMerged(obj, baked, true), ext: extrude };
+}
 function pushOne(obj, faces, dist) {
+  if (faces.length === 1) { const r = topoPushOne(obj, faces[0], dist); if (r) return r; }
   if (faceMode.v === 'extrude') {                 // Estrudi: prisma con la sagoma del lato, aggiunto (o tolto) senza toccare i lati vicini
     let b2 = null;
     try { b2 = prismPush(obj, faces.slice(), dist, faceMode.taper); } catch (e) { b2 = null; }

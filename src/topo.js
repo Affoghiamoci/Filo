@@ -232,3 +232,134 @@ export function soupVolume(P) {
   }
   return v;
 }
+
+/* ------------------------------------------------------------ fase 2: operazioni sulle facce */
+
+function vertFaces(topo) {
+  if (topo._vf) return topo._vf;
+  const nV = topo.V.length / 3, vf = Array.from({ length: nV }, () => new Set());
+  for (let t = 0; t < topo.T.length / 3; t++) for (let j = 0; j < 3; j++) vf[topo.T[t * 3 + j]].add(topo.faceOf[t]);
+  return (topo._vf = vf);
+}
+const vec = (V, i) => new THREE.Vector3(V[i * 3], V[i * 3 + 1], V[i * 3 + 2]);
+function planeBasis(n) {
+  const u = new THREE.Vector3(); (Math.abs(n.z) < 0.9 ? u.set(0, 0, 1) : u.set(1, 0, 0)).cross(n).normalize();
+  return [u, new THREE.Vector3().crossVectors(n, u)];
+}
+// i contorni di una faccia, nelle nuove posizioni, sono ancora sensati? (area con lo stesso segno, niente lati che si incrociano)
+function loopsOk(F, V0, V1) {
+  const [u, w] = planeBasis(F.n);
+  const to2 = (V, v) => { const p = vec(V, v); return [p.dot(u), p.dot(w)]; };
+  const segs = [];
+  for (const l of F.loops) {
+    const area = V => { let a = 0; for (let i = 0; i < l.verts.length; i++) { const p = to2(V, l.verts[i]), q = to2(V, l.verts[(i + 1) % l.verts.length]); a += p[0] * q[1] - q[0] * p[1]; } return a / 2; };
+    const a0 = area(V0), a1 = area(V1);
+    if (Math.sign(a0) !== Math.sign(a1) || Math.abs(a1) < 1e-4) return false;
+    for (let i = 0; i < l.verts.length; i++) segs.push([to2(V1, l.verts[i]), to2(V1, l.verts[(i + 1) % l.verts.length])]);
+  }
+  if (segs.length > 400) return true;                      // contorni lunghi (curve): basta il controllo dell'area
+  const cross = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  for (let i = 0; i < segs.length; i++) for (let j = i + 1; j < segs.length; j++) {
+    const [p, q] = segs[i], [r, s] = segs[j];
+    const share = [p, q].some(x => [r, s].some(y => Math.abs(x[0] - y[0]) < 1e-6 && Math.abs(x[1] - y[1]) < 1e-6));
+    if (share) continue;
+    const d1 = cross(p, q, r), d2 = cross(p, q, s), d3 = cross(r, s, p), d4 = cross(r, s, q);
+    if (((d1 > 1e-9 && d2 < -1e-9) || (d1 < -1e-9 && d2 > 1e-9)) && ((d3 > 1e-9 && d4 < -1e-9) || (d3 < -1e-9 && d4 > 1e-9))) return false;
+  }
+  return true;
+}
+
+// Sposta una faccia piana di "dist" lungo la sua normale. Ogni vertice del contorno scorre sui piani delle facce vicine,
+// così tutte le facce restano piane e i vicini cambiano solo forma. Restituisce i triangoli nuovi, o null se il caso
+// non è sicuro (vertice con troppi vicini, una faccia che si ribalta, qualcos'altro del pezzo sul percorso): allora si usa il metodo di prima.
+export function moveFace(topo, fid, dist) {
+  const F = topo.faces[fid], V = topo.V, vf = vertFaces(topo);
+  if (!F || F.loops.some(l => !l.closed)) return null;
+  const nf = F.n, dF = F.d, S = new Set(F.loops.flatMap(l => l.verts));
+  const V1 = Float64Array.from(V), touched = new Set([fid]);
+  for (const v of S) {
+    const planes = [];
+    for (const g of vf[v]) {
+      if (g === fid) continue;
+      touched.add(g);
+      const G = topo.faces[g];
+      if (!planes.some(p => p.n.dot(G.n) > 1 - 1e-9 && Math.abs(p.d - G.d) < 1e-6)) planes.push({ n: G.n, d: G.d });
+    }
+    const p = vec(V, v); let q = null;
+    if (planes.length === 2) {
+      const m = new THREE.Matrix3().set(nf.x, nf.y, nf.z, planes[0].n.x, planes[0].n.y, planes[0].n.z, planes[1].n.x, planes[1].n.y, planes[1].n.z);
+      if (Math.abs(m.determinant()) < 0.02) return null;
+      q = new THREE.Vector3(dF + dist, planes[0].d, planes[1].d).applyMatrix3(m.invert());
+    } else if (planes.length === 1) {
+      const uu = new THREE.Vector3().crossVectors(nf, planes[0].n);
+      if (uu.length() < 0.02) return null;
+      const w = new THREE.Vector3().crossVectors(planes[0].n, uu).normalize(), den = w.dot(nf);
+      if (Math.abs(den) < 0.05) return null;
+      q = p.clone().addScaledVector(w, dist / den);
+    } else if (planes.length === 0) q = p.clone().addScaledVector(nf, dist);
+    else return null;                                         // vertice condiviso da troppe facce: servirebbe dividerlo
+    if (q.distanceTo(p) > 20 * Math.abs(dist) + 1e-6) return null;
+    V1[v * 3] = q.x; V1[v * 3 + 1] = q.y; V1[v * 3 + 2] = q.z;
+  }
+  for (const g of touched) if (!loopsOk(topo.faces[g], V, V1)) return null;
+  // nient'altro del pezzo sul percorso della faccia (escluse le facce vicine, controllate sopra)
+  const near = new Set(); for (const g of touched) for (const l of topo.faces[g].loops) for (const v of l.verts) near.add(v);
+  const lo = Math.min(0, dist) - 1e-4, hi = Math.max(0, dist) + 1e-4;
+  for (const v of new Set(topo.T)) {
+    if (near.has(v)) continue;
+    const s = nf.dot(vec(V, v)) - dF;
+    if (s > lo && s < hi) return null;
+  }
+  return triangulateTopo({ ...topo, V: V1 });
+}
+
+// Estrude una faccia piana verso l'esterno: pareti nuove lungo tutto il contorno (anche attorno ai buchi) e la faccia in cima,
+// che con taper ≠ 1 si restringe o si allarga attorno al centro del contorno. Solo se nient'altro del pezzo sta oltre il piano della
+// faccia (altrimenti il prisma potrebbe attraversarlo: in quel caso si usa l'unione booleana di prima).
+export function extrudeFace(topo, fid, dist, taper = 1) {
+  const F = topo.faces[fid], V = topo.V;
+  if (!F || !(dist > 0) || !(taper > 0) || F.loops.some(l => !l.closed) || F.loops.filter(l => l.outer).length !== 1) return null;
+  const nf = F.n, dF = F.d, S = new Set(F.loops.flatMap(l => l.verts));
+  for (const v of new Set(topo.T)) if (!S.has(v) && nf.dot(vec(V, v)) - dF > 1e-4) return null;
+  const c = new THREE.Vector3(); S.forEach(v => c.add(vec(V, v))); c.divideScalar(S.size);
+  const up = v => { const p = vec(V, v); return c.clone().addScaledVector(p.sub(c), taper).addScaledVector(nf, dist); };
+  // tutte le facce tranne quella estrusa
+  const rest = triangulateTopo({ ...topo, faces: topo.faces.filter(f => f.id !== fid) });
+  const cap = triangulateTopo({ ...topo, faces: [F] });
+  const out = Array.from(rest);
+  for (const l of F.loops) for (let i = 0; i < l.verts.length; i++) {
+    const a = l.verts[i], b = l.verts[(i + 1) % l.verts.length], A = vec(V, a), B = vec(V, b), A2 = up(a), B2 = up(b);
+    out.push(A.x, A.y, A.z, B.x, B.y, B.z, B2.x, B2.y, B2.z, A.x, A.y, A.z, B2.x, B2.y, B2.z, A2.x, A2.y, A2.z);
+  }
+  const p = new THREE.Vector3();
+  for (let i = 0; i < cap.length; i += 3) {
+    p.set(cap[i], cap[i + 1], cap[i + 2]);
+    const q = c.clone().addScaledVector(p.sub(c), taper).addScaledVector(nf, dist);
+    out.push(q.x, q.y, q.z);
+  }
+  return new Float32Array(out);
+}
+
+// la faccia della topologia che corrisponde a un lato scelto in Filo (stesso piano, stessi triangoli, stessa area)
+export function topoFaceFor(topo, n, world) {
+  const p = new THREE.Vector3(world[0], world[1], world[2]), d = n.dot(p);
+  let area = 0; const cents = [];
+  for (let i = 0; i < world.length; i += 9) {
+    const A = new THREE.Vector3(world[i], world[i + 1], world[i + 2]), B = new THREE.Vector3(world[i + 3], world[i + 4], world[i + 5]), C = new THREE.Vector3(world[i + 6], world[i + 7], world[i + 8]);
+    area += B.clone().sub(A).cross(C.clone().sub(A)).length() / 2;
+    if (cents.length < 8) cents.push(A.add(B).add(C).divideScalar(3));
+  }
+  for (const F of topo.faces) {
+    if (F.n.dot(n) < 1 - 1e-5 || Math.abs(F.d - d) > 1e-3) continue;
+    if (Math.abs(F.area - area) > 0.01 * Math.max(area, 1)) continue;
+    const cs = F.tris.map(t => vec(topo.V, topo.T[t * 3]).add(vec(topo.V, topo.T[t * 3 + 1])).add(vec(topo.V, topo.T[t * 3 + 2])).divideScalar(3));
+    // il baricentro di ogni triangolo scelto deve cadere su un triangolo di F (controllo semplice: vicino a uno dei suoi vertici o baricentri)
+    const inside = q => F.tris.some(t => {
+      const A = vec(topo.V, topo.T[t * 3]), B = vec(topo.V, topo.T[t * 3 + 1]), C = vec(topo.V, topo.T[t * 3 + 2]);
+      const tri = new THREE.Triangle(A, B, C), bc = new THREE.Vector3(); tri.getBarycoord(q, bc);
+      return bc.x >= -1e-4 && bc.y >= -1e-4 && bc.z >= -1e-4;
+    });
+    if (cents.every(inside) && cs.length) return F.id;
+  }
+  return -1;
+}
