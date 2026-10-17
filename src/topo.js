@@ -1,0 +1,234 @@
+// Vista topologica di un pezzo (motore 1.0, fase 1).
+// Dai triangoli "sciolti" ricostruisce vertici saldati, mezzi-spigoli con il gemello, facce piane (anche con buchi),
+// spigoli tra facce (convessi o concavi), gruppi lisci (superfici curve) e i difetti (bordi aperti, spigoli e vertici "pizzicati").
+// Non modifica niente: è la base su cui le fasi successive faranno lavorare Lato e Spigolo direttamente sulla struttura.
+import * as THREE from 'three';
+
+const PLANE_COS = 1 - 1e-6;          // due triangoli stanno sulla stessa faccia se le normali coincidono...
+const PLANE_TOL = 1e-3;              // ...e il piano è lo stesso (mm)
+const SMOOTH_COS = Math.cos(30 * Math.PI / 180);   // facce con meno di 30° tra loro: stessa superficie liscia
+
+// saldatura: punti più vicini di tol diventano lo stesso vertice (griglia con controllo delle celle vicine)
+function weld(P, tol) {
+  const n = P.length / 3, ids = new Int32Array(n), grid = new Map(), out = [];
+  const inv = 1 / tol, t2 = tol * tol;
+  for (let i = 0; i < n; i++) {
+    const x = P[i * 3], y = P[i * 3 + 1], z = P[i * 3 + 2];
+    const gx = Math.round(x * inv), gy = Math.round(y * inv), gz = Math.round(z * inv);
+    let found = -1;
+    for (let dx = -1; dx <= 1 && found < 0; dx++) for (let dy = -1; dy <= 1 && found < 0; dy++) for (let dz = -1; dz <= 1 && found < 0; dz++) {
+      const cell = grid.get((gx + dx) + ',' + (gy + dy) + ',' + (gz + dz));
+      if (!cell) continue;
+      for (const v of cell) { const ex = out[v * 3] - x, ey = out[v * 3 + 1] - y, ez = out[v * 3 + 2] - z; if (ex * ex + ey * ey + ez * ez <= t2) { found = v; break; } }
+    }
+    if (found < 0) {
+      found = out.length / 3; out.push(x, y, z);
+      const k = gx + ',' + gy + ',' + gz; const c = grid.get(k); if (c) c.push(found); else grid.set(k, [found]);
+    }
+    ids[i] = found;
+  }
+  return { V: Float64Array.from(out), ids };
+}
+
+class DSU {
+  constructor(n) { this.p = Int32Array.from({ length: n }, (_, i) => i); }
+  find(a) { while (this.p[a] !== a) { this.p[a] = this.p[this.p[a]]; a = this.p[a]; } return a; }
+  union(a, b) { a = this.find(a); b = this.find(b); if (a !== b) this.p[b] = a; }
+}
+
+// P: posizioni xyz di triangoli non indicizzati (coordinate mondo). Restituisce la topologia.
+export function buildTopo(P, { tol = 1e-3 } = {}) {
+  const { V, ids } = weld(P, tol);
+  const nV = V.length / 3;
+  // triangoli validi (niente triangoli con due vertici uguali o area nulla)
+  const T = [], tn = [], td = [];
+  const A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3(), nn = new THREE.Vector3();
+  let degenerate = 0;
+  for (let i = 0; i < ids.length; i += 3) {
+    const a = ids[i], b = ids[i + 1], c = ids[i + 2];
+    if (a === b || b === c || a === c) { degenerate++; continue; }
+    A.fromArray(V, a * 3); B.fromArray(V, b * 3); C.fromArray(V, c * 3);
+    nn.subVectors(B, A).cross(C.clone().sub(A));
+    const l = nn.length(); if (l < 1e-12) { degenerate++; continue; }
+    nn.divideScalar(l);
+    T.push(a, b, c); tn.push(nn.x, nn.y, nn.z); td.push(nn.dot(A));
+  }
+  const nT = T.length / 3;
+  // mezzi-spigoli: h = 3*t + j va da T[h] a T[3t + (j+1)%3]
+  const nH = nT * 3, twin = new Int32Array(nH).fill(-1);
+  const from = h => T[h], to = h => T[(h - h % 3) + (h % 3 + 1) % 3];
+  const und = new Map();                        // spigolo non orientato -> mezzi-spigoli che lo usano
+  const ek = (a, b) => a < b ? a * nV + b : b * nV + a;
+  for (let h = 0; h < nH; h++) { const k = ek(from(h), to(h)); const l = und.get(k); if (l) l.push(h); else und.set(k, [h]); }
+  let openEdges = 0, nonManifoldEdges = 0;
+  const badEdges = [];
+  for (const [k, l] of und) {
+    if (l.length === 2 && from(l[0]) === to(l[1]) && to(l[0]) === from(l[1])) { twin[l[0]] = l[1]; twin[l[1]] = l[0]; }
+    else if (l.length === 1) { openEdges++; badEdges.push({ kind: 'open', a: from(l[0]), b: to(l[0]) }); }
+    else { nonManifoldEdges++; badEdges.push({ kind: l.length === 2 ? 'flipped' : 'nonmanifold', a: from(l[0]), b: to(l[0]), uses: l.length }); }
+  }
+  // vertici "pizzicati": i triangoli attorno al vertice non formano un solo ventaglio
+  const vt = Array.from({ length: nV }, () => []);
+  for (let t = 0; t < nT; t++) for (let j = 0; j < 3; j++) vt[T[t * 3 + j]].push(t);
+  const pinched = [];
+  for (let v = 0; v < nV; v++) {
+    const L = vt[v]; if (L.length < 2) continue;
+    const loc = new Map(L.map((t, i) => [t, i])), d = new DSU(L.length);
+    for (const t of L) for (let j = 0; j < 3; j++) {
+      const h = t * 3 + j; if (from(h) !== v && to(h) !== v) continue;
+      const o = twin[h]; if (o < 0) continue;
+      const t2 = (o - o % 3) / 3; if (loc.has(t2)) d.union(loc.get(t), loc.get(t2));
+    }
+    const roots = new Set(L.map((_, i) => d.find(i)));
+    if (roots.size > 1) pinched.push(v);
+  }
+  // facce piane: triangoli vicini con la stessa normale e lo stesso piano
+  const fd = new DSU(nT);
+  for (let h = 0; h < nH; h++) {
+    const o = twin[h]; if (o < h) continue;
+    const t1 = (h - h % 3) / 3, t2 = (o - o % 3) / 3;
+    const c = tn[t1 * 3] * tn[t2 * 3] + tn[t1 * 3 + 1] * tn[t2 * 3 + 1] + tn[t1 * 3 + 2] * tn[t2 * 3 + 2];
+    if (c > PLANE_COS && Math.abs(td[t1] - td[t2]) < PLANE_TOL) fd.union(t1, t2);
+  }
+  const faceOf = new Int32Array(nT), faces = [], rootIdx = new Map();
+  for (let t = 0; t < nT; t++) {
+    const r = fd.find(t); let f = rootIdx.get(r);
+    if (f === undefined) { f = faces.length; rootIdx.set(r, f); faces.push({ id: f, tris: [], area: 0, n: null, d: 0, loops: [], smooth: -1 }); }
+    faceOf[t] = f; faces[f].tris.push(t);
+  }
+  // normale media pesata con l'area, piano, area
+  for (const F of faces) {
+    const s = new THREE.Vector3();
+    for (const t of F.tris) {
+      A.fromArray(V, T[t * 3] * 3); B.fromArray(V, T[t * 3 + 1] * 3); C.fromArray(V, T[t * 3 + 2] * 3);
+      const c = B.clone().sub(A).cross(C.clone().sub(A)); F.area += c.length() / 2; s.add(c);
+    }
+    F.n = s.normalize(); F.d = F.n.dot(A.fromArray(V, T[F.tris[0] * 3] * 3));
+  }
+  // contorni delle facce: mezzi-spigoli il cui gemello sta su un'altra faccia (o manca), concatenati in giri
+  for (const F of faces) {
+    const out = new Map();                       // vertice -> mezzi-spigoli di bordo che partono da lì
+    for (const t of F.tris) for (let j = 0; j < 3; j++) {
+      const h = t * 3 + j, o = twin[h];
+      if (o >= 0 && faceOf[(o - o % 3) / 3] === F.id) continue;
+      const a = from(h); const l = out.get(a); if (l) l.push(h); else out.set(a, [h]);
+    }
+    const used = new Set();
+    const u = new THREE.Vector3(), w = new THREE.Vector3();
+    (Math.abs(F.n.z) < 0.9 ? u.set(0, 0, 1) : u.set(1, 0, 0)).cross(F.n).normalize(); w.crossVectors(F.n, u);
+    for (const [, l] of out) for (const h0 of l) {
+      if (used.has(h0)) continue;
+      const verts = [], hs = []; let h = h0, guard = 0;
+      while (h !== undefined && !used.has(h) && guard++ < 1e6) {
+        used.add(h); verts.push(from(h)); hs.push(h);
+        const nx = (out.get(to(h)) || []).filter(x => !used.has(x));
+        h = nx.length ? nx[0] : undefined;
+      }
+      const closed = verts.length > 2 && h === undefined && to(hs[hs.length - 1]) === verts[0];
+      // area con segno nel piano della faccia: positiva = contorno esterno, negativa = buco
+      let ar = 0;
+      for (let i = 0; i < verts.length; i++) {
+        const p = A.fromArray(V, verts[i] * 3), q = B.fromArray(V, verts[(i + 1) % verts.length] * 3);
+        ar += p.dot(u) * q.dot(w) - q.dot(u) * p.dot(w);
+      }
+      ar /= 2;
+      // angoli veri (dove il contorno cambia direzione): i punti in mezzo a un lato dritto non contano
+      const corners = verts.filter((v, i) => {
+        const p0 = A.fromArray(V, verts[(i + verts.length - 1) % verts.length] * 3).clone(), p1 = B.fromArray(V, v * 3).clone(), p2 = C.fromArray(V, verts[(i + 1) % verts.length] * 3).clone();
+        const d1 = p1.clone().sub(p0).normalize(), d2 = p2.clone().sub(p1).normalize();
+        return d1.dot(d2) < 1 - 1e-6;
+      });
+      F.loops.push({ verts, hs, closed, area: ar, outer: ar > 0, corners });
+    }
+    F.loops.sort((a, b) => b.area - a.area);
+    F.holes = F.loops.filter(l => !l.outer).length;
+  }
+  // spigoli tra facce: catene di mezzi-spigoli che separano la stessa coppia di facce
+  const segs = [];
+  for (let h = 0; h < nH; h++) {
+    const o = twin[h]; if (o < 0 || o < h) continue;
+    const f1 = faceOf[(h - h % 3) / 3], f2 = faceOf[(o - o % 3) / 3];
+    if (f1 === f2) continue;
+    const a = from(h), b = to(h);
+    const dir = B.fromArray(V, b * 3).clone().sub(A.fromArray(V, a * 3));
+    const n1 = faces[f1].n, n2 = faces[f2].n, cosA = n1.dot(n2);
+    const convex = new THREE.Vector3().crossVectors(n1, n2).dot(dir) > 0;
+    segs.push({ h, a, b, f1, f2, cos: cosA, convex });
+  }
+  const edges = [], pairOf = new Map();
+  for (const s of segs) {
+    const k = Math.min(s.f1, s.f2) + '|' + Math.max(s.f1, s.f2);
+    let e = pairOf.get(k);
+    if (!e) { e = { id: edges.length, faces: [s.f1, s.f2], segs: [], angle: Math.acos(Math.max(-1, Math.min(1, s.cos))) * 180 / Math.PI, convex: s.convex, sharp: s.cos < SMOOTH_COS }; pairOf.set(k, e); edges.push(e); }
+    e.segs.push([s.a, s.b]);
+    if (s.convex !== e.convex) e.mixed = true;
+  }
+  // gruppi lisci: facce unite attraverso spigoli quasi piatti (superfici curve fatte di tante faccette)
+  const sd = new DSU(faces.length);
+  for (const e of edges) if (!e.sharp) sd.union(e.faces[0], e.faces[1]);
+  const smooth = new Map();
+  for (const F of faces) { const r = sd.find(F.id); let g = smooth.get(r); if (!g) { g = { id: smooth.size, faces: [] }; smooth.set(r, g); } g.faces.push(F.id); F.smooth = g.id; }
+  // pieghe: spigoli vivi raggruppati per coppia di superfici (il bordo di un cilindro è una piega sola, anche se tocca 72 faccette)
+  const creaseOf = new Map(), creases = [];
+  for (const e of edges) {
+    if (!e.sharp) continue;
+    const g1 = faces[e.faces[0]].smooth, g2 = faces[e.faces[1]].smooth;
+    const k = Math.min(g1, g2) + '|' + Math.max(g1, g2);
+    let c = creaseOf.get(k);
+    if (!c) { c = { id: creases.length, groups: [g1, g2], edges: [], convex: e.convex }; creaseOf.set(k, c); creases.push(c); }
+    c.edges.push(e.id); e.crease = c.id; if (e.convex !== c.convex) c.mixed = true;
+  }
+  // pezzi separati e genere (Eulero: V - E + F = 2 - 2g per ogni pezzo chiuso)
+  const cd = new DSU(nV);
+  for (let t = 0; t < nT; t++) { cd.union(T[t * 3], T[t * 3 + 1]); cd.union(T[t * 3], T[t * 3 + 2]); }
+  const usedV = new Set(T), comps = new Set([...usedV].map(v => cd.find(v)));
+  const euler = usedV.size - und.size + nT;
+  const closed = openEdges === 0 && nonManifoldEdges === 0;
+  return {
+    V, T: Int32Array.from(T), twin, faceOf, faces, edges, creases, smoothGroups: [...smooth.values()],
+    stats: {
+      verts: usedV.size, tris: nT, faces: faces.length, edges: edges.length, sharpEdges: edges.filter(e => e.sharp).length, creases: creases.length,
+      concaveEdges: edges.filter(e => e.sharp && !e.convex).length, holes: faces.reduce((s, f) => s + f.holes, 0),
+      components: comps.size, euler, genus: closed ? (2 * comps.size - euler) / 2 : null,
+      closed, openEdges, nonManifoldEdges, pinched: pinched.length, degenerate,
+    },
+    pinched, badEdges,
+  };
+}
+
+// Ricostruisce i triangoli dalle facce (contorni + buchi): serve a verificare che la topologia descriva tutto il pezzo,
+// ed è il passo che le fasi successive useranno dopo aver modificato i contorni.
+export function triangulateTopo(topo) {
+  const { V, faces } = topo, out = [];
+  const p = new THREE.Vector3(), u = new THREE.Vector3(), w = new THREE.Vector3();
+  for (const F of faces) {
+    const outer = F.loops.filter(l => l.outer && l.closed), holes = F.loops.filter(l => !l.outer && l.closed);
+    if (outer.length !== 1 || F.loops.some(l => !l.closed)) {          // contorno insolito: si tengono i triangoli originali
+      for (const t of F.tris) for (let j = 0; j < 3; j++) { const v = topo.T[t * 3 + j]; out.push(V[v * 3], V[v * 3 + 1], V[v * 3 + 2]); }
+      continue;
+    }
+    (Math.abs(F.n.z) < 0.9 ? u.set(0, 0, 1) : u.set(1, 0, 0)).cross(F.n).normalize(); w.crossVectors(F.n, u);
+    const to2 = l => l.verts.map(v => { p.fromArray(V, v * 3); return new THREE.Vector2(p.dot(u), p.dot(w)); });
+    const all = [outer[0], ...holes].flatMap(l => l.verts);
+    let tris;
+    try { tris = THREE.ShapeUtils.triangulateShape(to2(outer[0]), holes.map(to2)); } catch (e) { tris = null; }
+    if (!tris || !tris.length) { for (const t of F.tris) for (let j = 0; j < 3; j++) { const v = topo.T[t * 3 + j]; out.push(V[v * 3], V[v * 3 + 1], V[v * 3 + 2]); } continue; }
+    for (const [a, b, c] of tris) {
+      const A = new THREE.Vector3().fromArray(V, all[a] * 3), B = new THREE.Vector3().fromArray(V, all[b] * 3), C = new THREE.Vector3().fromArray(V, all[c] * 3);
+      const nn = B.clone().sub(A).cross(C.clone().sub(A));
+      const [x, y, z] = nn.dot(F.n) >= 0 ? [A, B, C] : [A, C, B];
+      out.push(x.x, x.y, x.z, y.x, y.y, y.z, z.x, z.y, z.z);
+    }
+  }
+  return new Float32Array(out);
+}
+
+// volume racchiuso da triangoli non indicizzati (per i controlli)
+export function soupVolume(P) {
+  let v = 0;
+  for (let i = 0; i < P.length; i += 9) {
+    const ax = P[i], ay = P[i + 1], az = P[i + 2], bx = P[i + 3], by = P[i + 4], bz = P[i + 5], cx = P[i + 6], cy = P[i + 7], cz = P[i + 8];
+    v += (ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx)) / 6;
+  }
+  return v;
+}
