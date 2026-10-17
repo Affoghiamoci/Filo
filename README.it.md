@@ -6,6 +6,8 @@
 
 Modellatore 3D semplice pensato per chi viene dalla grafica e vuole stampare in 3D: mollette, ganci, scatoline e simili. Si usa direttamente dal sito, con scorciatoie che ricordano la suite Adobe. Interfaccia in italiano e inglese, piatti Bambu Lab, stile industriale con accento arancione. Volendo si può scaricare anche come singolo file HTML e usare offline.
 
+Non vuole sostituire Fusion, Blender, FreeCAD o altri software complessi: è uno strumento semplice per piccole modifiche e modellazioni semplici. I feedback sono benvenuti, tramite [issue](https://github.com/Affoghiamoci/Filo/issues) o nei commenti del post su Reddit.
+
 Versione 0.10.7 (beta). Sito: [filo.affogo.fyi](https://filo.affogo.fyi). Codice: [github.com/Affoghiamoci/Filo](https://github.com/Affoghiamoci/Filo)
 
 ## Cosa fa

@@ -29,6 +29,8 @@ Shortcuts that feel like the Adobe suite. Free, right in your browser.
 
 Filo is made for people who come from graphic design and want to print things without learning a full CAD package. If you've used Photoshop, Illustrator or similar tools, the keys will feel familiar: `V` to move, `T` for text, `R` to rotate, marquee and lasso on `Q` and `W`, layers, groups, history. Most of what gets printed is simple (a holder, a lid, a clip, a bracket), so Filo keeps to that: push shapes together, cut holes, round the edges, check the print and send it to the slicer.
 
+**Filo doesn't aim to replace Fusion, Blender, FreeCAD or any other complex software.** It's a simple tool for small edits and simple models. If you need parametric sketches, assemblies or organic sculpting, use the right tool for that, and bring the result here for the quick fixes.
+
 - **Open the site and start.** No account, nothing to install. Models stay on your device.
 - **Familiar to designers.** Adobe-style shortcuts, layers, groups, history, light and dark theme.
 - **Made for printing.** Bambu Lab plates, a print check, and a 3MF export that opens ready in Bambu Studio.
@@ -145,7 +147,7 @@ Filo is designed and directed by me, and the code is written with the help of an
 
 ## Status
 
-Filo is in beta. It's a one-person project, so expect rough edges. If something breaks or a feature would help your prints, [open an issue](https://github.com/Affoghiamoci/Filo/issues).
+Filo is in beta. It's a one-person project, so expect rough edges. Feedback is very welcome, from bugs to "this would help my prints" ideas. You can [open an issue](https://github.com/Affoghiamoci/Filo/issues) here, or comment on the Reddit post where I shared it.
 
 ## Privacy
 
