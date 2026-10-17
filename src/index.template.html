@@ -132,8 +132,13 @@
 </div>
 <div id="p-face" class="hidden">
   <div class="p-title">Lato <span id="f-info"></span></div>
+  <h4 data-help="Sposta il lato: il lato si muove e quelli vicini si allungano o si accorciano. Estrudi: dal lato nasce materiale nuovo con la sua stessa sagoma (o si scava, se il valore è negativo) e i lati vicini restano com'erano.">Modo<i class="inf" aria-hidden="true">?</i></h4>
+  <div class="seg" id="f-mode"><button data-v="move" class="on">Sposta il lato</button><button data-v="extrude">Estrudi</button></div>
   <h4 data-help="Trascina il quadratino arancione sul lato (si aggancia ai piani vicini) oppure scrivi i mm. Positivo tira fuori, negativo spinge dentro. Maiusc + clic per scegliere più lati.">Spingi / tira<i class="inf" aria-hidden="true">?</i></h4>
   <div class="row2"><label class="f">Di<input id="f-push" type="text" data-num autocomplete="off" step="0.5" placeholder="0"><em>mm</em></label><button class="btn primary" id="f-push-go">Applica</button></div>
+  <div id="f-taper-row" class="hidden"><div class="row2"><label class="f" title="100 = prisma dritto. Meno di 100 restringe la cima, più di 100 la allarga: così nascono pomelli e ganci">Cima<input id="f-taper" type="text" data-num autocomplete="off" step="5" min="1" placeholder="100"><em>%</em></label></div></div>
+  <h4 data-help="Ingrandisce o rimpicciolisce il contorno del lato attorno al suo centro, e i lati vicini si inclinano: 50 lo dimezza, 150 lo allarga. Con Estrudi prima e Scala poi si fanno pomelli e ganci.">Scala il lato<i class="inf" aria-hidden="true">?</i></h4>
+  <div class="row2"><label class="f">Scala<input id="f-scale" type="text" data-num autocomplete="off" step="5" min="1" placeholder="100"><em>%</em></label><button class="btn primary" id="f-scale-go">Applica</button></div>
 </div>
 <div id="p-edge" class="hidden">
   <div class="p-title">Spigolo <span id="e-info"></span></div>
@@ -339,7 +344,7 @@
     <button id="info-close" class="icon-btn" aria-label="Chiudi"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     <div class="info-news"><span class="lbl">Novità</span><div class="cl">
       <b>0.10.10</b>
-      <ul><li>Spigoli interni dei pezzi combinati: si scelgono e si raccordano o smussano, aggiungendo materiale</li><li>Lato inclinato: si sposta lungo la sua direzione e il piano sopra e sotto restano orizzontali</li><li>Lo spigolo sotto il mouse è blu, quello scelto arancione</li><li>La scatola nasce cubo</li><li>Doppio clic su un campo: evidenzia il valore</li><li>Nei campi numerici si possono scrivere i conti: 10+1, 2*5, (3+2)/2</li><li>Nei campi la virgola diventa punto (prima in un browser inglese "4,5" diventava 45); in inglese i decimali hanno il punto</li></ul>
+      <ul><li>Spigoli interni dei pezzi combinati: si scelgono e si raccordano o smussano, aggiungendo materiale</li><li>Lato inclinato: si sposta lungo la sua direzione e il piano sopra e sotto restano orizzontali</li><li>Lato: nuovo interruttore Sposta il lato / Estrudi e campo Scala per ridimensionare il lato</li><li>Dopo ogni operazione le facce quasi complanari si fondono (meno linee e triangoli inutili)</li><li>Lo spigolo sotto il mouse è blu, quello scelto arancione</li><li>La scatola nasce cubo</li><li>Doppio clic su un campo: evidenzia il valore</li><li>Nei campi numerici si possono scrivere i conti: 10+1, 2*5, (3+2)/2</li><li>Nei campi la virgola diventa punto (prima in un browser inglese "4,5" diventava 45); in inglese i decimali hanno il punto</li></ul>
       <details><summary>Versioni precedenti</summary>
         <b>0.10.9</b>
         <ul><li>La calamita funziona anche con ⇧ premuto e con le maniglie di ridimensionamento</li><li>Combina, Interseca e Stampo: il pulsante ricorda l'ultimo scelto</li><li>La calamita si spegne con ⌘+⌥ insieme, così resta attiva anche negli spostamenti verticali</li></ul>

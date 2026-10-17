@@ -9,7 +9,7 @@ import { mergeVertices, mergeGeometries, toCreasedNormals } from 'three/addons/u
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { unzipSync, zipSync, strToU8 } from 'three/addons/libs/fflate.module.js';
 import { Brush, Evaluator, ADDITION, SUBTRACTION, INTERSECTION } from 'three-bvh-csg';
-import { initManifold, manifoldEvaluate, manifoldCombine, manifoldStretch, manifoldHalf, manifoldMod } from './mcsg.js';
+import { initManifold, manifoldEvaluate, manifoldCombine, manifoldStretch, manifoldHalf, manifoldMod, simplifyGeo } from './mcsg.js';
 import { ConvexHull } from 'three/addons/math/ConvexHull.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
@@ -960,6 +960,10 @@ function bakeResult(res, name) {
   if (window.__prof) console.log('PROF open prima', openEdgeCount(g), 'tri', g.attributes.position.count / 3);
   { const d0 = geoDefects(g), h = healMesh(g);                                  // la riparazione (saldatura a 1 µm) non deve mai peggiorare: se rompe un pezzo già chiuso si tiene l'originale
     if (h !== g && geoDefects(h) <= d0) g = h; }
+  if (!window.__noSimplify && (g.index ? g.index.count : g.attributes.position.count) / 3 < 150000) {   // pulizia: facce quasi complanari fuse, vertici inutili tolti (solo se il pezzo resta identico e chiuso)
+    const sm = simplifyGeo(g);
+    if (sm) { const g2 = geometryFromPositions(sm.pos); if (geoDefects(g2) <= geoDefects(g)) { g.dispose(); g = g2; } else g2.dispose(); }
+  }
   if (!g.index) g = geometryFromPositions(g.attributes.position.array);       // il risultato di Manifold arriva con normali piatte: si ricalcolano morbide (30°), così le pareti curve non fanno le fasce
   if (window.__prof) console.log('PROF open dopo', openEdgeCount(g));
   g.computeBoundingBox();
@@ -3719,6 +3723,7 @@ function selectFaceFromHit(hit, add = false) {
 }
 
 /* -------- texture */
+const faceMode = { v: 'move', taper: 1 };                                  // Lato: 'move' sposta il lato, 'extrude' crea (o scava) materiale con la sagoma del lato
 const TF = { k: { value: '1.5' }, depth: { value: '1' }, margin: { value: '1.5' }, push: $('#f-push') };
 function basisMatrix(X, Y, Z, pos) {
   const z = Z.clone();
@@ -3831,7 +3836,7 @@ function ringParams(fs) {
   return { ...c, zA, zB, full: gap < 25 * D2R };
 }
 // Estrusione per CSG: prisma sotto/sopra il lato, unito o sottratto. Non deforma i lati vicini (niente spuntoni).
-function prismGeometry(f, dist) {
+function prismGeometry(f, dist, taper = 1) {
   const w = f.world, k = w.length / 9, q = x => Math.round(x * 2000);
   const key = (i) => q(w[i]) + ',' + q(w[i + 1]) + ',' + q(w[i + 2]);
   const dirEdges = new Map();
@@ -3842,7 +3847,12 @@ function prismGeometry(f, dist) {
   const bnd = [];
   for (const [kk, [a, b]] of dirEdges) { const [ka, kb] = kk.split('>'); if (!dirEdges.has(kb + '>' + ka)) bnd.push([a, b]); }
   const ov = 0.3, n = f.n, pos = [];
-  const P = (i, off) => [w[i] + n.x * off, w[i + 1] + n.y * off, w[i + 2] + n.z * off];
+  // centro del contorno: la scala in cima restringe o allarga attorno a questo punto (come "Scala il lato")
+  const cs = new Map(); for (const [a] of bnd) cs.set(key(a), a);
+  const cen = [0, 0, 0]; for (const i of cs.values()) { cen[0] += w[i]; cen[1] += w[i + 1]; cen[2] += w[i + 2]; }
+  const nc = Math.max(cs.size, 1); cen[0] /= nc; cen[1] /= nc; cen[2] /= nc;
+  const sc = off => 1 + (taper - 1) * Math.min(1, Math.max(0, off / dist));       // 1 alla base, "taper" a fine corsa
+  const P = (i, off) => { const s = sc(off); return [cen[0] + (w[i] - cen[0]) * s + n.x * off, cen[1] + (w[i + 1] - cen[1]) * s + n.y * off, cen[2] + (w[i + 2] - cen[2]) * s + n.z * off]; };
   const up = dist > 0;
   const lo = up ? -ov : dist, hi = up ? dist : ov; // il prisma va da lo a hi lungo n
   for (let t = 0; t < k; t++) {
@@ -3858,11 +3868,11 @@ function prismGeometry(f, dist) {
   g.computeVertexNormals();
   return g;
 }
-function prismPush(obj, faces, dist) {
+function prismPush(obj, faces, dist, taper = 1) {
   let acc = obj;
   obj.updateMatrixWorld(true);
   for (const f of faces) {
-    const br = new Brush(prismGeometry(f, dist), M.solid);
+    const br = new Brush(prismGeometry(f, dist, taper), M.solid);
     br.updateMatrixWorld(true);
     acc = evaluator.evaluate(acc, br, dist > 0 ? ADDITION : SUBTRACTION);
   }
@@ -3872,6 +3882,12 @@ function prismPush(obj, faces, dist) {
 function applyPush(distArg) {
   const fs = faceSel, dist = typeof distArg === 'number' ? distArg : parseFloat(TF.push.value);
   if (!fs || !Number.isFinite(dist) || Math.abs(dist) < 1e-4) return;
+  faceMode.taper = 1;
+  if (faceMode.v === 'extrude') {                                       // "Scala in cima": vuoto = 100 %, il prisma resta dritto
+    const raw = String($('#f-taper').value).trim(), tp = raw === '' ? 100 : parseFloat(raw);
+    if (!(tp >= 1 && tp <= 1000)) return toast('Scrivi una scala in % (da 1 a 1000)');
+    faceMode.taper = tp / 100;
+  }
   const nFaces = faceSet.length, objs = [...new Set(faceSet.map(f => f.obj))], out = [];
   let fail = null, ext = false;
   for (const obj of objs) {
@@ -3886,6 +3902,7 @@ function applyPush(distArg) {
     touch(); commit();
   }
   if (fail) return toast(fail);
+  if (ext && faceMode.v === 'extrude') return toast(faceMode.taper !== 1 && dist > 0 ? `Lato estruso di ${fmt(dist)} mm, con la cima al ${fmt(faceMode.taper * 100)} %` : dist > 0 ? `${nFaces > 1 ? nFaces + ' lati' : 'Lato'} estruso di ${fmt(dist)} mm` : `Scavato di ${fmt(-dist)} mm con la sagoma del lato`);
   if (ext) return toast(`${nFaces > 1 ? nFaces + ' lati' : 'Lato'} estruso di ${fmt(Math.abs(dist))} mm (sagoma del lato, senza deformare i vicini)`);
   toast((nFaces > 1 ? `${nFaces} lati ` : 'Lato ') + (dist > 0 ? `tirato di ${fmt(dist)} mm` : `spinto di ${fmt(Math.abs(dist))} mm`));
 }
@@ -4063,6 +4080,13 @@ function foldedTri(orig, arr, t) {
   return lb < la * 1e-3 ? false : (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / (la * lb) < 0.2;
 }
 function pushOne(obj, faces, dist) {
+  if (faceMode.v === 'extrude') {                 // Estrudi: prisma con la sagoma del lato, aggiunto (o tolto) senza toccare i lati vicini
+    let b2 = null;
+    try { b2 = prismPush(obj, faces.slice(), dist, faceMode.taper); } catch (e) { b2 = null; }
+    if (!b2) return { err: 'Non riesco a estrudere questo lato: prova con Sposta il lato' };
+    if (isFlat(b2)) return { err: FLAT_MSG };
+    return { mesh: replaceWithMerged(obj, b2, true), ext: true };
+  }
   if (faces.length === 1 && faces[0].full && ['cylinder', 'cone'].includes(obj.userData.kind)) {   // lato intero di un cilindro: allarga o stringe il raggio
     const u = obj.userData, nd = u.p.w + 2 * dist;
     if (nd < 0.2) return { err: FLAT_MSG };
@@ -4313,7 +4337,7 @@ function moveFaceDrag(e, fd) {
   const tol = worldPerPixel() * 9;
   let best = null;
   for (const p of fd.planes) if (Math.abs(p) > 0.01 && Math.abs(p - dist) < tol && (best === null || Math.abs(p - dist) < Math.abs(best - dist))) best = p;
-  const par = fs.full && ['cylinder', 'cone'].includes(fs.obj.userData.kind);
+  const par = faceMode.v !== 'extrude' && fs.full && ['cylinder', 'cone'].includes(fs.obj.userData.kind);
   if (par) { best = null; snapped = false; }
   if (best !== null) { dist = best; snapped = true; } else dist = snapV(dist);
   if (par) dist = Math.max(dist, -(fs.obj.userData.p.w / 2 - 0.2));      // il raggio non scende sotto 0,2 mm
@@ -4336,14 +4360,57 @@ function moveFaceDrag(e, fd) {
   dragRead.style.display = 'block';
   dragRead.style.left = ((v.x * 0.5 + 0.5) * window.innerWidth + 18) + 'px';
   dragRead.style.top = ((-v.y * 0.5 + 0.5) * window.innerHeight - 12) + 'px';
-  dragRead.textContent = par ? `Ø ${fmt((fs.obj.userData.p.w / 2 + dist) * 2)} mm` : `${dist > 0 ? '+' : ''}${fmt(dist)} mm${snapped ? ' · allineato' : ''}`;
+  dragRead.textContent = par ? `Ø ${fmt((fs.obj.userData.p.w / 2 + dist) * 2)} mm` : `${faceMode.v === 'extrude' ? (dist < 0 ? 'Scava ' : 'Estrudi ') : ''}${dist > 0 ? '+' : ''}${fmt(dist)} mm${snapped ? ' · allineato' : ''}`;
   dirty = true;
+}
+// contorno del lato scelto: i bordi usati da un solo triangolo, uniti in un giro chiuso (null se il lato ha buchi, è curvo o ne sono scelti più d'uno)
+function faceLoop(f) {
+  const w = f.world, key = (x, y, z) => Math.round(x * 2000) + ',' + Math.round(y * 2000) + ',' + Math.round(z * 2000);
+  const cnt = new Map(), pt = new Map();
+  for (let i = 0; i < w.length; i += 9) {
+    const k = [0, 1, 2].map(j => { const o = i + j * 3, kk = key(w[o], w[o + 1], w[o + 2]); if (!pt.has(kk)) pt.set(kk, new THREE.Vector3(w[o], w[o + 1], w[o + 2])); return kk; });
+    for (let j = 0; j < 3; j++) { const a = k[j], b = k[(j + 1) % 3], e = a < b ? a + '|' + b : b + '|' + a; const r = cnt.get(e); if (r) r.n++; else cnt.set(e, { a, b, n: 1 }); }
+  }
+  const adj = new Map();
+  for (const { a, b, n } of cnt.values()) if (n === 1) { (adj.get(a) || adj.set(a, []).get(a)).push(b); (adj.get(b) || adj.set(b, []).get(b)).push(a); }
+  if (adj.size < 3 || [...adj.values()].some(l => l.length !== 2)) return null;
+  const start = adj.keys().next().value, out = [start]; let prev = null, cur = start;
+  for (;;) {
+    const nx = adj.get(cur).find(x => x !== prev) ?? adj.get(cur)[0];
+    if (nx === start) break;
+    if (out.length > adj.size) return null;
+    out.push(nx); prev = cur; cur = nx;
+  }
+  return out.length === adj.size ? out.map(k => pt.get(k)) : null;
+}
+function applyFaceScale(pctArg) {
+  const pct = typeof pctArg === 'number' ? pctArg : parseFloat($('#f-scale').value);
+  if (!faceSel) return;
+  if (!(pct >= 1 && pct <= 1000)) return toast('Scrivi una scala in % (da 1 a 1000)');
+  if (faceSet.length !== 1 || faceSel.curved) return toast('La scala funziona su un lato piatto alla volta');
+  const loop = faceLoop(faceSel);
+  if (!loop) return toast('Questo lato ha dei buchi o un contorno non chiuso: non lo posso ridimensionare');
+  const obj = faceSel.obj;
+  if (heavyGuard([obj])) return;
+  const r = scaleEdge(obj, { pts: loop }, pct / 100);
+  if (r.err) return toast(r.err);
+  $('#f-scale').value = '';
+  clearFace(false); setSelection([r.mesh]); touch(); commit();
+  toast('Lato ridimensionato');
 }
 function updateFacePanel() {
   const fs = faceSel;
   $('#f-info').textContent = faceSet.length > 1 ? `· ${faceSet.length} lati selezionati` : `${fmt(fs.W)} × ${fmt(fs.H)} mm${fs.curved ? ' · curvo' : fs.rect ? '' : ' · irregolare'}`;
 }
+document.querySelectorAll('#f-mode button').forEach(b => b.addEventListener('click', () => {
+  faceMode.v = b.dataset.v;
+  document.querySelectorAll('#f-mode button').forEach(x => x.classList.toggle('on', x === b));
+  $('#f-taper-row').classList.toggle('hidden', faceMode.v !== 'extrude');
+  TF.push.focus();
+}));
 $('#f-push-go').addEventListener('click', () => applyPush());
+$('#f-scale-go').addEventListener('click', () => applyFaceScale());
+$('#f-scale').addEventListener('keydown', e => { if (e.key === 'Enter') applyFaceScale(); });
 TF.push.addEventListener('keydown', e => { if (e.key === 'Enter') applyPush(); });
 
 /* ------------------------------------------------------------ importa 3MF / STL */
@@ -5947,7 +6014,7 @@ $('#ew-resume').addEventListener('click', async e => {
 });
 offerResume(); rsOn = true;
 
-window.forma = { get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */

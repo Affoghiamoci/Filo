@@ -123,7 +123,10 @@ export const HELP = {
     { id: 'face', g: 'model', t: 'Lato', h: `
       {{img:lato|Un lato selezionato con la sua maniglia}}
       <p>${K('L')}: clicca un lato piatto e tira o spingi la maniglia per spostarlo. La forma si allunga o si accorcia da quella parte.</p>
-      <ul><li>${K('⇧')} + clic aggiunge altri lati.</li><li>Un lato a filo con altri dello stesso gruppo si muove insieme.</li><li>Sui cilindri il lato curvo è un pezzo unico.</li></ul>` },
+      <ul><li>${K('⇧')} + clic aggiunge altri lati.</li><li>Un lato a filo con altri dello stesso gruppo si muove insieme.</li><li>Sui cilindri il lato curvo è un pezzo unico.</li></ul>
+      <h3>Sposta o estrudi</h3>
+      <p>Nel pannello <b>Modo</b> scegli cosa succede: <i>Sposta il lato</i> muove il lato e i vicini si adattano; <i>Estrudi</i> fa nascere materiale nuovo con la stessa sagoma del lato (con un valore negativo scava), senza toccare i lati vicini. Un lato inclinato si muove lungo la sua direzione e il piano sopra e sotto restano orizzontali.</p>
+      <p>Con <i>Estrudi</i> compare anche <b>Cima</b>: 100 è un prisma dritto, 50 restringe la cima a metà mentre sale, 150 la allarga. Così da un cubo escono pomelli e ganci in un solo passaggio. <b>Scala il lato</b> ridimensiona il contorno del lato scelto e inclina i lati vicini.</p>` },
     { id: 'edge', g: 'model', t: 'Spigolo', h: `
       <p>${K('E')}: clicca uno spigolo (con ${K('⇧')} ne scegli altri) e decidi cosa farne. Il pannello a destra mostra solo ciò che vale per lo spigolo scelto: arrotondare o smussare, spostarlo, oppure ridimensionare un anello.</p>
       <h3>Arrotonda o smussa</h3>
@@ -338,7 +341,10 @@ export const HELP = {
     { id: 'face', g: 'model', t: 'Face', h: `
       {{img:lato|A selected face with its handle}}
       <p>${K('L')}: click a flat face and pull or push its handle to move it. The shape grows or shrinks on that side.</p>
-      <ul><li>${K('⇧')} + click adds more faces.</li><li>A face flush with others in the same group moves together.</li><li>On cylinders the curved side is a single piece.</li></ul>` },
+      <ul><li>${K('⇧')} + click adds more faces.</li><li>A face flush with others in the same group moves together.</li><li>On cylinders the curved side is a single piece.</li></ul>
+      <h3>Move or extrude</h3>
+      <p>In the panel <b>Mode</b> picks what happens: <i>Move the face</i> moves the face and the neighbours adapt; <i>Extrude</i> grows new material with the same outline as the face (a negative value digs), leaving the neighbouring faces alone. A slanted face moves along its own direction and the top and bottom planes stay level.</p>
+      <p>With <i>Extrude</i> a <b>Top</b> field appears too: 100 is a straight prism, 50 narrows the top to half as it rises, 150 widens it. That makes knobs and hooks from a cube in one step. <b>Scale the face</b> resizes the outline of the chosen face and tilts the neighbouring faces.</p>` },
     { id: 'edge', g: 'model', t: 'Edge', h: `
       <p>${K('E')}: click an edge (hold ${K('⇧')} to pick more) and decide what to do with it. The right panel only shows what applies to the chosen edge: rounding or chamfering, moving it, or resizing a ring.</p>
       <h3>Round or chamfer</h3>

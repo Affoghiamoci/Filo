@@ -45,6 +45,31 @@ export function meshIsClosed(P, I) {
 }
 export const geoIsClosed = g => meshIsClosed(g.attributes.position.array, g.index ? g.index.array : null);
 
+// Pulizia: Manifold fonde i triangoli quasi complanari e toglie i vertici inutili (a 2 µm di tolleranza). Il risultato si accetta solo se il pezzo resta chiuso e con lo stesso volume.
+// Restituisce { pos, tris } (triangoli non indicizzati) oppure null: in quel caso si tiene la mesh com'era.
+export function simplifyGeo(g, tol = 0.002) {
+  if (!M || !M.Manifold.prototype.simplify) return null;
+  let m = null, s = null;
+  try {
+    const P = g.attributes.position.array, I = g.index ? g.index.array : null;
+    const tv = I ? Uint32Array.from(I) : Uint32Array.from({ length: P.length / 3 }, (_, k) => k);
+    const mesh = new M.Mesh({ numProp: 3, vertProperties: Float32Array.from(P), triVerts: tv });
+    mesh.merge();
+    m = new M.Manifold(mesh);
+    if (m.status() !== 'NoError') return null;
+    s = m.simplify(tol);
+    if (!s || s.status() !== 'NoError') return null;
+    const v0 = m.volume(), v1 = s.volume();
+    if (!(v0 > 0) || Math.abs(v1 - v0) > 2e-5 * v0) return null;
+    const out = s.getMesh(), vp = out.vertProperties, t2 = out.triVerts, nP = out.numProp;
+    if (t2.length / 3 >= tv.length / 3) return null;               // niente da semplificare
+    const pos = new Float32Array(t2.length * 3);
+    for (let i = 0; i < t2.length; i++) { const k = t2[i] * nP; pos[i * 3] = vp[k]; pos[i * 3 + 1] = vp[k + 1]; pos[i * 3 + 2] = vp[k + 2]; }
+    return { pos, tris: t2.length / 3 };
+  } catch (e) { return null; }
+  finally { for (const x of [m, s]) { try { x && x.delete(); } catch (e) {} } }
+}
+
 function toBrush(m, material) {
   const mesh = m.getMesh(), vp = mesh.vertProperties, tv = mesh.triVerts, nP = mesh.numProp;
   const pos = new Float32Array(tv.length * 3);
