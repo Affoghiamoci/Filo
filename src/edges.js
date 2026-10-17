@@ -39,7 +39,7 @@ export function analyze(pos) {
   }
   const vp = i => new THREE.Vector3(P[i * 3], P[i * 3 + 1], P[i * 3 + 2]);
   const nrm = t => new THREE.Vector3(tn[t * 3], tn[t * 3 + 1], tn[t * 3 + 2]);
-  const sharp = [], at = new Map();      // vertice -> spigoli vivi
+  const sharp = [], at = new Map(), atC = new Map();      // vertice -> spigoli vivi (convessi in at, interni/concavi in atC)
   for (const [key, e] of E) {
     if (e.tris.length !== 2) continue;
     const n1 = nrm(e.tris[0]), n2 = nrm(e.tris[1]);
@@ -50,11 +50,11 @@ export function analyze(pos) {
     const pa = vp(e.a);
     e.convex = opp >= 0 && n1.dot(vp(opp).sub(pa)) < -1e-6;
     e.n1 = n1; e.n2 = n2; e.key = key;
-    if (!e.convex) continue;
     sharp.push(e);
-    for (const v of [e.a, e.b]) { if (!at.has(v)) at.set(v, []); at.get(v).push(e); }
+    const M = e.convex ? at : atC;                    // le catene non mescolano spigoli esterni e interni
+    for (const v of [e.a, e.b]) { if (!M.has(v)) M.set(v, []); M.get(v).push(e); }
   }
-  return { P, vp, sharp, at };
+  return { P, vp, sharp, at, atC };
 }
 
 // spigolo vivo più vicino a un punto (distanza massima tol)
@@ -74,7 +74,7 @@ export function nearestEdge(an, pt, tol) {
 
 // catena di spigoli tangenti a partire da uno: si ferma agli angoli (dove ne arrivano più di due o la curva gira troppo)
 export function chainOf(an, e0) {
-  const used = new Set([e0.key]);
+  const used = new Set([e0.key]), AT = e0.convex ? an.at : an.atC;
   const dir = (from, to) => an.vp(to).sub(an.vp(from)).normalize();
   const aligned = (e, nA, nB) => (e.n1.dot(nA) + e.n2.dot(nB) >= e.n1.dot(nB) + e.n2.dot(nA)) ? [e.n1, e.n2] : [e.n2, e.n1];
   const [nA0, nB0] = [e0.n1, e0.n2];
@@ -82,8 +82,8 @@ export function chainOf(an, e0) {
     // start: vertice da cui proseguire; prevV: vertice precedente; restituisce lista di {v, nA, nB}
     const out = []; let cur = start, prev = prevV, nA = nA0, nB = nB0;
     for (let guard = 0; guard < 20000; guard++) {
-      const cand = (an.at.get(cur) || []).filter(e => !used.has(e.key));
-      if ((an.at.get(cur) || []).length !== 2 || cand.length !== 1) break;
+      const cand = (AT.get(cur) || []).filter(e => !used.has(e.key));
+      if ((AT.get(cur) || []).length !== 2 || cand.length !== 1) break;
       const e = cand[0], nxt = e.a === cur ? e.b : e.a;
       const d1 = dir(prev, cur), d2 = dir(cur, nxt);
       if (d1.dot(d2) < Math.cos(35 * Math.PI / 180)) break;
@@ -104,14 +104,14 @@ export function chainOf(an, e0) {
   for (const f of fwd) { verts.push(f.v); segN.push([f.nA, f.nB]); }
   for (const f of back) { verts.unshift(f.v); segN.unshift([f.nA, f.nB]); }
   if (closed) verts.pop();                      // l'ultimo vertice coincide col primo
-  return { verts, segN, closed, pts: verts.map(v => an.vp(v)) };
+  return { verts, segN, closed, pts: verts.map(v => an.vp(v)), concave: !e0.convex };
 }
 
 // Scalpello: tubo lungo la catena con sezione = zona di materiale da togliere. mode 'fillet' o 'chamfer'.
 export function cutter(chain, mode, size) {
   const { pts, closed, segN } = chain, n = pts.length;
   if (n < 2) return null;
-  const EPS = 0.05, ARC = 18;
+  const EPS = 0.05, ARC = 18, cc = !!chain.concave, sg = cc ? -1 : 1;     // spigolo interno: il riempitivo sta nell'aria e affonda di poco nel materiale
   const rings = [];
   const ns = closed ? n : n; // numero di anelli
   for (let i = 0; i < n; i++) {
@@ -121,26 +121,26 @@ export function cutter(chain, mode, size) {
     // tratti adiacenti: tratto i-1 (prev→i) e tratto i (i→next)
     const sA = segN[closed ? (i + n - 1) % n : Math.max(i - 1, 0)], sB = segN[Math.min(i, segN.length - 1)];
     const nA = sA[0].clone().add(sB[0]).normalize(), nB = sA[1].clone().add(sB[1]).normalize();
-    let u1 = nA.clone().cross(t).normalize(); if (u1.dot(nB) > 0) u1.negate();
-    let u2 = nB.clone().cross(t).normalize(); if (u2.dot(nA) > 0) u2.negate();
+    let u1 = nA.clone().cross(t).normalize(); if (cc ? u1.dot(nB) < 0 : u1.dot(nB) > 0) u1.negate();
+    let u2 = nB.clone().cross(t).normalize(); if (cc ? u2.dot(nA) < 0 : u2.dot(nA) > 0) u2.negate();
     const cosT = Math.max(-1, Math.min(1, u1.dot(u2))), th = Math.acos(cosT);
     if (!(th > 0.3 && th < 3.0)) return null;
     const pend = (!closed && (i === 0 || i === n - 1));
     const Ee = E.clone(); if (pend) Ee.addScaledVector(t, i === 0 ? -EPS : EPS);
     const den = Math.max(0.25, 1 + nA.dot(nB));
-    const Eo = Ee.clone().addScaledVector(nA.clone().add(nB), EPS / den);
+    const Eo = Ee.clone().addScaledVector(nA.clone().add(nB), sg * EPS / den);
     const poly = [Eo];
     let tl, T1, T2;
-    if (mode === 'chamfer') { tl = size; T1 = Ee.clone().addScaledVector(u1, tl); T2 = Ee.clone().addScaledVector(u2, tl); poly.push(T1.clone().addScaledVector(nA, EPS), T1, T2, T2.clone().addScaledVector(nB, EPS)); }
+    if (mode === 'chamfer') { tl = size; T1 = Ee.clone().addScaledVector(u1, tl); T2 = Ee.clone().addScaledVector(u2, tl); poly.push(T1.clone().addScaledVector(nA, sg * EPS), T1, T2, T2.clone().addScaledVector(nB, sg * EPS)); }
     else {
       tl = size / Math.tan(th / 2);
       T1 = Ee.clone().addScaledVector(u1, tl); T2 = Ee.clone().addScaledVector(u2, tl);
       const C = Ee.clone().addScaledVector(u1.clone().add(u2).normalize(), size / Math.sin(th / 2));
       const a = T1.clone().sub(C).normalize(), b = T2.clone().sub(C).normalize(), ang = Math.acos(Math.max(-1, Math.min(1, a.dot(b))));
       const axis = a.clone().cross(b).normalize();
-      poly.push(T1.clone().addScaledVector(nA, EPS));
+      poly.push(T1.clone().addScaledVector(nA, sg * EPS));
       for (let k = 0; k <= ARC; k++) poly.push(a.clone().applyAxisAngle(axis, ang * k / ARC).multiplyScalar(size).add(C));
-      poly.push(T2.clone().addScaledVector(nB, EPS));
+      poly.push(T2.clone().addScaledVector(nB, sg * EPS));
     }
     rings.push({ poly, E: Ee, t });
   }

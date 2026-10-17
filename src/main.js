@@ -5021,7 +5021,7 @@ const moveHandle = (() => {
 const WAX = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0), z: new THREE.Vector3(0, 0, 1) };
 const ekey = (x, y, z) => Math.round(x * 2000) + ',' + Math.round(y * 2000) + ',' + Math.round(z * 2000);
 function moveInfo() {                                   // spigoli scelti (non un anello): punti, centro e asse parallelo da escludere
-  if (!edgeSel.length || edgeSel.some(x => x.obj !== edgeSel[0].obj || x.chain.rkey) || selectedLoop()) return null;
+  if (!edgeSel.length || edgeSel.some(x => x.obj !== edgeSel[0].obj || x.chain.rkey || x.chain.concave) || selectedLoop()) return null;   // gli spigoli interni si raccordano, non si spostano
   const seen = new Map(), c = new THREE.Vector3();
   edgeSel.forEach(x => x.chain.pts.forEach(p => seen.set(ekey(p.x, p.y, p.z), p)));
   const pts = [...seen.values()]; pts.forEach(p => c.add(p)); c.divideScalar(pts.length);
@@ -5252,6 +5252,9 @@ function applyEdges() {
       }
     }
   }
+  const nConc = edgeSel.filter(x => x.chain.concave).length;
+  if (nConc && nConc < edgeSel.length) return toast('Spigoli esterni e interni insieme: applica prima gli uni, poi gli altri');
+  const concave = nConc > 0;
   const cutters = edgeSel.map(x => cutter(x.chain, edgeMode.v, size));
   if (cutters.some(g => !g)) return toast('Questo spigolo è troppo particolare per arrotondarlo');
   obj.updateMatrixWorld(true);
@@ -5261,7 +5264,7 @@ function applyEdges() {
   let acc = new Brush(g0, M.solid); acc.updateMatrixWorld(true);
   for (const cg of cutters) {
     const br = new Brush(cg, M.solid); br.updateMatrixWorld(true);
-    acc = evaluator.evaluate(acc, br, SUBTRACTION);
+    acc = evaluator.evaluate(acc, br, concave ? ADDITION : SUBTRACTION);     // interno: si aggiunge materiale nell'angolo
   }
   const baked = bakeResult(acc, obj.userData.name);
   if (!baked) return toast('Il risultato è vuoto: la misura è troppo grande');
@@ -5283,7 +5286,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '0.10.9';
+const APP_VERSION = '0.10.10';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
