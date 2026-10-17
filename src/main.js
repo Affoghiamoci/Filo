@@ -2952,10 +2952,22 @@ function setMini(on, save = true) {
 }
 $('#side-toggle').addEventListener('click', () => { setMini(!sideEl.classList.contains('mini')); canvas.focus(); });
 let tipTimer = null, tipOn = false;
+/* il suggerimento fatto di solo testo si stringe attorno alla riga più lunga, così il testo non resta spostato a sinistra */
+function fitTip() {
+  tipEl.style.width = '';
+  if (tipEl.querySelector('b, kbd')) return;
+  const s = tipEl.querySelector('small'); if (!s) return;
+  const rg = document.createRange(); rg.selectNodeContents(s);
+  const rs = [...rg.getClientRects()]; if (!rs.length) return;
+  const cs = getComputedStyle(tipEl);
+  const extra = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
+  tipEl.style.width = Math.ceil(Math.max(...rs.map(r => r.width)) + extra + 1) + 'px';
+}
 function hideTip() { clearTimeout(tipTimer); tipOn = false; tipEl.classList.remove('show'); }
 function showTip(b) {
   const t = TOOLS[b.dataset.s][1][b.dataset.i];
   tipEl.innerHTML = `<b>${t.name}</b>${t.key ? `<kbd>${t.key}</kbd>` : ''}<small>${t.desc}</small>${b.classList.contains('grp') ? '<small class="alt">Tieni premuto per altre varianti</small>' : ''}`;
+  fitTip();
   const r = b.getBoundingClientRect();
   tipEl.classList.remove('up');
   tipEl.style.left = r.right + 16 + 'px';
@@ -2990,7 +3002,7 @@ document.addEventListener('pointerover', e => {
   ttTimer = setTimeout(() => {
     const r = el.getBoundingClientRect();
     tipEl.innerHTML = `<small class="hl one">${esc(tr(el.dataset.tt))}</small>`;
-    tipEl.classList.add('help', 'tt'); tipEl.classList.remove('left', 'up'); tipEl.style.maxWidth = '260px';
+    tipEl.classList.add('help', 'tt'); tipEl.classList.remove('left', 'up'); tipEl.style.maxWidth = '260px'; fitTip();
     const below = r.top < 120, x = Math.min(Math.max(r.left + r.width / 2, 130), window.innerWidth - 130);
     tipEl.style.left = x + 'px'; tipEl.style.top = (below ? r.bottom + 12 : r.top - 12) + 'px';
     tipEl.style.transform = below ? 'translate(-50%,0)' : 'translate(-50%,-100%)';
@@ -3005,6 +3017,7 @@ function showHelp(el) {
   const txt = tr(el.dataset.help || ''); if (!txt) return;
   const title = (el.firstChild && el.firstChild.nodeType === 3 ? el.firstChild.textContent : el.textContent).replace(/\?$/, '').trim();
   tipEl.innerHTML = `<b>${esc(tr(title))}</b><small class="hl">${esc(txt)}</small>`;
+  fitTip();
   tipEl.classList.add('help'); tipEl.classList.remove('up', 'left'); tipEl.style.maxWidth = '290px';
   const r = el.getBoundingClientRect(), box = (el.closest('#props, #cut-card, #side, .panel') || el).getBoundingClientRect(), left = r.left > window.innerWidth * 0.5;
   tipEl.classList.toggle('left', left);
@@ -3109,7 +3122,11 @@ setDots(_d, false);
     const name = (b.querySelector('em') ? [...b.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('') : b.textContent).trim();
     const desc = (b.dataset.t || '').replace(/\s*\([^)]*\)\s*$/, '');
     if (!desc && !b.dataset.k) { tipEl.classList.remove('show'); on = false; return; }
-    tipEl.innerHTML = `<b>${tr(name)}</b>${b.dataset.k ? `<kbd>${tr(b.dataset.k)}</kbd>` : ''}${desc ? `<small>${tr(desc)}</small>` : ''}`;
+    // senza nome né scorciatoia (pulsanti con la sola icona) resta solo il testo, senza il vuoto del titolo
+    tipEl.innerHTML = name || b.dataset.k
+      ? `<b>${tr(name)}</b>${b.dataset.k ? `<kbd>${tr(b.dataset.k)}</kbd>` : ''}${desc ? `<small>${tr(desc)}</small>` : ''}`
+      : `<small class="hl one">${tr(desc)}</small>`;
+    fitTip();
     const r = b.getBoundingClientRect(), one = new Set([...bar.querySelectorAll('.sec')].map(s => Math.round(s.getBoundingClientRect().top))).size === 1;
     // barra su una riga: il suggerimento sta sopra tutta la barra; se va a capo, sopra la sezione del pulsante
     const bt = bar.getBoundingClientRect().top, st = b.closest('.sec').getBoundingClientRect().top, top = one || st < bt + 20 ? bt : st;

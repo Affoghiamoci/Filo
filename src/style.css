@@ -694,7 +694,7 @@ mark.hp-hit.cur{background:color-mix(in srgb,var(--accent) 38%,transparent)}
 #tip.help{transform:translateY(-50%)}
 #tip.help.left{transform:translate(-100%,-50%)}
 #tip small.hl{font-size:12px;line-height:1.5;color:var(--text);opacity:.85;margin-top:4px}
-#tip small.hl.one{margin:0;font-size:12px}
+#tip small.hl.one{margin:0;font-size:12px;text-wrap:balance}
 
 /* controlla stampa */
 
