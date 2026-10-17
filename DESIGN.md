@@ -52,7 +52,7 @@ Scala: **2, 4, 6, 8, 10, 12, 14, 16, 20, 24** (il 2 solo per il padding interno 
 - Altezze: campo `label.f` **30 px**, icon-btn **30 px** (22 px nelle testate di lista), segmento interno **26 px** dentro un contenitore con padding 2, pulsante barra **34 px**.
 - Divisori: **1 px** `--line`; fra sezioni di un pannello, bordo inferiore di ogni sezione.
 - Larghezze: pannello proprietà 300 (i numeri a due decimali con segno devono starci interi), livelli e cronologia 232, finestre di dialogo 380 to 420 (Guida e Info fanno eccezione).
-- **Finestra Info**: orizzontale, 880 px al massimo. A sinistra le Novità (colonna di 290 px con filetto), a destra logo e versione, descrizione, Privacy, Codice (link al repository GitHub, licenza MIT), Licenze e Ko-fi. Sotto i 760 px diventa una colonna sola con le Novità in fondo.
+- **Finestra Info**: orizzontale, 880 px al massimo. A sinistra le Novità (colonna di 290 px con filetto), a destra logo e versione, descrizione, Privacy, Codice (link al repository GitHub, licenza PolyForm Noncommercial), Licenze e Ko-fi. Sotto i 760 px diventa una colonna sola con le Novità in fondo.
 - Distanza dai bordi finestra: **12 px**. Barra in basso 16 px.
 
 ## 5. Componenti

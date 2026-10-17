@@ -76,7 +76,7 @@ Il codice è in `src/`:
 | `textgen.js`, `print.js` | Testo 3D e controllo di stampa |
 | `i18n.js`, `help.js`, `helpimg.js` | Traduzioni IT/EN, Guida e immagini |
 
-Altri file utili: `DESIGN.md` (token, tipografia, spaziature e componenti da consultare prima di toccare l'interfaccia), `IDEE.md` (idee rimandate), `THIRD_PARTY_LICENSES.md` (generato dalla build), `LICENSE` (MIT).
+Altri file utili: `DESIGN.md` (token, tipografia, spaziature e componenti da consultare prima di toccare l'interfaccia), `IDEE.md` (idee rimandate), `THIRD_PARTY_LICENSES.md` (generato dalla build), `LICENSE` (PolyForm Noncommercial).
 
 I test in `tests/` sono script Playwright (Python) che aprono `dist/forma.html` in Chromium headless e pilotano l'app con l'API `window.forma`. Puntano a `/tmp/forma/dist/forma.html`: se il progetto sta altrove, cambia il percorso.
 
@@ -88,4 +88,8 @@ Sul sito ufficiale Filo conta solo le visite in forma anonima, nessun cookie. I 
 
 ## Licenza
 
-Filo è rilasciato con licenza MIT (vedi `LICENSE`). Le librerie incluse sono tutte open source (MIT, Apache-2.0, BSL-1.0, OFL-1.1), i testi sono in `THIRD_PARTY_LICENSES.md`.
+Filo è **source-available** con licenza [PolyForm Noncommercial 1.0.0](LICENSE). Puoi leggere il codice, usare Filo, modificarlo e condividerlo per qualsiasi scopo non commerciale (progetti personali, hobby, studio, ricerca, enti non profit). L'uso commerciale, per esempio rivenderlo, includerlo in un prodotto a pagamento o offrire una versione modificata come servizio, richiede il mio permesso: scrivimi.
+
+- **Quello che crei è tuo.** Modelli, file 3MF/STL e stampe fatti con Filo ti appartengono e puoi stamparli e venderli. La licenza riguarda il software, non il tuo lavoro.
+- **Versioni precedenti.** Le versioni fino alla 0.10.7, pubblicate prima di questo cambio, erano rilasciate con licenza MIT, e chi le ha ricevute mantiene quei termini.
+- **Le librerie incluse** mantengono le loro licenze open source (MIT, Apache-2.0, BSL-1.0, OFL-1.1); i testi sono in `THIRD_PARTY_LICENSES.md`.

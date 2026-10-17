@@ -1,4 +1,4 @@
-# Info orizzontale: novità a sinistra, resto a destra, link al repository, licenza MIT (IT/EN, anche stretto)
+# Info orizzontale: novità a sinistra, resto a destra, link al repository, licenza PolyForm (IT/EN, anche stretto)
 from playwright.sync_api import sync_playwright
 ok=True
 def check(name,cond):
@@ -23,7 +23,7 @@ with sync_playwright() as p:
             h1=pg.evaluate("document.querySelector('#dlg-info').getBoundingClientRect().height")
             check(tag+'aprendo Versioni precedenti la finestra non cambia altezza',abs(h0-h1)<1 and pg.evaluate("(()=>{const c=document.querySelector('.cl');return c.scrollHeight>c.clientHeight})()"))
         check(tag+'link al repository',r['href']=='https://github.com/Affoghiamoci/Filo')
-        check(tag+'testo MIT',('MIT' in r['txt']) and (('Codice' in r['txt'].title()) if lang=='it' else ('code' in r['txt'].lower())))
+        check(tag+'testo licenza',('PolyForm' in r['txt']) and (('Codice' in r['txt'].title()) if lang=='it' else ('code' in r['txt'].lower())))
         check(tag+'nessun errore',not errs)
         ctx.close()
     b.close()
