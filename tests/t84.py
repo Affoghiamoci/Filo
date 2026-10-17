@@ -25,6 +25,8 @@ with sync_playwright() as p:
         v1=pg.evaluate(VOL)
         exp=16000+(9*(1-3.141592653589793/4) if mode=='fillet' else 4.5)*20
         check(mode+': materiale aggiunto (volume %.1f, atteso %.1f)'%(v1,exp),abs(v1-exp)<1.5)
+        sz=pg.evaluate("forma.sizeOf(forma.objects[0])")
+        check(mode+': niente bordino che sporge dalle facce di testa (ingombro %s×%s×%s)'%(sz['w'],sz['d'],sz['h']),abs(sz['w']-40)<1e-3 and abs(sz['d']-20)<1e-3 and abs(sz['h']-30)<1e-3)
         check(mode+': sempre un solo pezzo',pg.evaluate("forma.objects.length")==1)
         pg.evaluate("forma.undo()");pg.wait_for_timeout(300)
         check(mode+': ⌘Z ripristina',abs(pg.evaluate(VOL)-16000)<1)

@@ -4109,6 +4109,46 @@ function pushOne(obj, faces, dist) {
       disp.set(k, d);
     }
   }
+  // Lato piatto e inclinato: ogni angolo scorre lungo lo spigolo dei piani vicini (sopra, sotto, fianchi), così quelli restano com'erano
+  // invece di essere trascinati lungo la normale del lato (che inclinerebbe il piano superiore e inferiore).
+  if (faces.length === 1 && !faces[0].curved) {
+    const f0 = faces[0], nf = f0.n, dF = nf.x * f0.world[0] + nf.y * f0.world[1] + nf.z * f0.world[2];
+    const axisAligned = [nf.x, nf.y, nf.z].some(c => Math.abs(Math.abs(c) - 1) < 1e-4);
+    if (!axisAligned) {
+      const pl = new Map(), at = new Map(), A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3(), nn = new THREE.Vector3();
+      for (let t = 0; t < arr.length / 9; t++) {
+        const o = t * 9;
+        A.set(arr[o], arr[o + 1], arr[o + 2]); B.set(arr[o + 3], arr[o + 4], arr[o + 5]); C.set(arr[o + 6], arr[o + 7], arr[o + 8]);
+        nn.subVectors(B, A).cross(C.clone().sub(A)); const l = nn.length(); if (l < 1e-9) continue; nn.divideScalar(l);
+        const dd = nn.dot(A);
+        if (nn.dot(nf) > 0.9999 && Math.abs(dd - dF) < 1e-3) continue;           // il lato stesso
+        for (let j = 0; j < 3; j++) {
+          const k = key(arr[o + j * 3], arr[o + j * 3 + 1], arr[o + j * 3 + 2]);
+          if (!disp.has(k)) continue;
+          at.set(k, [arr[o + j * 3], arr[o + j * 3 + 1], arr[o + j * 3 + 2]]);
+          const L = pl.get(k) || []; pl.set(k, L);
+          if (!L.some(p => p.n.dot(nn) > 0.9999 && Math.abs(p.d - dd) < 1e-3)) L.push({ n: nn.clone(), d: dd });
+        }
+      }
+      for (const [k, L] of pl) {
+        const v = at.get(k); let res = null;
+        if (L.length === 2) {
+          const m = new THREE.Matrix3().set(nf.x, nf.y, nf.z, L[0].n.x, L[0].n.y, L[0].n.z, L[1].n.x, L[1].n.y, L[1].n.z);
+          if (Math.abs(m.determinant()) > 0.05) {
+            const x = new THREE.Vector3(dF + dist, L[0].d, L[1].d).applyMatrix3(m.invert());
+            res = [x.x - v[0], x.y - v[1], x.z - v[2]];
+          }
+        } else if (L.length === 1) {
+          const u = new THREE.Vector3().crossVectors(nf, L[0].n);
+          if (u.length() > 0.05) {
+            const w = new THREE.Vector3().crossVectors(L[0].n, u).normalize(), den = w.dot(nf);
+            if (Math.abs(den) > 0.1) { const t = dist / den; res = [w.x * t, w.y * t, w.z * t]; }
+          }
+        }
+        if (res && Math.hypot(res[0], res[1], res[2]) <= 8 * Math.abs(dist) + 1e-6) disp.set(k, res);
+      }
+    }
+  }
   let moved = 0;
   for (let i = 0; i < arr.length; i += 3) {
     const d = disp.get(key(arr[i], arr[i + 1], arr[i + 2]));

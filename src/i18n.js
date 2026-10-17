@@ -290,6 +290,7 @@ const EN = {
   'Combina, Interseca e Stampo: il pulsante ricorda l\'ultimo scelto': 'Combine, Intersect and Mold: the button remembers the last one used',
   'La calamita si spegne con ⌘+⌥ insieme, così resta attiva anche negli spostamenti verticali': 'The magnet now switches off with ⌘+⌥ together, so it stays on for vertical moves',
   'Spigoli esterni e interni insieme: applica prima gli uni, poi gli altri': 'Outer and inner edges together: apply one kind first, then the other',
+  'Lato inclinato: si sposta lungo la sua direzione e il piano sopra e sotto restano orizzontali': 'Slanted side: it moves along its own direction, and the top and bottom planes stay level',
   'Spigoli interni dei pezzi combinati: si scelgono e si raccordano o smussano, aggiungendo materiale': 'Inner edges of combined pieces can be picked and filleted or chamfered, adding material',
   'Lo spigolo sotto il mouse è blu, quello scelto arancione': 'The edge under the mouse is blue, the selected one orange',
   'La scatola nasce cubo': 'The box starts as a cube',

@@ -126,7 +126,7 @@ export function cutter(chain, mode, size) {
     const cosT = Math.max(-1, Math.min(1, u1.dot(u2))), th = Math.acos(cosT);
     if (!(th > 0.3 && th < 3.0)) return null;
     const pend = (!closed && (i === 0 || i === n - 1));
-    const Ee = E.clone(); if (pend) Ee.addScaledVector(t, i === 0 ? -EPS : EPS);
+    const Ee = E.clone(); if (pend && !cc) Ee.addScaledVector(t, i === 0 ? -EPS : EPS);   // il riempitivo di uno spigolo interno finisce a filo con le facce di testa: se sporgesse resterebbe un bordino
     const den = Math.max(0.25, 1 + nA.dot(nB));
     const Eo = Ee.clone().addScaledVector(nA.clone().add(nB), sg * EPS / den);
     const poly = [Eo];
