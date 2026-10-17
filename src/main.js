@@ -9,7 +9,7 @@ import { mergeVertices, mergeGeometries, toCreasedNormals } from 'three/addons/u
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { unzipSync, zipSync, strToU8 } from 'three/addons/libs/fflate.module.js';
 import { Brush, Evaluator, ADDITION, SUBTRACTION, INTERSECTION } from 'three-bvh-csg';
-import { buildTopo, triangulateTopo, soupVolume, moveFace, extrudeFace, topoFaceFor, filletEdge, topoEdgeFor } from './topo.js';
+import { buildTopo, triangulateTopo, soupVolume, moveFace, extrudeFace, topoFaceFor, filletEdge, filletEdges, topoEdgeFor } from './topo.js';
 import { initManifold, manifoldEvaluate, manifoldCombine, manifoldStretch, manifoldHalf, manifoldMod, simplifyGeo, geoIsClosed } from './mcsg.js';
 import { ConvexHull } from 'three/addons/math/ConvexHull.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
@@ -5350,23 +5350,18 @@ $('#e-mv').addEventListener('keydown', e => { if (e.key === 'Enter') $('#e-mv-go
 
 function topoEdges(obj, chains, mode, size) {
   if (window.__noTopo || chains.some(c => c.closed)) return null;
-  let P = worldPositions(obj);
+  const P = worldPositions(obj);
   if (P.length / 9 > 60000) return null;
-  // gli spigoli scelti non devono toccarsi: dove si incontrano due raccordi serve il metodo di prima
-  const ends = chains.flatMap(c => [c.pts[0], c.pts[c.pts.length - 1]]);
-  for (let i = 0; i < ends.length; i++) for (let j = i + 1; j < ends.length; j++) if ((i >> 1) !== (j >> 1) && ends[i].distanceTo(ends[j]) < 1e-3) return null;
+  let out = null;
   try {
-    for (const c of chains) {
-      const tp = buildTopo(P);
-      if (!tp.stats.closed || tp.stats.pinched) return null;
-      const eid = topoEdgeFor(tp, c.pts);
-      if (eid < 0) return null;
-      const out = filletEdge(tp, eid, mode, size);
-      if (!out) return null;
-      P = out;
-    }
+    const tp = buildTopo(P);
+    if (!tp.stats.closed || tp.stats.pinched) return null;
+    const eids = chains.map(c => topoEdgeFor(tp, c.pts));
+    if (eids.some(e => e < 0)) return null;
+    out = filletEdges(tp, eids, mode, size);       // tutti insieme: dove tre spigoli si incontrano nasce l'angolo a pallina
   } catch (e) { return null; }
-  const baked = bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(P) }, obj.userData.name);
+  if (!out) return null;
+  const baked = bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(out) }, obj.userData.name);
   if (!baked || isFlat(baked) || geoIsClosed(baked.geo) === false) return null;
   if (window.__topoLog) window.__topoLog.push('edge-' + mode);
   return baked;
