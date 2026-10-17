@@ -1,16 +1,16 @@
 <div align="center">
 
-<img src="docs/img/banner.png" alt="Filo, a tiny 3D modeler for things you're going to print" width="100%">
+<img src="docs/img/banner.png" alt="Filo, 3D modeling for designers who print" width="100%">
 
 <br>
 
-**A small 3D modeler for the things you actually print: boxes, holders, hooks, brackets.**<br>
-One HTML file. No install, no account, works offline.
+**3D modeling for designers who print: holders, boxes, hooks, brackets.**<br>
+Shortcuts that feel like the Adobe suite. Free, right in your browser.
 
 [**Open Filo → filo.affogo.fyi**](https://filo.affogo.fyi)
 
 ![version](https://img.shields.io/badge/version-0.10.7_beta-ff6a00?style=flat-square)
-![offline](https://img.shields.io/badge/works-offline-1a1a1a?style=flat-square)
+![free](https://img.shields.io/badge/free-1a1a1a?style=flat-square)
 ![license](https://img.shields.io/badge/license-MIT-1a1a1a?style=flat-square)
 ![formats](https://img.shields.io/badge/3MF_·_STL_·_SVG-1a1a1a?style=flat-square)
 
@@ -27,12 +27,12 @@ One HTML file. No install, no account, works offline.
 
 ## Why Filo
 
-I wanted something between "drag a few boxes around" and a full CAD package. Most of what I print is simple: a holder, a lid, a clip, a bracket. Filo is built for that. You push shapes together, cut holes, round the edges, check the print and send it to the slicer.
+Filo is made for people who come from graphic design and want to print things without learning a full CAD package. If you've used Photoshop, Illustrator or similar tools, the keys will feel familiar: `V` to move, `T` for text, `R` to rotate, marquee and lasso on `Q` and `W`, layers, groups, history. Most of what gets printed is simple (a holder, a lid, a clip, a bracket), so Filo keeps to that: push shapes together, cut holes, round the edges, check the print and send it to the slicer.
 
-- **One file.** Open `index.html` and that's it. Models never leave your device.
+- **Open the site and start.** No account, nothing to install. Models stay on your device.
+- **Familiar to designers.** Adobe-style shortcuts, layers, groups, history, light and dark theme.
 - **Made for printing.** Bambu Lab plates, a print check, and a 3MF export that opens ready in Bambu Studio.
 - **Always-closed solids.** Booleans run on Manifold, so combined parts come out watertight.
-- **Photoshop-style shortcuts.** One key per tool, shown next to each tool in the sidebar.
 
 <p align="center">
   <img src="docs/img/hero.png" alt="Filo main window with an orange box with three round holes and a slot" width="100%">
@@ -108,8 +108,8 @@ Everything else is in the in-app Guide.
 
 ## Use it
 
-- **Online:** [filo.affogo.fyi](https://filo.affogo.fyi)
-- **Offline:** download `index.html` from this repo and open it in your browser. No server, no connection needed.
+- **Online (recommended):** [filo.affogo.fyi](https://filo.affogo.fyi). Always the latest version.
+- **Offline (optional):** Filo is a single file, so you can also download `index.html` from this repo and open it in your browser. No server or connection needed.
 
 ## Build from source
 
