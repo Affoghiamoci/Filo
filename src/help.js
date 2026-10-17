@@ -89,7 +89,7 @@ export const HELP = {
       <p>${K('Q')} Riquadro e ${K('W')} Lazo selezionano trascinando. Prendono tutto ciò che sta nell'area, anche i pezzi coperti da altri oggetti.</p>
       {{img:lazo|Lazo: disegni una linea libera attorno agli oggetti}}
       <ul><li>${K('⇧')} aggiunge alla selezione; ${K('⌘')} la toglie.</li><li>Un clic nel vuoto deseleziona.</li></ul>
-      <div class="tip">Nella barra a sinistra gli strumenti con il triangolino nell'angolo hanno una seconda funzione (Riquadro e Lazo, Taglia e Allunga, Combina e Interseca). Per aprirla tieni premuto, fai clic destro o clicca il triangolino. Il pulsante ricorda l'ultimo strumento scelto, tranne Combina che resta sempre Combina. Le scorciatoie funzionano sempre in modo diretto.</div>` },
+      <div class="tip">Nella barra a sinistra gli strumenti con il triangolino nell'angolo hanno una seconda funzione (Riquadro e Lazo, Taglia e Allunga, Combina, Interseca e Stampo). Per aprirla tieni premuto, fai clic destro o clicca il triangolino. Il pulsante ricorda l'ultimo strumento scelto, tranne Combina che resta sempre Combina. Le scorciatoie funzionano sempre in modo diretto.</div>` },
     { id: 'groups', g: 'select', t: 'Gruppi, livelli e cronologia', h: `
       <h3>Gruppi</h3>
       <p>${K('⌘G')} unisce più oggetti perché si muovano, ruotino e ridimensionino insieme; ${K('⇧⌘G')} li separa. Un gruppo non cambia la forma: gli oggetti restano separati. Per fonderli in uno solo usa Combina.</p>
@@ -102,7 +102,7 @@ export const HELP = {
       <p>Con due o più oggetti selezionati, clicca quello che vuoi come <b>chiave</b>: gli altri si allineano a lui (vedi <i>Allinea e distribuisci</i>). Un altro clic sullo stesso oggetto toglie la chiave.</p>` },
     { id: 'ctx', g: 'select', t: 'Menu del tasto destro', h: `
       <p>Fai clic destro, senza trascinare, su un oggetto o sul vuoto: compare un menu corto con le azioni più usate, ognuna con la sua scorciatoia. Trascinando con il destro la scena continua a ruotare.</p>
-      <ul><li><b>Su un oggetto</b>: Duplica, Copia, Trasforma in foro o in solido, Appoggia sul piatto, Blocca, Nascondi, Elimina. Se l'oggetto non era selezionato, si seleziona.</li><li><b>Con più oggetti selezionati</b>: in più Combina, Interseca e Raggruppa (o Separa gruppo).</li><li><b>Su un oggetto bloccato</b>: Sblocca (e Sblocca tutto, se ce n'è più di uno). Il menu compare cliccando dove c'è solo un oggetto bloccato.</li><li><b>Sul vuoto</b>: Incolla, Seleziona tutto, Inquadra tutto, Raggi X e Misure, più Sblocca tutto se hai oggetti bloccati.</li></ul>
+      <ul><li><b>Su un oggetto</b>: Duplica, Copia, Trasforma in foro o in solido, Appoggia sul piatto, Blocca, Nascondi, Elimina. Se l'oggetto non era selezionato, si seleziona.</li><li><b>Con più oggetti selezionati</b>: in più Combina, Interseca, Stampo e Raggruppa (o Separa gruppo).</li><li><b>Su un oggetto bloccato</b>: Sblocca (e Sblocca tutto, se ce n'è più di uno). Il menu compare cliccando dove c'è solo un oggetto bloccato.</li><li><b>Sul vuoto</b>: Incolla, Seleziona tutto, Inquadra tutto, Raggi X e Misure, più Sblocca tutto se hai oggetti bloccati.</li></ul>
       <div class="tip">Blocca e Nascondi tolgono l'oggetto dalla selezione: per riprenderlo apri i <b>Livelli</b> (${K('F7')}), fai tasto destro sull'oggetto e scegli Sblocca, oppure premi ${K('⌘Z')}: Annulla riporta indietro anche Blocca e Nascondi. Esc chiude il menu, le frecce su e giù scorrono le voci e Invio sceglie.</div>` },
     { id: 'align', g: 'transform', t: 'Allinea e distribuisci', h: `
       <p>Con più oggetti selezionati, il pannello a destra mostra Allinea su X, Y e Z (inizio, centro, fine). Si allinea alla selezione, oppure all'oggetto <b>chiave</b> se ne hai cliccato uno.</p>
@@ -147,7 +147,7 @@ export const HELP = {
       <p>${K('K')}: scegli un asse e la posizione del piano, poi premi Taglia. Ottieni due oggetti separati.</p>
       {{img:taglia-fine|Le due metà dopo il taglio}}
       <ul><li>Trascina il piano, scrivi la posizione o clicca sull'oggetto.</li><li>Sui modelli grandi compare una barra di avanzamento.</li></ul>` },
-    { id: 'solids', g: 'solids', t: 'Fori, Combina e Interseca', h: `
+    { id: 'solids', g: 'solids', t: 'Fori, Combina, Interseca e Stampo', h: `
       <p>${K('X')} trasforma l'oggetto selezionato in <b>foro</b> (arancione trasparente), e viceversa. Un foro non si stampa: serve per scavare.</p>
       {{img:foro|Un cilindro-foro dentro una scatola}}
       <h3>Esempio: scatola con un foro passante da 8 mm</h3>
@@ -158,6 +158,8 @@ export const HELP = {
       <ul><li>Il foro scava solo dove si sovrappone ai solidi selezionati con lui. Se non scava, controlla che il foro tocchi davvero il solido e che li abbia selezionati entrambi.</li><li>Se il foro copre tutto, compare l'avviso <i>Il risultato è vuoto</i> e non cambia nulla.</li><li>Dopo Combina il pezzo non è più una forma con misure semplici (non ha più "Angoli e bordi" nel pannello), ma si modifica con Lato, Spigolo, Taglia e Allunga.</li></ul>
       <h3>Interseca</h3>
       <p>${K('⇧⌘E')}: tiene solo la parte in comune tra i solidi selezionati (servono almeno due solidi). I fori, se ci sono, scavano il risultato. Se gli oggetti non si toccano compare un avviso e non cambia nulla. Utile per ricavare forme particolari, come una scatola arrotondata da una scatola e una sfera.</p>
+      <h3>Stampo</h3>
+      <p>Ricava il <b>negativo</b> di una forma. Metti un blocco che copra giusto lo spazio vuoto (per esempio la fuga di un incastro), seleziona prima il blocco e poi, con ${K('⇧')} + clic, gli oggetti attorno. Premi Stampo (nel menu di Combina, o tasto destro): dal blocco viene tolto tutto il resto e resta solo il vuoto, cioè un pezzo con la forma della fuga. Gli altri oggetti restano dove sono, così puoi spostare lo stampo e riusarlo altrove. Il primo oggetto selezionato deve essere un solido.</p>
       <div class="tip">Con tanti fori Combina può metterci qualche secondo e compare una barra di caricamento. Se lo sbagli, ${K('⌘Z')} torna indietro.</div>` },
     { id: 'repeat', g: 'solids', t: 'Ripeti', h: `
       {{img:ripeti|Griglia a nido d'ape di prismi esagonali}}

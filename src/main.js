@@ -754,7 +754,7 @@ function describeChange(prev, cur) {
   if (!prev) return 'Inizio';
   const P = new Map(prev.list.map(d => [d.id, d])), C = new Map(cur.list.map(d => [d.id, d]));
   const added = cur.list.filter(d => !P.has(d.id)), removed = prev.list.filter(d => !C.has(d.id));
-  if (added.length && removed.length) return removed.length > 1 ? `${opHint || 'Combinati'} ${removed.length} oggetti` : 'Lato modificato';
+  if (added.length && removed.length) return opHint === 'Stampo' ? 'Stampo ricavato' : removed.length > 1 ? `${opHint || 'Combinati'} ${removed.length} oggetti` : 'Lato modificato';
   if (added.length) return added.length === 1 ? `Aggiunto: ${added[0].name}` : `Aggiunti ${added.length} oggetti`;
   if (removed.length) return removed.length === 1 ? `Eliminato: ${removed[0].name}` : `Eliminati ${removed.length} oggetti`;
   const near = (a, b) => a.length === b.length && a.every((v, i) => Math.abs(v - b[i]) < 1e-6);
@@ -971,6 +971,32 @@ async function combine(mode = 'union') {
   return heavy ? busyRun(mode === 'intersect' ? 'Interseco gli oggetti…' : 'Combino gli oggetti…', run) : run();
 }
 const intersect = () => combine('intersect');
+/* Stampo: dal primo oggetto selezionato (il blocco) toglie tutti gli altri. Resta solo il vuoto che gli altri lasciavano dentro il blocco,
+   cioè la forma da incastrare o riusare altrove. Gli altri oggetti restano com'erano, il blocco viene sostituito dal risultato. */
+async function mold() {
+  const heavy = selection.length > 12 || trisOf(selection) > 20000;
+  return heavy ? busyRun('Ricavo lo stampo…', moldNow) : moldNow();
+}
+function moldNow() {
+  if (selection.length < 2) return toast('Seleziona il blocco, poi (⇧ + clic) gli oggetti da cui ricavare lo stampo');
+  const block = selection[0], others = selection.slice(1);
+  if (block.userData.hole) return toast('Il primo oggetto selezionato è un foro: serve un solido, il blocco da cui togliere gli altri');
+  if (heavyGuard(selection)) return;
+  const bb = new THREE.Box3().setFromObject(block);
+  if (!others.some(o => bb.intersectsBox(new THREE.Box3().setFromObject(o)))) return toast('Gli altri oggetti non toccano il blocco: non c’è niente da togliere');
+  const res = combineBrushes([block], others, 'union');
+  const name = `Stampo ${counters.mold = (counters.mold || 0) + 1}`;
+  const baked = bakeResult(res, name);
+  if (!baked) return toast('Gli altri oggetti coprono tutto il blocco: non resta nessun vuoto');
+  const bname = block.userData.name, n = others.length;
+  removeMesh(block);
+  const merged = addMerged(baked);
+  setSelection([merged]);
+  const pg0 = pieceGroups(baked.geo);
+  const parts = pg0 && pg0.parts.length > 1 ? separateSelection(true) : 0;
+  touch(); opHint = 'Stampo'; try { commit(); } finally { opHint = null; }
+  toast(parts > 1 ? `Stampo ricavato da «${bname}»: il risultato è in ${parts} pezzi separati` : `Stampo ricavato da «${bname}», togliendo ${n} ${n === 1 ? 'oggetto' : 'oggetti'}`);
+}
 function combineNow(mode = 'union') {
   const isect = mode === 'intersect';
   const solids = selection.filter(m => !m.userData.hole);
@@ -2599,6 +2625,7 @@ const I = {
   hole: '<circle cx="12" cy="12" r="7.5" stroke-dasharray="3 3"/>',
   combine: '<rect x="3.5" y="3.5" width="11" height="11" rx="2.5"/><rect x="9.5" y="9.5" width="11" height="11" rx="2.5"/>',
   intersect: '<rect x="3.5" y="3.5" width="11" height="11" rx="2.5"/><rect x="9.5" y="9.5" width="11" height="11" rx="2.5"/><path d="M12 9.5H14.5V12A2.5 2.5 0 0 1 12 14.5H9.5V12A2.5 2.5 0 0 1 12 9.5Z" fill="currentColor" stroke="none"/>',
+  mold: '<path d="M3.5 6A2.5 2.5 0 0 1 6 3.5H18A2.5 2.5 0 0 1 20.5 6V9.5H12A2.5 2.5 0 0 0 9.5 12V20.5H6A2.5 2.5 0 0 1 3.5 18Z"/><rect x="9.5" y="9.5" width="11" height="11" rx="2.5" stroke-dasharray="2.5 2.5"/>',
   group: '<path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"/><rect x="8" y="8" width="8" height="8" rx="1.5"/>',
   dup: '<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8"/>',
   trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12h10l1-12M9 7V4h6v3"/>',
@@ -2637,6 +2664,7 @@ const TOOLS = [
     { icon: 'hole', name: 'Foro / Solido', key: 'X', desc: 'Trasforma in foro per scavare', run: toggleHole },
     { id: 'combine', grp: 'comb', icon: 'combine', name: 'Combina', key: '⌘E', desc: 'Unisce i solidi, sottrae i fori', run: () => combine() },
     { id: 'intersect', grp: 'comb', icon: 'intersect', name: 'Interseca', key: '⇧⌘E', desc: 'Tiene solo la parte in comune tra i solidi', run: () => intersect() },
+    { id: 'mold', grp: 'comb', icon: 'mold', name: 'Stampo', key: '', desc: 'Dal primo oggetto selezionato toglie tutti gli altri: resta solo il vuoto', run: () => mold() },
     { icon: 'group', name: 'Raggruppa', key: '⌘G', desc: 'Muove più oggetti come uno', run: groupSelection },
     { icon: 'dup', name: 'Duplica', key: '⌘D', desc: 'Copia l’oggetto selezionato', run: () => duplicateSelection(true) },
     { icon: 'trash', name: 'Elimina', key: '⌫', desc: 'Rimuove la selezione', run: deleteSelection },
@@ -2647,11 +2675,11 @@ const TOOLS = [
 ];
 const toolEls = {};
 /* Strumenti in seconda funzione (come Photoshop): un solo pulsante in barra, le varianti si aprono di lato.
-   sticky = il pulsante mostra l'ultima variante usata; Combina/Interseca no, il pulsante resta sempre Combina. */
+   sticky = il pulsante mostra l'ultima variante usata; Combina/Interseca/Stampo no, il pulsante resta sempre Combina. */
 const TGROUPS = {
   sel: { items: ['marquee', 'lasso'], sticky: true },
   plane: { items: ['cut', 'stretch'], sticky: true },
-  comb: { items: ['combine', 'intersect'], sticky: false },
+  comb: { items: ['combine', 'intersect', 'mold'], sticky: false },
 };
 const TOOL_AT = {};                                             // id → [sezione, posizione] dentro TOOLS
 TOOLS.forEach(([, items], si) => items.forEach((t, ii) => { if (t.id) TOOL_AT[t.id] = [si, ii]; }));
@@ -2860,7 +2888,7 @@ function ctxObjectItems() {
     'sep',
     { t: S.every(m => m.userData.hole) ? 'Trasforma in solido' : 'Trasforma in foro', k: 'X', f: toggleHole },
   ];
-  if (multi) items.push({ t: 'Combina', k: '⌘E', f: () => combine() }, { t: 'Interseca', k: '⇧⌘E', f: () => intersect() });
+  if (multi) items.push({ t: 'Combina', k: '⌘E', f: () => combine() }, { t: 'Interseca', k: '⇧⌘E', f: () => intersect() }, { t: 'Stampo', f: () => mold() });
   if (grouped) items.push({ t: 'Separa gruppo', k: '⇧⌘G', f: ungroupSelection });
   else if (multi) items.push({ t: 'Raggruppa', k: '⌘G', f: groupSelection });
   items.push('sep', { t: 'Appoggia sul piatto', f: () => layOnPlate() }, { t: 'Blocca', f: () => flagSelection('locked') }, { t: 'Nascondi', f: () => flagSelection('hidden') },
@@ -5205,7 +5233,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '0.10.7';
+const APP_VERSION = '0.10.8';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
@@ -5797,7 +5825,7 @@ $('#ew-resume').addEventListener('click', async e => {
 });
 offerResume(); rsOn = true;
 
-window.forma = { get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */

@@ -19,7 +19,7 @@ with sync_playwright() as p:
     pg.keyboard.press('q');pg.wait_for_timeout(100);check('Q resta diretto',pg.evaluate('forma.state.tool')=='marquee' and G('sel')[0]=='Riquadro')
     pg.keyboard.press('u');pg.wait_for_timeout(100);check('U attiva Allunga e il gruppo lo mostra',pg.evaluate('forma.state.tool')=='stretch' and G('plane')==['Allunga',True])
     pg.locator('#tools .grp[data-g=comb]').click(button='right');pg.wait_for_timeout(200)
-    check('clic destro: Combina e Interseca',fly()==['Combina','Interseca'])
+    check('clic destro: Combina, Interseca e Stampo',fly()==['Combina','Interseca','Stampo'])
     pg.keyboard.press('Escape');pg.wait_for_timeout(100);check('Esc chiude il menu',fly() is None)
     pg.locator('#tools .grp[data-g=comb]').click(button='right');pg.mouse.click(1360,300);pg.wait_for_timeout(100);check('clic fuori chiude',fly() is None)
     check('Combina resta sempre Combina',G('comb')[0]=='Combina')
