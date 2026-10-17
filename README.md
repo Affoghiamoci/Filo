@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="docs/img/banner.png" alt="Filo, 3D modeling for designers who print" width="100%">
+<img src="docs/img/banner.png" alt="Filo, a tiny 3D modeler for things you're going to print" width="100%">
 
 <br>
 
-**3D modeling for designers who print: holders, boxes, hooks, brackets.**<br>
+**A tiny 3D modeler for things you're going to print: holders, boxes, hooks, brackets.**<br>
 Shortcuts that feel like the Adobe suite. Free, right in your browser.
 
 [**Open Filo → filo.affogo.fyi**](https://filo.affogo.fyi)
