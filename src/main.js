@@ -1539,6 +1539,10 @@ function pickObject(e) {
   const hit = raycaster.intersectObjects(objects.filter(o => o.visible && !o.userData.locked), false)[0];
   return hit ? hit.object : null;
 }
+function pickLocked(e) {                         // oggetto bloccato sotto il puntatore (solo per il menu del tasto destro)
+  setRay(e);
+  return raycaster.intersectObjects(objects.filter(o => o.visible && o.userData.locked), false)[0]?.object ?? null;
+}
 function pickHit(e) {
   setRay(e);
   return raycaster.intersectObjects(objects.filter(o => o.visible && !o.userData.locked), false)[0] ?? null;
@@ -2836,8 +2840,17 @@ function flagSelection(key) {                        // blocca o nasconde la sel
   list.forEach(o => { o.userData[key] = true; o.visible = !o.userData.hidden; });
   setSelection([]);
   touch(); dirty = true; commit();
-  toast(key === 'locked' ? 'Bloccato: lo sblocchi dai Livelli (F7)' : 'Nascosto: lo ritrovi nei Livelli (F7)');
+  toast(key === 'locked' ? 'Bloccato: lo sblocchi dai Livelli (F7) o con il tasto destro' : 'Nascosto: lo ritrovi nei Livelli (F7)');
 }
+function unlockObjects(list) {                   // sblocca e seleziona; come Blocca, il passaggio entra nella cronologia
+  list = list.filter(o => o.userData.locked);
+  if (!list.length) return;
+  list.forEach(o => { o.userData.locked = false; });
+  setSelection(list.filter(o => o.visible));
+  touch(); dirty = true; commit();
+  toast(list.length > 1 ? 'Sbloccati' : 'Sbloccato');
+}
+const ctxLockedItems = o => [{ t: 'Sblocca', f: () => unlockObjects(withGroups([o])) }, ...(objects.filter(m => m.userData.locked).length > 1 ? [{ t: 'Sblocca tutto', f: () => unlockObjects(objects.slice()) }] : [])];
 function ctxObjectItems() {
   const S = selection, multi = S.length > 1, grouped = S.some(m => m.userData.gid != null);
   const items = [
@@ -2854,6 +2867,7 @@ function ctxObjectItems() {
   return items;
 }
 const ctxEmptyItems = () => [
+  ...(objects.some(o => o.userData.locked) ? [{ t: 'Sblocca tutto', f: () => unlockObjects(objects.slice()) }, 'sep'] : []),
   { t: 'Incolla', k: '⌘V', f: () => pasteClip(), off: !(clip && clip.length) },
   { t: 'Seleziona tutto', k: '⌘A', f: () => setSelection([...objects]), off: !objects.length },
   'sep',
@@ -2865,7 +2879,8 @@ function openCtx(e) {
   closeFlyout(); hideTip();
   const hit = pickObject(e);
   if (hit && !selection.includes(hit)) setSelection(withGroups([hit]));       // come un clic: se l'oggetto non è già selezionato, si seleziona
-  const items = hit && selection.length ? ctxObjectItems() : ctxEmptyItems();
+  const lk = hit ? null : pickLocked(e);          // solo oggetti bloccati sotto il puntatore: si offre Sblocca
+  const items = hit && selection.length ? ctxObjectItems() : lk ? ctxLockedItems(lk) : ctxEmptyItems();
   ctxActs = items.filter(i => i !== 'sep');
   let n = 0;
   ctxEl.classList.toggle('has-chk', items.some(i => i.chk));
