@@ -286,6 +286,8 @@ const EN = {
   'Seleziona almeno due oggetti, di cui un solido (⇧ + clic)': 'Select at least two objects, one of them solid (⇧ + click)',
   'Il risultato è vuoto: i fori coprono tutto': 'The result is empty: the holes cover everything',
   'Il risultato è vuoto': 'The result is empty',
+  'La calamita funziona anche con ⇧ premuto e con le maniglie di ridimensionamento': 'The magnet now also works with ⇧ held and with the resize handles',
+  'Combina, Interseca e Stampo: il pulsante ricorda l\'ultimo scelto': 'Combine, Intersect and Mold: the button remembers the last one used',
   'Stampo': 'Mold', 'Dal primo oggetto selezionato toglie tutti gli altri: resta solo il vuoto': 'Cuts every other object out of the first selected one: only the void is left', 'Ricavo lo stampo…': 'Making the mold…', 'Stampo ricavato': 'Mold made',
   'Seleziona il blocco, poi (⇧ + clic) gli oggetti da cui ricavare lo stampo': 'Select the block, then (⇧ + click) the objects to make the mold from',
   'Il primo oggetto selezionato è un foro: serve un solido, il blocco da cui togliere gli altri': 'The first selected object is a hole: it must be a solid, the block to cut the others out of',

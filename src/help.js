@@ -89,7 +89,7 @@ export const HELP = {
       <p>${K('Q')} Riquadro e ${K('W')} Lazo selezionano trascinando. Prendono tutto ciò che sta nell'area, anche i pezzi coperti da altri oggetti.</p>
       {{img:lazo|Lazo: disegni una linea libera attorno agli oggetti}}
       <ul><li>${K('⇧')} aggiunge alla selezione; ${K('⌘')} la toglie.</li><li>Un clic nel vuoto deseleziona.</li></ul>
-      <div class="tip">Nella barra a sinistra gli strumenti con il triangolino nell'angolo hanno una seconda funzione (Riquadro e Lazo, Taglia e Allunga, Combina, Interseca e Stampo). Per aprirla tieni premuto, fai clic destro o clicca il triangolino. Il pulsante ricorda l'ultimo strumento scelto, tranne Combina che resta sempre Combina. Le scorciatoie funzionano sempre in modo diretto.</div>` },
+      <div class="tip">Nella barra a sinistra gli strumenti con il triangolino nell'angolo hanno una seconda funzione (Riquadro e Lazo, Taglia e Allunga, Combina, Interseca e Stampo). Per aprirla tieni premuto, fai clic destro o clicca il triangolino. Il pulsante ricorda l'ultimo strumento scelto. Le scorciatoie funzionano sempre in modo diretto.</div>` },
     { id: 'groups', g: 'select', t: 'Gruppi, livelli e cronologia', h: `
       <h3>Gruppi</h3>
       <p>${K('⌘G')} unisce più oggetti perché si muovano, ruotino e ridimensionino insieme; ${K('⇧⌘G')} li separa. Un gruppo non cambia la forma: gli oggetti restano separati. Per fonderli in uno solo usa Combina.</p>
@@ -112,7 +112,7 @@ export const HELP = {
       <div class="tip">Con un solo oggetto, Allinea lavora sul piatto. I pulsanti che non servono sono attenuati e il tooltip spiega perché.</div>` },
     { id: 'snap', g: 'transform', t: 'Scatto e calamita', h: `
       <p>In basso, <b>Scatto</b> è di quanto si sposta un oggetto: da 0,1 a 10 mm, oppure <b>Libero</b> (nessun passo fisso).</p><p>Sono due aiuti diversi che lavorano insieme: lo <b>Scatto</b> fa muovere l'oggetto a passi fissi, la <b>Calamita</b> lo aggancia a angoli e lati degli altri oggetti.</p>
-      <p>La <b>Calamita</b> (pulsante accanto) aggancia angoli e lati agli altri oggetti, sia a contatto sia a filo, anche su modelli con molti fori. Funziona anche in verticale.</p>
+      <p>La <b>Calamita</b> (pulsante accanto) aggancia angoli e lati agli altri oggetti, sia a contatto sia a filo, anche su modelli con molti fori. Funziona anche in verticale, con ⇧ premuto (sull'asse in cui ti muovi) e con le maniglie di ridimensionamento: la faccia che trascini si aggancia ai lati degli altri oggetti. Tieni premuto ${K('⌘')} per spegnerla solo in quel trascinamento.</p>
       <p><b>Forza la rotella del mouse come zoom</b> (l'icona del mouse accanto alla calamita) fa zoomare sempre la rotella. Accendilo se il tuo mouse ruota la vista invece di zoomare; con il trackpad lascialo spento.</p>
       {{img:calamita|Un oggetto trascinato si aggancia a contatto con l'altro}}
       <ul><li>${K('⌘')} premuto mentre trascini spegne la calamita solo per quel movimento. Se invece lo tieni premuto già quando clicchi l'oggetto, lo sposti in verticale (vedi <i>Sposta e duplica</i>).</li><li>${K('⇧')} blocca un asse e spegne la calamita.</li><li>La calamita agisce anche sul trascinamento degli spigoli (vedi Spigolo).</li></ul>` },

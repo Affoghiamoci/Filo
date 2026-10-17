@@ -1721,8 +1721,9 @@ canvas.addEventListener('pointermove', e => {
     // ⇧ = blocca sull'asse X o Y (quello in cui ti sei mosso di più)
     if (e.shiftKey) { if (Math.abs(raw.x) >= Math.abs(raw.y)) dys = 0; else dxs = 0; }
     const mag = state.magnet && !e.metaKey && !e.ctrlKey;     // ⌘ premuto = calamita spenta solo per questo trascinamento
-    const sh = new THREE.Vector3(dxs, dys, 0), SI = e.shiftKey || !mag ? null : ensureSnap(drag, 'snap', drag.start);
-    const sv = SI ? snapVerts(SI, sh) : null, sn = SI && !sv ? snapFaces(SI, sh, 'xy') : null;
+    const free = e.shiftKey ? (Math.abs(raw.x) >= Math.abs(raw.y) ? 'x' : 'y') : null;   // con ⇧ la calamita lavora solo sull'asse in cui ti muovi
+    const sh = new THREE.Vector3(dxs, dys, 0), SI = !mag ? null : ensureSnap(drag, 'snap', drag.start);
+    const sv = SI ? snapVerts(SI, sh, free) : null, sn = SI && !sv ? snapFaces(SI, sh, 'xy', free) : null;
     if (sv) { dxs += sv.c.x; dys += sv.c.y; } else if (sn) { dxs += sn.c.x; dys += sn.c.y; }
     showSnap(sn, sh, e); if (sv || vtxMark.visible) showVertex(sv, e);
     drag.start.forEach((p0, m) => { m.position.set(p0.x + dxs, p0.y + dys, p0.z); m.updateMatrixWorld(true); });
@@ -1735,14 +1736,17 @@ canvas.addEventListener('pointermove', e => {
       const hd = drag.h, t = axisParam(hd.origin, hd.dir, raycaster.ray);
       if (t === null) return;
       const len0 = hd.s0[AXK[hd.axis]];
-      const newLen = Math.max(0.5, len0 * 0.03, snapV(len0 + (e.altKey ? 2 : 1) * hd.sign * (t - drag.t0)));
+      const hm = handleMagnet(hd, hd.dir, hd.origin.dot(hd.dir), t - drag.t0, e);
+      const dt = hm !== null ? hm : t - drag.t0;
+      const newLen = Math.max(0.5, len0 * 0.03, hm !== null ? len0 + (e.altKey ? 2 : 1) * hd.sign * dt : snapV(len0 + (e.altKey ? 2 : 1) * hd.sign * dt));
       scaleOriented(hd, newLen, sizeLock ? !e.shiftKey : e.shiftKey, e.altKey);
       return;
     }
     const t = axisParam(drag.h.origin, drag.h.axis, raycaster.ray);
     if (t === null) return;
     const { st, axis, sign, lo, hi } = drag.h;
-    const face = snapV((sign > 0 ? hi : lo) + (t - drag.t0));
+    const hb = sign > 0 ? hi : lo, hm = handleMagnet(drag.h, drag.h.axis, hb, t - drag.t0, e);
+    const face = hm !== null ? hb + hm : snapV(hb + (t - drag.t0));
     const delta = sign * (face - (sign > 0 ? hi : lo)), len0 = hi - lo;
     // ⇧ = proporzionale su tutti gli assi (con il lucchetto attivo fa l'inverso: libero), ⌥ = dal centro
     scaleSelAxis(st, axis, Math.max(0.5, len0 * 0.03, len0 + (e.altKey ? 2 : 1) * delta), sign > 0 ? lo : hi, sizeLock ? !e.shiftKey : e.shiftKey, e.altKey);
@@ -1789,7 +1793,7 @@ canvas.addEventListener('pointerup', e => {
       objects.forEach(styleObject); syncPanel(); dirty = true;
       if (keyObj) toast(`Oggetto chiave: ${keyObj.userData.name}`);
     }
-  } else if (d.mode === 'handle') { if (d.moved) commit(); else openHandlePopup(d.h, d.handle); }
+  } else if (d.mode === 'handle') { dragRead.style.display = 'none'; if (d.moved) commit(); else openHandlePopup(d.h, d.handle); }
   else if (d.emptyClick && !d.moved && !d.shift) setSelection([]);
 });
 /* selezione a riquadro e lazo */
@@ -1893,7 +1897,7 @@ function ensureSnap(d, key, map) {
   return (d[key] = { mov: mov.slice(0, 120), stat: stat.slice(0, 600), movC: movC.slice(0, 400), statC: statC.slice(0, 20000) });
 }
 // s = spostamento dall'inizio; mode 'xy' per i lati verticali, 'z' per quelli orizzontali. Restituisce la correzione.
-function snapFaces(info, s, mode) {
+function snapFaces(info, s, mode, lock) {
   const tol = Math.min(6, worldPerPixel() * 8), pad = tol + 0.05;
   let best = null;
   for (const M of info.mov) for (const S of info.stat) {
@@ -1902,6 +1906,7 @@ function snapFaces(info, s, mode) {
     const flush = dn > 0;
     const mask = mode === 'z' ? S.n.z * S.n.z : S.n.x * S.n.x + S.n.y * S.n.y;
     if (mask < 0.6 || (mode === 'z' && Math.abs(S.n.z) < 0.8)) continue;
+    if (lock && Math.abs(S.n[lock]) < 0.98) continue;        // movimento bloccato su un asse: contano solo i lati perpendicolari a quell'asse
     const g = ((flush ? M.d : -M.d) + S.n.dot(s)) - S.d;
     if (Math.abs(g) > tol || (best && Math.abs(g) >= Math.abs(best.g))) continue;
     let ok = true;
@@ -1958,19 +1963,21 @@ function worldCorners(m) {
   if (out.length > 4000) { const step = out.length / 4000, r = []; for (let i = 0; i < 4000; i++) r.push(out[Math.floor(i * step)]); return r; }
   return out;
 }
-function snapVerts(info, s) {
+function snapVerts(info, s, lock) {
   const tol = Math.min(8, worldPerPixel() * 10);
   if (!info.box) {                                            // ingombro in pianta dei punti che si muovono: scarta subito i punti lontani
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const a of info.movC) { x0 = Math.min(x0, a.x); y0 = Math.min(y0, a.y); x1 = Math.max(x1, a.x); y1 = Math.max(y1, a.y); }
     info.box = [x0, y0, x1, y1];
   }
-  const [x0, y0, x1, y1] = info.box, lx = x0 + s.x - tol, hx = x1 + s.x + tol, ly = y0 + s.y - tol, hy = y1 + s.y + tol;
+  const [x0, y0, x1, y1] = info.box, ex = lock === 'y' ? tol * 2 : tol, ey = lock === 'x' ? tol * 2 : tol, lx = x0 + s.x - ex, hx = x1 + s.x + ex, ly = y0 + s.y - ey, hy = y1 + s.y + ey;
   let best = null, bd = tol;
   for (const b of info.statC) {
     if (b.x < lx || b.x > hx || b.y < ly || b.y > hy) continue;
     for (const a of info.movC) {
-      const dx = b.x - (a.x + s.x), dy = b.y - (a.y + s.y), d = Math.hypot(dx, dy) + Math.abs(b.z - a.z) * 0.15;
+      let dx = b.x - (a.x + s.x), dy = b.y - (a.y + s.y);
+      if (lock) { const perp = lock === 'x' ? dy : dx; if (Math.abs(perp) > tol * 2) continue; if (lock === 'x') dy = 0; else dx = 0; }   // con ⇧ si corregge solo lungo l'asse libero
+      const d = Math.hypot(dx, dy) + Math.abs(b.z - a.z) * 0.15;
       if (d < bd) { bd = d; best = { c: new THREE.Vector3(dx, dy, 0), at: b }; }
     }
   }
@@ -2662,9 +2669,9 @@ const TOOLS = [
   ]],
   ['Modifica', [
     { icon: 'hole', name: 'Foro / Solido', key: 'X', desc: 'Trasforma in foro per scavare', run: toggleHole },
-    { id: 'combine', grp: 'comb', icon: 'combine', name: 'Combina', key: '⌘E', desc: 'Unisce i solidi, sottrae i fori', run: () => combine() },
-    { id: 'intersect', grp: 'comb', icon: 'intersect', name: 'Interseca', key: '⇧⌘E', desc: 'Tiene solo la parte in comune tra i solidi', run: () => intersect() },
-    { id: 'mold', grp: 'comb', icon: 'mold', name: 'Stampo', key: '', desc: 'Dal primo oggetto selezionato toglie tutti gli altri: resta solo il vuoto', run: () => mold() },
+    { id: 'combine', grp: 'comb', icon: 'combine', name: 'Combina', key: '⌘E', desc: 'Unisce i solidi, sottrae i fori', run: () => { showMember('combine'); combine(); } },
+    { id: 'intersect', grp: 'comb', icon: 'intersect', name: 'Interseca', key: '⇧⌘E', desc: 'Tiene solo la parte in comune tra i solidi', run: () => { showMember('intersect'); intersect(); } },
+    { id: 'mold', grp: 'comb', icon: 'mold', name: 'Stampo', key: '', desc: 'Dal primo oggetto selezionato toglie tutti gli altri: resta solo il vuoto', run: () => { showMember('mold'); mold(); } },
     { icon: 'group', name: 'Raggruppa', key: '⌘G', desc: 'Muove più oggetti come uno', run: groupSelection },
     { icon: 'dup', name: 'Duplica', key: '⌘D', desc: 'Copia l’oggetto selezionato', run: () => duplicateSelection(true) },
     { icon: 'trash', name: 'Elimina', key: '⌫', desc: 'Rimuove la selezione', run: deleteSelection },
@@ -2675,11 +2682,11 @@ const TOOLS = [
 ];
 const toolEls = {};
 /* Strumenti in seconda funzione (come Photoshop): un solo pulsante in barra, le varianti si aprono di lato.
-   sticky = il pulsante mostra l'ultima variante usata; Combina/Interseca/Stampo no, il pulsante resta sempre Combina. */
+   sticky = il pulsante mostra l'ultima variante usata (anche Combina, Interseca e Stampo). */
 const TGROUPS = {
   sel: { items: ['marquee', 'lasso'], sticky: true },
   plane: { items: ['cut', 'stretch'], sticky: true },
-  comb: { items: ['combine', 'intersect', 'mold'], sticky: false },
+  comb: { items: ['combine', 'intersect', 'mold'], sticky: true },
 };
 const TOOL_AT = {};                                             // id → [sezione, posizione] dentro TOOLS
 TOOLS.forEach(([, items], si) => items.forEach((t, ii) => { if (t.id) TOOL_AT[t.id] = [si, ii]; }));
@@ -4101,6 +4108,32 @@ function pushOne(obj, faces, dist) {
   if (isFlat(baked)) return { err: FLAT_MSG };
   return { mesh: replaceWithMerged(obj, baked, true) };
 }
+/* calamita per le maniglie di ridimensionamento: la faccia trascinata si aggancia ai lati paralleli degli altri oggetti (contatto o a filo).
+   dir = asse ('x'|'y'|'z') o vettore; base = posizione attuale della faccia lungo dir; delta = spostamento del mouse. Restituisce lo spostamento corretto, o null. */
+function handlePlanes(dir) {
+  const set = new Map(), D = typeof dir === 'string' ? new THREE.Vector3(dir === 'x' ? 1 : 0, dir === 'y' ? 1 : 0, dir === 'z' ? 1 : 0) : dir;
+  for (const m of objects) {
+    if (!m.visible || selection.includes(m)) continue;
+    for (const g of worldPlanes(m)) {
+      const dn = g.n.dot(D);
+      if (Math.abs(dn) < 0.9999) continue;
+      const c = g.d / dn;
+      set.set(Math.round(c * 50), c);
+    }
+  }
+  return [...set.values()];
+}
+function handleMagnet(h, dir, base, delta, e) {
+  if (!state.magnet || e.metaKey || e.ctrlKey) { if (guide.visible || dragRead.style.display !== 'none') { dragRead.style.display = 'none'; dirty = true; } return null; }
+  if (!h.planes) h.planes = handlePlanes(dir);
+  const tol = Math.min(6, worldPerPixel() * 8), pos = base + delta;
+  let best = null;
+  for (const c of h.planes) if (Math.abs(c - pos) < tol && (best === null || Math.abs(c - pos) < Math.abs(best - pos))) best = c;
+  if (best === null) { if (dragRead.style.display !== 'none') { dragRead.style.display = 'none'; dirty = true; } return null; }
+  dragRead.style.display = 'block'; dragRead.style.left = e.clientX + 18 + 'px'; dragRead.style.top = e.clientY - 12 + 'px';
+  dragRead.textContent = tr('a contatto'); dirty = true;
+  return best - base;
+}
 /* maniglia del lato: trascina lungo la normale, con calamita sui piani vicini */
 const faceHandle = (() => {
   const mat = new THREE.SpriteMaterial({ map: handleTexture('#ff6a00'), sizeAttenuation: false, depthTest: false, depthWrite: false, transparent: true });
@@ -5233,7 +5266,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '0.10.8';
+const APP_VERSION = '0.10.9';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
