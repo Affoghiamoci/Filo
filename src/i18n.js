@@ -200,6 +200,8 @@ const EN = {
   'Importa un file 3MF o STL (⌘O)': 'Import a 3MF or STL file (⌘O)',
   'Valore negativo per accorciare. Invio per applicare': 'Negative to shorten. Press Enter to apply',
   'allunga di': 'extend by',
+  'sposta di': 'move by', 'estrudi di': 'extrude by', 'scala': 'scale', 'Anello': 'Ring',
+  'Doppio clic su una maniglia: compare un campo per scrivere la misura (Sposta, Lato e Spigolo, tutti uguali)': 'Double-click a handle: a field appears to type the value (Move, Face and Edge all work the same)',
   'Inizia da una forma': 'Start from a shape',
   'Scegli Scatola, Cilindro o Sfera a sinistra, oppure crea una scatolina con coperchio dai Modelli.': 'Pick Box, Cylinder or Sphere on the left, or create a box with lid from Templates.',
   'Corpo e coperchio vengono affiancati, pronti da stampare sul piatto.': 'Body and lid are placed side by side, ready to print on the plate.',

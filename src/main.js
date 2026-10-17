@@ -1513,29 +1513,36 @@ function offsetFace(hd, mm) {
   m.updateMatrixWorld(true);
   touch(); syncPanel(); updateHandles(); commit();
 }
-// clic su una maniglia: campo per allungare/accorciare di tot mm
+// doppio clic su una maniglia (di qualsiasi strumento): piccolo campo accanto alla maniglia per scrivere la misura
 let hpop = null;
 const hpopEl = $('#hpop'), hpopIn = $('#hpop-val');
-function openHandlePopup(hd, handle) {
-  hpop = hd;
-  const chip = $('#hpop-chip');
-  chip.textContent = hd.axis.toUpperCase() + (hd.sign > 0 ? '+' : '−');
-  chip.style.background = AXIS_COLOR[hd.axis];
-  hpopIn.value = '';
-  hpopIn.step = state.snap || 0.1;
+let lastHandleClick = { key: null, t: 0 };
+function handleDouble(key) {                                // true al secondo clic (senza trascinare) sulla stessa maniglia entro 450 ms
+  const now = performance.now(), dbl = lastHandleClick.key === key && now - lastHandleClick.t < 450;
+  lastHandleClick = dbl ? { key: null, t: 0 } : { key, t: now };
+  return dbl;
+}
+function openValuePopup({ chip, color, label, unit, step, at, apply }) {
+  hpop = { apply };
+  $('#hpop-chip').textContent = chip; $('#hpop-chip').style.background = color;
+  $('#hpop-lbl').textContent = label; $('#hpop-unit').textContent = unit;
+  hpopIn.value = ''; hpopIn.step = step;
   hpopEl.classList.remove('hidden');
-  const v = handle.position.clone().project(camera);
+  const v = at.clone().project(camera);
   const x = (v.x * 0.5 + 0.5) * window.innerWidth, y = (-v.y * 0.5 + 0.5) * window.innerHeight;
   hpopEl.style.left = clamp(x + 18, 8, window.innerWidth - 250) + 'px';
   hpopEl.style.top = clamp(y - 20, 8, window.innerHeight - 56) + 'px';
   hpopIn.focus();
 }
+function openHandlePopup(hd, handle) {
+  openValuePopup({ chip: hd.axis.toUpperCase() + (hd.sign > 0 ? '+' : '−'), color: AXIS_COLOR[hd.axis], label: 'allunga di', unit: 'mm', step: state.snap || 0.1, at: handle.position, apply: v => offsetFace(hd, v) });
+}
 function closeHandlePopup() { hpop = null; hpopEl.classList.add('hidden'); }
 hpopIn.addEventListener('keydown', e => {
   if (e.key === 'Enter') {
-    const v = parseFloat(hpopIn.value), hd = hpop;
+    const v = parseFloat(hpopIn.value), pp = hpop;
     closeHandlePopup(); canvas.focus();
-    if (hd && Number.isFinite(v) && v !== 0) offsetFace(hd, v);
+    if (pp && Number.isFinite(v) && v !== 0) pp.apply(v);
   } else if (e.key === 'Escape') { closeHandlePopup(); canvas.focus(); }
 });
 hpopIn.addEventListener('blur', () => setTimeout(closeHandlePopup, 120));
@@ -1809,17 +1816,30 @@ canvas.addEventListener('pointerup', e => {
   if (d.btn === 2 && d.mode === 'orbit' && !d.moved) { openCtx(e); return; }     // tasto destro senza trascinare: menu; trascinando si orbita come sempre
   if (d.mode === 'move') { vtxMark.visible = false; guide.visible = false; dragRead.style.display = 'none'; dirty = true; }
   if (d.mode === 'rotate') { rotEnd(); dragRead.style.display = 'none'; if (d.moved && d.rot.delta !== 0) commit(); return; }
-  if (d.mode === 'edgemove') { endEdgeMove(d.em, d.moved); return; }
+  if (d.mode === 'edgemove') {
+    endEdgeMove(d.em, d.moved);
+    if (!d.moved && handleDouble('edgemove') && moveHandle.visible) openValuePopup({ chip: 'Spigolo', color: '#ff6a00', label: 'sposta di', unit: 'mm', step: state.snap || 0.1, at: moveHandle.position, apply: v => { $('#e-mv').value = String(v); $('#e-mv-go').click(); } });
+    return;
+  }
   if (d.mode === 'cutmove') { dragRead.style.display = 'none'; canvas.style.cursor = 'grab'; return; }
   if (d.mode === 'edgescale') {
     dragRead.style.display = 'none'; ringPrev.visible = false;
-    if (d.moved && d.es.f !== 1) applyEdgeScale(d.es.f * 100); else updateEdgeHandle();
+    if (d.moved && d.es.f !== 1) applyEdgeScale(d.es.f * 100);
+    else {
+      updateEdgeHandle();
+      if (handleDouble('edgescale') && edgeHandle.visible) openValuePopup({ chip: 'Anello', color: '#ff6a00', label: 'scala', unit: '%', step: 5, at: edgeHandle.position, apply: v => applyEdgeScale(v) });
+    }
     return;
   }
   if (d.mode === 'facepush') {
     const dist = d.fd.dist;
     if (d.fd.fs.full && ['cylinder', 'cone'].includes(d.fd.fs.obj.userData.kind)) { d.fd.fs.obj.scale.set(1, 1, 1); selMeshes.forEach(m => { m.visible = true; }); }
-    if (d.moved && Math.abs(dist) > 1e-4) applyPush(dist); else { selMeshes.forEach(m => m.position.set(0, 0, 0)); updateFaceHandle(); TF.push.focus(); }
+    if (d.moved && Math.abs(dist) > 1e-4) applyPush(dist);
+    else {
+      selMeshes.forEach(m => m.position.set(0, 0, 0)); updateFaceHandle();
+      if (handleDouble('face')) openValuePopup({ chip: 'Lato', color: '#ff6a00', label: faceMode.v === 'extrude' ? 'estrudi di' : 'sposta di', unit: 'mm', step: state.snap || 0.1, at: faceHandle.position, apply: v => applyPush(v) });
+      else TF.push.focus();
+    }
     return;
   }
   if (d.mode === 'marquee') { mqFinish(d, e); return; }
@@ -1843,7 +1863,7 @@ canvas.addEventListener('pointerup', e => {
       objects.forEach(styleObject); syncPanel(); dirty = true;
       if (keyObj) toast(`Oggetto chiave: ${keyObj.userData.name}`);
     }
-  } else if (d.mode === 'handle') { dragRead.style.display = 'none'; if (d.moved) commit(); else openHandlePopup(d.h, d.handle); }
+  } else if (d.mode === 'handle') { dragRead.style.display = 'none'; if (d.moved) commit(); else if (handleDouble('h:' + d.h.axis + d.h.sign + (d.h.oriented ? 'o' : ''))) openHandlePopup(d.h, d.handle); }
   else if (d.emptyClick && !d.moved && !d.shift) setSelection([]);
 });
 /* selezione a riquadro e lazo */
@@ -2070,6 +2090,7 @@ function moveVertical(e) {
   touch(); syncPanel(); updateHandles();
 }
 canvas.addEventListener('dblclick', e => {
+  if (hpop) return;                                   // il doppio clic era su una maniglia: ha aperto il campo, la vista non deve muoversi (chiuderebbe il campo)
   const hit = pickObject(e);
   if (hit) animateTo({ target: worldBox(hit).getCenter(new THREE.Vector3()) });
 });

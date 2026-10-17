@@ -18,9 +18,11 @@ with sync_playwright() as p:
     pg.evaluate("forma.setTool('move')");pg.wait_for_timeout(200)
     pg.evaluate("forma.setSelection([forma.objects[0]])");pg.wait_for_timeout(300)
     h=pg.evaluate("(()=>{const h=forma.HANDLES.find(h=>h.userData.axis==='x'&&h.userData.sign===1);const v=h.position.clone().project(forma.camera);const r=forma.canvas.getBoundingClientRect();return [r.left+(v.x*.5+.5)*r.width,r.top+(-v.y*.5+.5)*r.height]})()")
-    pg.mouse.click(h[0],h[1]);pg.wait_for_timeout(300)
+    pg.mouse.click(h[0],h[1]);pg.wait_for_timeout(700)
+    check('un solo clic sulla maniglia non apre il campo',not pg.is_visible('#hpop-val'))
+    pg.mouse.dblclick(h[0],h[1]);pg.wait_for_timeout(300)
     vis=pg.is_visible('#hpop-val')
-    check('popup maniglia aperto',vis)
+    check('doppio clic: popup maniglia aperto',vis)
     if vis:
         pg.keyboard.type('5,5+4,5');pg.keyboard.press('Enter');pg.wait_for_timeout(300)
         check('maniglia: 5,5+4,5 → +10 (larghezza %s)'%S('w'),abs(S('w')-50)<1e-6)
