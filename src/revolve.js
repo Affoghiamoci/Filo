@@ -159,10 +159,25 @@ export function shellProfile(polys, t, b) {
   const outer = R.slice(0, wallEnd + 1);                       // asse in basso … angolo in alto fuori (a quota H)
   const N = vNormals(R);
   const zb = R[0][1] + b;
+  // parete interna: ogni tratto della parete spostato di t verso dentro, negli angoli l'incrocio dei due tratti (così lo spessore è t ovunque,
+  // anche sugli angoli vivi: con la sola normale media una parete dritta veniva t/√2 vicino agli spigoli)
+  const segN = i => {                                          // normale verso fuori del tratto R[i] → R[i+1]
+    const a = R[i], b = R[i + 1], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+    let n = [dy / l, -dx / l]; const m = [N[i][0] + N[i + 1][0], N[i][1] + N[i + 1][1]];
+    if (n[0] * m[0] + n[1] * m[1] < 0) n = [-n[0], -n[1]];
+    return n;
+  };
+  const segs = []; for (let i = wallStart; i < wallEnd; i++) if (Math.hypot(R[i + 1][0] - R[i][0], R[i + 1][1] - R[i][1]) > 1e-6) segs.push(i);
   const inner = [];
-  for (let i = wallEnd; i >= wallStart; i--) {
-    const p = R[i], n = N[i];
-    inner.push([p[0] - n[0] * t, p[1] - n[1] * t]);
+  for (let k = segs.length - 1; k >= -1; k--) {               // dall'alto in basso: estremi dei tratti spostati, incrociati negli angoli
+    const up = k >= 0 ? segs[k] : null, dn = k - 1 >= 0 ? segs[k - 1] : null;
+    if (k === segs.length - 1) { const n = segN(up); inner.push([R[up + 1][0] - n[0] * t, R[up + 1][1] - n[1] * t]); }
+    if (k < 0) { const n = segN(segs[0]); inner.push([R[segs[0]][0] - n[0] * t, R[segs[0]][1] - n[1] * t]); break; }
+    if (dn == null) continue;
+    const n1 = segN(up), n2 = segN(dn), p = R[up], c = n1[0] * n2[0] + n1[1] * n2[1];
+    if (c > 0.9999) { inner.push([p[0] - n1[0] * t, p[1] - n1[1] * t]); continue; }
+    const m = [n1[0] + n2[0], n1[1] + n2[1]], ml = Math.hypot(...m) || 1, len = Math.min(t / Math.sqrt(Math.max((1 + c) / 2, 1e-6)), 4 * t);
+    inner.push([p[0] - m[0] / ml * len, p[1] - m[1] / ml * len]);
   }
   inner[0] = [inner[0][0], H];                                 // in cima la parete interna arriva al bordo
   // si taglia all'altezza del fondo
