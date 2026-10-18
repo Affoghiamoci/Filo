@@ -21,7 +21,7 @@ with sync_playwright() as p:
         pg.mouse.move(c[0],c[1]); pg.mouse.down()
         for k in range(1,9): pg.mouse.move(c[0]+(tip[0]-c[0])*k/8, c[1]+(tip[1]-c[1])*k/8); pg.wait_for_timeout(60)
         pg.wait_for_timeout(250)
-        st=pg.evaluate("({vis:forma.facePrev.visible,tris:forma.facePrev.geometry.attributes.position?forma.facePrev.geometry.attributes.position.count/3:0,red:forma.facePrev.material.color.getHex()===0xe5484d})")
+        st=pg.evaluate("({lato:forma.faceSel?true:false,vis:forma.facePrev.visible,tris:forma.facePrev.geometry.attributes.position?forma.facePrev.geometry.attributes.position.count/3:0,red:forma.facePrev.material.color.getHex()===0xe5484d})")
         read=pg.evaluate("document.querySelector('#dragread').textContent")
         pg.mouse.up(); pg.wait_for_timeout(1500)
         return st,read,pg.evaluate("forma.facePrev.visible")
