@@ -132,13 +132,13 @@
 </div>
 <div id="p-face" class="hidden">
   <div class="p-title">Lato <span id="f-info"></span></div>
-  <h4 data-help="Sposta il lato: il lato si muove e quelli vicini si allungano o si accorciano. Estrudi: dal lato nasce materiale nuovo con la sua stessa sagoma (o si scava, se il valore è negativo) e i lati vicini restano com'erano.">Modo<i class="inf" aria-hidden="true">?</i></h4>
-  <div class="seg" id="f-mode"><button data-v="move" class="on">Sposta il lato</button><button data-v="extrude">Estrudi</button></div>
+  <h4 data-help="Allunga: il pezzo si allunga da quella parte seguendo le sue linee (i lati vicini proseguono con la loro inclinazione). Estrudi: dal lato esce un blocco dritto con la stessa sagoma (con un valore negativo scava) e i lati vicini restano com'erano.">Modo<i class="inf" aria-hidden="true">?</i></h4>
+  <div class="seg" id="f-mode"><button data-v="move" class="on"><svg class="mode-ico" viewBox="0 0 24 16" aria-hidden="true"><path d="M3 15 8 1h8l5 14z"/><path d="M5.5 8h13" stroke-dasharray="2 2"/></svg>Allunga</button><button data-v="extrude"><svg class="mode-ico" viewBox="0 0 24 16" aria-hidden="true"><path d="M3 15 5.5 8h13l2.5 7z"/><path d="M5.5 8V1h13v7"/></svg>Estrudi</button></div>
   <h4 data-help="Trascina il quadratino arancione sul lato (si aggancia ai piani vicini) oppure scrivi i mm. Positivo tira fuori, negativo spinge dentro. Maiusc + clic per scegliere più lati.">Spingi / tira<i class="inf" aria-hidden="true">?</i></h4>
-  <div class="row2"><label class="f">Di<input id="f-push" type="text" data-num autocomplete="off" step="0.5" placeholder="0"><em>mm</em></label><button class="btn primary" id="f-push-go">Applica</button></div>
-  <div id="f-taper-row" class="hidden"><div class="row2"><label class="f" title="100 = prisma dritto. Meno di 100 restringe la cima, più di 100 la allarga: così nascono pomelli e ganci">Cima<input id="f-taper" type="text" data-num autocomplete="off" step="5" min="1" placeholder="100"><em>%</em></label></div></div>
+  <div class="row2"><label class="f">Di<input id="f-push" type="text" data-num autocomplete="off" step="0.5" placeholder="0" value="0"><em>mm</em></label><button class="btn primary" id="f-push-go">Applica</button></div>
+  <div id="f-taper-row" class="hidden"><div class="row2"><label class="f" title="100 = prisma dritto. Meno di 100 restringe la cima, più di 100 la allarga: così nascono pomelli e ganci">Cima<input id="f-taper" type="text" data-num autocomplete="off" step="5" min="1" placeholder="100" value="100"><em>%</em></label></div></div>
   <h4 data-help="Ingrandisce o rimpicciolisce il contorno del lato attorno al suo centro, e i lati vicini si inclinano: 50 lo dimezza, 150 lo allarga. Con Estrudi prima e Scala poi si fanno pomelli e ganci.">Scala il lato<i class="inf" aria-hidden="true">?</i></h4>
-  <div class="row2"><label class="f">Scala<input id="f-scale" type="text" data-num autocomplete="off" step="5" min="1" placeholder="100"><em>%</em></label><button class="btn primary" id="f-scale-go">Applica</button></div>
+  <div class="row2"><label class="f">Scala<input id="f-scale" type="text" data-num autocomplete="off" step="5" min="1" placeholder="100" value="100"><em>%</em></label><button class="btn primary" id="f-scale-go">Applica</button></div>
 </div>
 <div id="p-edge" class="hidden">
   <div class="p-title">Spigolo <span id="e-info"></span></div>
@@ -147,17 +147,17 @@
   <h4 data-help="Arrotondato fa uno spigolo tondo. Smussato lo taglia in diagonale a 45°.">Tipo<i class="inf" aria-hidden="true">?</i></h4>
   <div class="seg" id="e-type"><button data-v="fillet" class="on">Arrotondato</button><button data-v="chamfer">Smussato</button></div>
   <h4>Misura</h4>
-  <div class="row2"><label class="f">Di<input id="e-size" type="text" data-num autocomplete="off" step="0.5" min="0.1" placeholder="2"><em>mm</em></label><button class="btn primary" id="e-go">Applica</button></div>
+  <div class="row2"><label class="f">Di<input id="e-size" type="text" data-num autocomplete="off" step="0.5" min="0.1" placeholder="2" value="2"><em>mm</em></label><button class="btn primary" id="e-go">Applica</button></div>
   </div>
   <div id="e-move-box">
     <h4 data-help="Trascina il quadratino sullo spigolo, oppure scrivi di quanto spostarlo (un numero negativo lo sposta dall'altra parte). Con un cubo puoi ottenere un trapezio. Dopo la modifica il pezzo non è più parametrico.">Sposta lo spigolo<i class="inf" aria-hidden="true">?</i></h4>
     <div class="ax-row"><span>Direzione</span><div class="seg seg4" id="e-mv-ax"><button data-v="x">X</button><button data-v="y">Y</button><button data-v="z">Z</button><button data-v="n" title="Perpendicolare allo spigolo, verso l'esterno">⊥</button></div></div>
     <label class="chk-sw" id="e-mv-colw"><input type="checkbox" id="e-mv-col"> Parete dritta (sposta anche sopra e sotto)</label>
-    <div class="row2"><label class="f">Di<input id="e-mv" type="text" data-num autocomplete="off" step="0.5" placeholder="5"><em>mm</em></label><button class="btn primary" id="e-mv-go">Applica</button></div>
+    <div class="row2"><label class="f">Di<input id="e-mv" type="text" data-num autocomplete="off" step="0.5" placeholder="5" value="5"><em>mm</em></label><button class="btn primary" id="e-mv-go">Applica</button></div>
   </div>
   <div id="e-scale-box">
     <h4 data-help="Trascina il quadratino arancione sull'anello oppure scrivi la scala in percentuale. Va bene su un cerchio o su tutti gli spigoli di una faccia (Maiusc + clic per sceglierli). Su un cilindro, 50 % sul bordo alto lo trasforma in un cono tronco.">Ridimensiona<i class="inf" aria-hidden="true">?</i></h4>
-    <div class="row2"><label class="f">Scala<input id="e-scale" type="text" data-num autocomplete="off" step="5" min="1" placeholder="100"><em>%</em></label><button class="btn primary" id="e-scale-go">Applica</button></div>
+    <div class="row2"><label class="f">Scala<input id="e-scale" type="text" data-num autocomplete="off" step="5" min="1" placeholder="100" value="100"><em>%</em></label><button class="btn primary" id="e-scale-go">Applica</button></div>
   </div>
 </div>
 </div>
@@ -271,7 +271,7 @@
     <p class="rs-note">Si salva da solo, fino a 5 lavori in questo browser.</p>
   </section>
 </div>
-<div id="hpop" class="panel hidden"><span id="hpop-chip" class="chip">X+</span><span class="lbl" id="hpop-lbl">allunga di</span><input id="hpop-val" type="text" data-num autocomplete="off" step="1" placeholder="0" title="Valore negativo per accorciare. Invio per applicare"><span class="lbl u" id="hpop-unit">mm</span></div>
+<div id="hpop" class="panel hidden"><span id="hpop-chip" class="chip">X+</span><span class="lbl" id="hpop-lbl">allunga di</span><input id="hpop-val" type="text" data-num autocomplete="off" step="1" placeholder="0" title="Valore negativo per accorciare. Invio per applicare"><span class="lbl u" id="hpop-unit">mm</span><span class="lbl hidden" id="hpop-lbl2">cima</span><input id="hpop-val2" class="hidden" type="text" data-num autocomplete="off" step="5" placeholder="100" title="100 = dritto, meno di 100 restringe la cima, più di 100 la allarga"><span class="lbl u hidden" id="hpop-unit2">%</span></div>
 <div id="dropin"><div class="di-box"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg><b>Rilascia per importare</b><span>File 3MF, STL o SVG</span></div></div>
 <div id="toast"></div>
 <div id="perf-note" class="panel hidden"><span>Modello complesso: per tenerlo fluido ho ridotto risoluzione, ombre e bordi. Per modificarlo conviene semplificarlo prima (Bambu Studio: tasto destro, Semplifica modello).</span><button id="perf-x" class="icon-btn" aria-label="Chiudi"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
@@ -344,7 +344,7 @@
     <button id="info-close" class="icon-btn" aria-label="Chiudi"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     <div class="info-news"><span class="lbl">Novità</span><div class="cl">
       <b>0.10.10</b>
-      <ul><li>Spigoli interni dei pezzi combinati: si scelgono e si raccordano o smussano, aggiungendo materiale</li><li>Lato inclinato: si sposta lungo la sua direzione e il piano sopra e sotto restano orizzontali</li><li>Lato: nuovo interruttore Sposta il lato / Estrudi e campo Scala per ridimensionare il lato</li><li>Doppio clic su una maniglia: compare un campo per scrivere la misura (Sposta, Lato e Spigolo, tutti uguali)</li><li>Dopo ogni operazione le facce quasi complanari si fondono (meno linee e triangoli inutili)</li><li>Lo spigolo sotto il mouse è blu, quello scelto arancione</li><li>La scatola nasce cubo</li><li>Doppio clic su un campo: evidenzia il valore</li><li>Nei campi numerici si possono scrivere i conti: 10+1, 2*5, (3+2)/2</li><li>Nei campi la virgola diventa punto (prima in un browser inglese "4,5" diventava 45); in inglese i decimali hanno il punto</li></ul>
+      <ul><li>Spigoli interni dei pezzi combinati: si scelgono e si raccordano o smussano, aggiungendo materiale</li><li>Lato inclinato: si sposta lungo la sua direzione e il piano sopra e sotto restano orizzontali</li><li>Lato: nuovo interruttore Allunga / Estrudi (con icone) e campo Scala per ridimensionare il lato</li><li>Allunga segue sempre le linee del pezzo: se il lato sparirebbe, Filo dice la misura massima</li><li>I numeri nei campi sono valori veri: Applica usa quello che vedi</li><li>Doppio clic su una maniglia: compare un campo per scrivere la misura (Sposta, Lato e Spigolo, tutti uguali)</li><li>Dopo ogni operazione le facce quasi complanari si fondono (meno linee e triangoli inutili)</li><li>Lo spigolo sotto il mouse è blu, quello scelto arancione</li><li>La scatola nasce cubo</li><li>Doppio clic su un campo: evidenzia il valore</li><li>Nei campi numerici si possono scrivere i conti: 10+1, 2*5, (3+2)/2</li><li>Nei campi la virgola diventa punto (prima in un browser inglese "4,5" diventava 45); in inglese i decimali hanno il punto</li></ul>
       <details><summary>Versioni precedenti</summary>
         <b>0.10.9</b>
         <ul><li>La calamita funziona anche con ⇧ premuto e con le maniglie di ridimensionamento</li><li>Combina, Interseca e Stampo: il pulsante ricorda l'ultimo scelto</li><li>La calamita si spegne con ⌘+⌥ insieme, così resta attiva anche negli spostamenti verticali</li></ul>
