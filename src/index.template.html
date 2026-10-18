@@ -130,7 +130,7 @@
     <button class="btn primary" id="rp-go" style="width:100%;margin-top:6px">Ripeti</button>
   </section>
   <section id="p-rev" class="hidden">
-    <h4 data-help="Per i pezzi a rotazione (cilindri, coni, sfere, vasi, pezzi torniti importati) e per quelli che salgono dritti (scatole, prismi, forme unite alte uguali): righe in rilievo sulla parete esterna e pareti cave di spessore costante. Restano modificabili.">Righe e pareti<i class="inf" aria-hidden="true">?</i></h4>
+    <h4 data-help="Per i pezzi a rotazione (cilindri, coni, sfere, vasi, pezzi torniti importati) e per quelli che salgono dritti (scatole, prismi, forme unite alte uguali): righe in rilievo sulla parete esterna. Restano modificabili.">Righe in rilievo<i class="inf" aria-hidden="true">?</i></h4>
     <div class="grid2">
       <label class="f" title="Quante righe attorno al pezzo. 0 = liscio">Quante righe<input id="rv-n" type="text" data-num autocomplete="off" step="1" min="0" max="720" value="60"></label>
       <label class="f" title="Quanto sporgono. Almeno 0,4 mm (una linea dell'ugello) perché si vedano in stampa">Profondità<input id="rv-depth" type="text" data-num autocomplete="off" step="0.1" min="0" max="10" value="0.8"><em>mm</em></label>
@@ -138,12 +138,19 @@
     <div class="seg seg3" id="rv-shape"><button data-v="round" class="on">Tonde</button><button data-v="point">A punta</button><button data-v="square">Squadrate</button></div>
     <div class="grid2">
       <label class="f" title="Le righe girano a spirale di questi gradi dal basso all'alto">Torsione<input id="rv-twist" type="text" data-num autocomplete="off" step="5" min="-720" max="720" value="0"><em>°</em></label>
-      <label class="f" title="Fascia liscia in alto e in basso, dove le righe sfumano">Margine<input id="rv-margin" type="text" data-num autocomplete="off" step="0.5" min="0" value="0"><em>mm</em></label>
-      <label class="f" title="Svuota il pezzo lasciando pareti di questo spessore, aperto in alto. 0 = pieno">Parete<input id="rv-wall" type="text" data-num autocomplete="off" step="0.4" min="0" value="0"><em>mm</em></label>
-      <label class="f" title="Spessore del fondo quando il pezzo è svuotato">Fondo<input id="rv-bottom" type="text" data-num autocomplete="off" step="0.4" min="0" value="2"><em>mm</em></label>
+      <label class="f" title="Fascia liscia in alto e in basso, alta quanto scrivi">Margine<input id="rv-margin" type="text" data-num autocomplete="off" step="0.5" min="0" value="0"><em>mm</em></label>
     </div>
     <p class="hint" id="rv-info" style="margin:8px 2px 0"></p>
     <button class="btn primary" id="rv-go" style="width:100%;margin-top:6px">Applica</button>
+  </section>
+  <section id="p-shell" class="hidden">
+    <h4 data-help="Svuota il pezzo lasciando pareti di spessore costante, aperto in alto. Funziona sugli stessi pezzi delle Righe e resta modificabile. Parete 0 = pieno.">Svuota<i class="inf" aria-hidden="true">?</i></h4>
+    <div class="grid2">
+      <label class="f" title="Spessore delle pareti. 0 = pieno">Parete<input id="rv-wall" type="text" data-num autocomplete="off" step="0.4" min="0" value="1.6"><em>mm</em></label>
+      <label class="f" title="Spessore del fondo">Fondo<input id="rv-bottom" type="text" data-num autocomplete="off" step="0.4" min="0" value="2"><em>mm</em></label>
+    </div>
+    <p class="hint" id="sh-info" style="margin:8px 2px 0"></p>
+    <button class="btn primary" id="sh-go" style="width:100%;margin-top:6px">Applica</button>
   </section>
 </div>
 <div id="p-face" class="hidden">
@@ -360,7 +367,7 @@
     <button id="info-close" class="icon-btn" aria-label="Chiudi"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     <div class="info-news"><span class="lbl">Novità</span><div class="cl">
       <b>1.1.0</b>
-      <ul><li>Righe e pareti sui pezzi a rotazione: righe in rilievo parametriche (numero, profondità, forma, torsione, margine) e Svuota con pareti di spessore costante</li><li>Righe e pareti anche su scatole, prismi e forme unite che salgono dritte: righe faccia per faccia con gli spigoli netti</li><li>Cono e cilindro possono allargarsi verso l'alto: Cima fino a 300 %</li><li>Righe e pareti con l'anteprima: mentre cambi i valori vedi già il pezzo, Applica per confermare</li><li>Un vaso si fa unendo due coni e raccordando l'anello della pancia</li></ul>
+      <ul><li>Righe e pareti sui pezzi a rotazione: righe in rilievo parametriche (numero, profondità, forma, torsione, margine) e Svuota con pareti di spessore costante</li><li>Righe e pareti anche su scatole, prismi e forme unite che salgono dritte: righe faccia per faccia con gli spigoli netti</li><li>Cono e cilindro possono allargarsi verso l'alto: Cima fino a 300 %</li><li>Righe in rilievo e Svuota con l'anteprima: mentre cambi i valori vedi già il pezzo, Applica per confermare</li><li>Un vaso si fa unendo due coni e raccordando l'anello della pancia</li></ul>
       <b>1.0.0</b>
       <ul><li>Motore nuovo: Allunga, Estrudi e i raccordi lavorano direttamente sulla forma del pezzo, con misure esatte e senza bordini o cuciture</li><li>Angolo a pallina dove tre spigoli raccordati dello stesso raggio si incontrano</li><li>Raccordi anche quando lo spigolo arriva su un tetto o su più facce</li></ul>
       <b>0.10.10</b>

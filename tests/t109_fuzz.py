@@ -42,7 +42,7 @@ with sync_playwright() as p:
                     if not pg.is_visible('#p-rev'): continue
                     vals=[('rv-n',R.choice([0,12,30,60])),('rv-depth',R.choice([0.5,1,1.5])),('rv-twist',R.choice([0,0,45,-90])),('rv-margin',R.choice([0,0,3])),('rv-wall',R.choice([0,0,1.6,2.5])),('rv-bottom',R.choice([1,2,3]))]
                     for id_,v in vals: pg.fill('#'+id_,str(v))
-                    pg.click('#rv-shape [data-v=%s]'%R.choice(['round','point','square'])); pg.click('#rv-go'); pg.wait_for_timeout(1500)
+                    pg.click('#rv-shape [data-v=%s]'%R.choice(['round','point','square'])); pg.click('#rv-go'); pg.wait_for_timeout(1500); pg.click('#sh-go'); pg.wait_for_timeout(1500)
                     log.append('rev %d %s → %s'%(i,vals,pg.evaluate("document.querySelector('#toast')?.textContent")))
                 elif op=='union' and n>=2:
                     j=R.choice([x for x in range(n) if x!=i])

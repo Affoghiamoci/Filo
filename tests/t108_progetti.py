@@ -29,7 +29,7 @@ with sync_playwright() as p:
     def rev(n,depth,shape,twist,margin,wall,bottom,idx=0):
         sel(idx)
         for id_,v in [('rv-n',n),('rv-depth',depth),('rv-twist',twist),('rv-margin',margin),('rv-wall',wall),('rv-bottom',bottom)]: pg.fill('#'+id_,str(v))
-        pg.click('#rv-shape [data-v=%s]'%shape); pg.click('#rv-go'); pg.wait_for_timeout(2500)
+        pg.click('#rv-shape [data-v=%s]'%shape); pg.click('#rv-go'); pg.wait_for_timeout(2500); pg.click('#sh-go'); pg.wait_for_timeout(2500)
     def roundtrip(tag):
         v0=pg.evaluate("T.total()")
         r=pg.evaluate("""(async()=>{const list=forma.objects.filter(o=>!o.userData.hole);const d3=forma.build3MF(list);const st=forma.exportSTL('x');
@@ -117,7 +117,7 @@ with sync_playwright() as p:
     pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
     pg.click('#lang [data-lang=en]'); pg.wait_for_timeout(300); sel(0)
     check('pannello Righe e pareti senza testo superfluo',pg.inner_text('#rv-info')=='' and not pg.is_visible('#rv-info'))
-    pg.fill('#rv-wall','40'); pg.evaluate("document.querySelector('#rv-go').click()"); pg.wait_for_timeout(1500)
+    pg.fill('#rv-wall','40'); pg.evaluate("document.querySelector('#sh-go').click()"); pg.wait_for_timeout(1500)
     check('avviso in inglese: "%s"'%pg.evaluate(TOAST),'too thick' in pg.evaluate(TOAST))
     pg.fill('#rv-wall','45'); pg.wait_for_timeout(800)
     check('avviso in inglese anche nel pannello: "%s"'%pg.inner_text('#rv-info'),'too thick' in pg.inner_text('#rv-info'))

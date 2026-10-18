@@ -32,10 +32,10 @@ with sync_playwright() as p:
     pg.evaluate("forma.setTool('move');forma.setSelection([forma.objects[0]])");pg.wait_for_timeout(300)
     check('pannello Righe e pareti visibile sul vaso',pg.is_visible('#p-rev'))
     v0=pg.evaluate(VOL)
-    fill(0,0.8,'round',0,0,0,2); pg.click('#rv-go'); pg.wait_for_timeout(2500)
+    fill(0,0.8,'round',0,0,0,2); pg.click('#sh-go'); pg.wait_for_timeout(2000); pg.click('#rv-go'); pg.wait_for_timeout(2500)
     v1=pg.evaluate(VOL)
     check('riconosciuto come pezzo a rotazione (%s), volume uguale (%.0f → %.0f)'%(pg.evaluate("forma.objects[0].userData.kind"),v0,v1),pg.evaluate("forma.objects[0].userData.kind")=='rev' and abs(v1-v0)<0.01*v0 and pg.evaluate(OPEN)==0)
-    fill(150,0.7,'round',0,3,2,2); pg.click('#rv-go'); pg.wait_for_timeout(4000)
+    fill(150,0.7,'round',0,3,2,2); pg.click('#sh-go'); pg.wait_for_timeout(3000); pg.click('#rv-go'); pg.wait_for_timeout(4000)
     v2=pg.evaluate(VOL); t=pg.evaluate(TOAST)
     check('righe 150 da 0,7 + pareti 2 mm: chiuso (%s), molto meno volume (%.0f), messaggio "%s"'%(pg.evaluate(OPEN),v2,t),pg.evaluate(OPEN)==0 and v2<0.35*v1 and v2>0.05*v1 and '150 righe' in t)
     sz=pg.evaluate("JSON.stringify(forma.sizeOf(forma.objects[0]))"); print('misure',sz, 'triangoli',pg.evaluate("(forma.objects[0].geometry.index?forma.objects[0].geometry.index.count:forma.objects[0].geometry.attributes.position.count)/3"))
@@ -47,7 +47,7 @@ with sync_playwright() as p:
     pg.evaluate("forma.undo()"); pg.wait_for_timeout(1500)
     check('⌘Z torna a 63',abs(pg.evaluate("forma.sizeOf(forma.objects[0]).h")-63)<0.05)
     # torsione e forma a punta
-    fill(40,1,'point',90,0,0,2); pg.click('#rv-go'); pg.wait_for_timeout(3000)
+    fill(40,1,'point',90,0,0,2); pg.click('#sh-go'); pg.wait_for_timeout(2000); pg.click('#rv-go'); pg.wait_for_timeout(3000)
     check('torsione 90° a punta: chiuso',pg.evaluate(OPEN)==0)
     # pezzo non a rotazione: scatola
     pg.reload();pg.wait_for_function("window.forma");pg.wait_for_timeout(600)

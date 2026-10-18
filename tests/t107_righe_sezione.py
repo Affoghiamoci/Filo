@@ -21,7 +21,7 @@ with sync_playwright() as p:
     def fill(n,depth,shape,twist,margin,wall,bottom):
         for id_,v in [('rv-n',n),('rv-depth',depth),('rv-twist',twist),('rv-margin',margin),('rv-wall',wall),('rv-bottom',bottom)]: pg.fill('#'+id_,str(v))
         pg.click('#rv-shape [data-v=%s]'%shape)
-    def go(wait=1500): pg.click('#rv-go'); pg.wait_for_timeout(wait)
+    def go(wait=1500): pg.click('#rv-go'); pg.wait_for_timeout(wait); pg.click('#sh-go'); pg.wait_for_timeout(wait)
     def closed():
         o,m=pg.evaluate(OPEN),pg.evaluate(MAN)
         if o or m!='NoError': print('   aperti',o,m)
@@ -51,8 +51,8 @@ with sync_playwright() as p:
     fill(0,1,'round',0,0,2,2); go()
     v=pg.evaluate(VOL); exp=60*30*50-56*26*48
     check('a 60 mm le pareti restano da 2 mm: volume %.1f (atteso %d)'%(v,exp),abs(v-exp)<2)
-    pg.evaluate("forma.undo()"); pg.wait_for_timeout(1200)
-    check('⌘Z torna alle righe',pg.evaluate("forma.objects[0].userData.p.ribs.n")==40 and closed())
+    pg.evaluate("forma.undo();forma.undo()"); pg.wait_for_timeout(1200)
+    check('⌘Z (due volte: Svuota e Righe sono due passi) torna alle righe',pg.evaluate("forma.objects[0].userData.p.ribs.n")==40 and closed())
     fill(0,1,'round',0,0,20,2); go()
     check('pareti troppo spesse: avviso (%s)'%pg.evaluate(TOAST),'troppo spesse' in pg.evaluate(TOAST))
     fill(0,1,'round',0,0,2,60); go()

@@ -840,21 +840,26 @@ function setSelection(list) {
 /* -------------------------------------------------- Righe e pareti (pezzi a rotazione) */
 let rvShape = 'round';
 function syncRevPanel(m) {
-  const u = m.userData, own = u.kind === 'rev' || u.kind === 'sec', rb = own ? (u.p.ribs || {}) : null, sh = own ? (u.p.shell || {}) : null;
-  if (rb && $('#p-rev').dataset.id !== String(u.id)) {           // un pezzo a rotazione mostra i suoi valori
-    $('#rv-n').value = fmt(rb.n ?? 0); $('#rv-depth').value = fmt(rb.depth ?? 0.8); $('#rv-twist').value = fmt(rb.twist ?? 0); $('#rv-margin').value = fmt(rb.margin ?? 0);
-    $('#rv-wall').value = fmt(sh.t ?? 0); $('#rv-bottom').value = fmt(sh.b ?? 2); rvShape = rb.shape || 'round';
+  const u = m.userData, own = u.kind === 'rev' || u.kind === 'sec', rb = own ? (u.p.ribs || {}) : {}, sh = own ? (u.p.shell || {}) : {};
+  if ($('#p-rev').dataset.id !== String(u.id)) {                  // pezzo nuovo nel pannello: i suoi valori, o quelli di partenza
+    const hasR = rb.n > 0 && rb.depth > 0, hasS = sh.t > 0;
+    $('#rv-n').value = fmt(hasR ? rb.n : 60); $('#rv-depth').value = fmt(hasR ? rb.depth : 0.8); $('#rv-twist').value = fmt(hasR ? rb.twist ?? 0 : 0); $('#rv-margin').value = fmt(hasR ? rb.margin ?? 0 : 0);
+    $('#rv-wall').value = fmt(hasS ? sh.t : 1.6); $('#rv-bottom').value = fmt(hasS ? sh.b ?? 2 : 2); rvShape = hasR ? rb.shape || 'round' : 'round';
   }
   $('#p-rev').dataset.id = String(u.id);
   document.querySelectorAll('#rv-shape button').forEach(b => b.classList.toggle('on', b.dataset.v === rvShape));
+  if (!revPrev) $('#sh-info').textContent = '';
   if (!revPrev) $('#rv-info').textContent = '';                    // il pannello parla solo quando c'è un problema
 }
 // Calcola il pezzo nuovo senza toccare quello vero: serve sia all'anteprima sia ad Applica. Restituisce { kind, np, pos } oppure { err }.
 const revBaseCache = new WeakMap();                   // geometria → profilo già riconosciuto (l'anteprima non rifà l'analisi a ogni tasto)
-function computeRev(m) {
-  const u = m.userData, num = id => fieldNum($(id));
-  const ribs = { n: Math.round(clamp(num('#rv-n') || 0, 0, 720)), depth: clamp(num('#rv-depth') || 0, 0, 10), shape: rvShape, twist: clamp(num('#rv-twist') || 0, -720, 720), margin: Math.max(0, num('#rv-margin') || 0) };
-  const shell = { t: Math.max(0, num('#rv-wall') || 0), b: Math.max(0, num('#rv-bottom') || 0) };
+// which: 'ribs' (sezione Righe) o 'shell' (sezione Svuota). L'altra parte resta quella che il pezzo ha già.
+function computeRev(m, which = 'ribs') {
+  const u = m.userData, num = id => fieldNum($(id)), own = u.kind === 'rev' || u.kind === 'sec';
+  const ribs = which === 'ribs' ? { n: Math.round(clamp(num('#rv-n') || 0, 0, 720)), depth: clamp(num('#rv-depth') || 0, 0, 10), shape: rvShape, twist: clamp(num('#rv-twist') || 0, -720, 720), margin: Math.max(0, num('#rv-margin') || 0) }
+    : own && u.p.ribs ? { ...u.p.ribs } : { n: 0, depth: 0, shape: 'round', twist: 0, margin: 0 };
+  const shell = which === 'shell' ? { t: Math.max(0, num('#rv-wall') || 0), b: Math.max(0, num('#rv-bottom') || 0) }
+    : own && u.p.shell ? { ...u.p.shell } : { t: 0, b: 2 };
   let base, kind = u.kind === 'sec' ? 'sec' : 'rev';
   if (u.kind === 'rev') base = { prof: u.p.prof, w0: u.p.w0, h0: u.p.h0, w: u.p.w, d: u.p.d, h: u.p.h, pos: null };
   else if (u.kind === 'sec') base = { polys: u.p.polys, k: u.p.k, w0: u.p.w0, d0: u.p.d0, h0: u.p.h0, w: u.p.w, d: u.p.d, h: u.p.h, pos: null };
@@ -869,7 +874,7 @@ function computeRev(m) {
       if (!r.err) base = { prof: r.polys, w0: 2 * r.rmax, h0: r.h, w: 2 * r.rmax, d: 2 * r.rmax, h: r.h, pos: [r.cx, r.cy, r.z0] };
       else {
         const s = sectionProfile(P);
-        if (s.err) return { err: 'Righe e pareti funzionano sui pezzi a rotazione (cilindri, coni, vasi) e su quelli che salgono dritti (scatole, prismi): questo pezzo non lo è' };
+        if (s.err) return { err: 'Righe e Svuota funzionano sui pezzi a rotazione (cilindri, coni, vasi) e su quelli che salgono dritti (scatole, prismi): questo pezzo non lo è' };
         kind = 'sec';
         base = { polys: s.polys, k: s.k, w0: s.w0, d0: s.d0, h0: s.h, w: s.w0, d: s.d0, h: s.h, pos: [s.cx, s.cy, s.z0] };
       }
@@ -886,7 +891,7 @@ function computeRev(m) {
   return { kind, np, pos: base.pos, ribs, shell };
 }
 // Anteprima: mentre cambi i campi il pezzo si mostra già con righe e pareti (il pezzo vero resta com'era finché non premi Applica; Esc la toglie)
-var revPrev = null, revPrevTimer = 0;
+var revPrev = null, revPrevTimer = 0, revWhich = 'ribs';
 function hideRevPreview() {
   clearTimeout(revPrevTimer);
   if (!revPrev) return;
@@ -898,20 +903,20 @@ function revPreviewNow() {
   const m = single();
   hideRevPreview();
   if (!m || m.userData.hole || $('#p-rev').classList.contains('hidden')) return;
-  const r = computeRev(m);
-  if (r.err) { $('#rv-info').textContent = tr(r.err); return; }
+  const r = computeRev(m, revWhich), info = $(revWhich === 'shell' ? '#sh-info' : '#rv-info');
+  $('#rv-info').textContent = $('#sh-info').textContent = '';
+  if (r.err) { info.textContent = tr(r.err); return; }
   const g = buildGeometry(r.kind, r.np), mesh = new THREE.Mesh(g, matFor(m));
   if (r.pos) mesh.position.set(...r.pos); else { mesh.position.copy(m.position); mesh.quaternion.copy(m.quaternion); mesh.scale.copy(m.scale); }
   mesh.castShadow = mesh.receiveShadow = true; mesh.raycast = () => {};
   m.traverse(o => o.layers.set(2));                     // il pezzo vero non si vede (resta selezionato), al suo posto l'anteprima
   scene.add(mesh); revPrev = { mesh, obj: m }; dirty = true;
-  $('#rv-info').textContent = '';
 }
-function revPreview() { clearTimeout(revPrevTimer); revPrevTimer = setTimeout(revPreviewNow, 180); }
-function applyRev() {
+function revPreview(which) { if (which === 'ribs' || which === 'shell') revWhich = which; clearTimeout(revPrevTimer); revPrevTimer = setTimeout(revPreviewNow, 180); }
+function applyRev(which = 'ribs') {
   const m = single(); if (!m || m.userData.hole) return;
   hideRevPreview();
-  const u = m.userData, r = computeRev(m);
+  const u = m.userData, r = computeRev(m, which);
   if (r.err) return toast(r.err);
   const { kind, np, ribs, shell } = r;
   if (heavyGuard([m])) return;
@@ -920,16 +925,17 @@ function applyRev() {
   m.geometry.dispose(); m.geometry = buildGeometry(kind, u.p);
   if (r.pos) { m.position.set(...r.pos); m.quaternion.identity(); m.scale.set(1, 1, 1); }
   m.updateMatrixWorld(true); refreshEdges(m);
-  $('#p-rev').dataset.id = '';
   touch(); syncPanel(); updateHandles(); commit();
-  toast(ribs.n > 0 && ribs.depth > 0 ? `${ribs.n} righe da ${fmt(ribs.depth)} mm${shell.t > 0 ? ', pareti da ' + fmt(shell.t) + ' mm' : ''}` : shell.t > 0 ? `Svuotato: pareti da ${fmt(shell.t)} mm, fondo ${fmt(shell.b)} mm` : kind === 'sec' ? 'Pezzo che sale dritto, liscio' : 'Pezzo a rotazione, liscio');
+  toast(which === 'shell' ? (shell.t > 0 ? `Svuotato: pareti da ${fmt(shell.t)} mm, fondo ${fmt(shell.b)} mm` : 'Pezzo pieno') : ribs.n > 0 && ribs.depth > 0 ? `${ribs.n} righe da ${fmt(ribs.depth)} mm` : 'Righe tolte');
 }
-document.querySelectorAll('#rv-shape button').forEach(b => b.addEventListener('click', () => { rvShape = b.dataset.v; document.querySelectorAll('#rv-shape button').forEach(x => x.classList.toggle('on', x === b)); revPreview(); }));
-$('#rv-go').addEventListener('click', applyRev);
+document.querySelectorAll('#rv-shape button').forEach(b => b.addEventListener('click', () => { rvShape = b.dataset.v; document.querySelectorAll('#rv-shape button').forEach(x => x.classList.toggle('on', x === b)); revPreview('ribs'); }));
+$('#rv-go').addEventListener('click', () => applyRev('ribs'));
+$('#sh-go').addEventListener('click', () => applyRev('shell'));
 for (const id of ['#rv-n', '#rv-depth', '#rv-twist', '#rv-margin', '#rv-wall', '#rv-bottom']) {
-  $(id).addEventListener('keydown', e => { if (e.key === 'Enter') applyRev(); });
-  $(id).addEventListener('input', revPreview);
-  $(id).addEventListener('change', revPreview);
+  const w = id === '#rv-wall' || id === '#rv-bottom' ? 'shell' : 'ribs';
+  $(id).addEventListener('keydown', e => { if (e.key === 'Enter') applyRev(w); });
+  $(id).addEventListener('input', () => revPreview(w));
+  $(id).addEventListener('change', () => revPreview(w));
 }
 
 /* -------------------------------------------------- cronologia (annulla) */
@@ -2422,6 +2428,7 @@ function syncPanel() {
     $('#p-shape').classList.toggle('hidden', !hasT && !qs);
     const rvOk = !m.userData.hole && REV_KINDS.includes(m.userData.kind);
     $('#p-rev').classList.toggle('hidden', !rvOk);
+    $('#p-shell').classList.toggle('hidden', !rvOk);
     if (rvOk) syncRevPanel(m);
     if (qs) { const lab = $('#p-q-lab'); if (lab.dataset.k !== m.userData.kind) { lab.dataset.k = m.userData.kind; lab.firstChild.data = qs[0]; F.q.min = qs[1]; F.q.max = qs[2]; F.q.step = m.userData.kind === 'prism' ? 1 : 5; } }
   } else {
