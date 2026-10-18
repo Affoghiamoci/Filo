@@ -634,7 +634,9 @@ function matFor(m) {
 function refreshEdges(m) {
   if (m.userData.edges) { m.remove(m.userData.edges); m.userData.edges.geometry.dispose(); }
   const ribbed = (m.userData.kind === 'rev' || m.userData.kind === 'sec') && m.userData.p.ribs && m.userData.p.ribs.n > 0 && m.userData.p.ribs.depth > 0;   // righe: migliaia di spigoli, si vede solo la superficie
-  const e = new THREE.LineSegments(m.userData.heavy || ribbed ? new THREE.BufferGeometry() : featureEdges(m.geometry, 30),
+  let eg = m.userData.heavy || ribbed ? new THREE.BufferGeometry() : featureEdges(m.geometry, 30);
+  if (eg.attributes.position && eg.attributes.position.count > 16000) eg = new THREE.BufferGeometry();   // migliaia di spigoli (righe espanse, texture importate): si vede solo la superficie
+  const e = new THREE.LineSegments(eg,
     new THREE.LineBasicMaterial({ color: EDGE.normal, transparent: true, opacity: 0.55 }));
   e.raycast = () => {};
   m.add(e);
@@ -3121,6 +3123,22 @@ function unlockObjects(list) {                   // sblocca e seleziona; come Bl
   toast(list.length > 1 ? 'Sbloccati' : 'Sbloccato');
 }
 const ctxLockedItems = o => [{ t: 'Sblocca', f: () => unlockObjects(withGroups([o])) }, ...(objects.filter(m => m.userData.locked).length > 1 ? [{ t: 'Sblocca tutto', f: () => unlockObjects(objects.slice()) }] : [])];
+// Espandi (come in Illustrator): il pezzo parametrico (forma base, righe, svuota, testo) diventa una forma fissa. Le misure si possono
+// ancora cambiare scalando, ma i parametri non ci sono più: così niente lo ricalcola per sbaglio.
+const isParam = m => m.userData.kind !== 'merged' || !!m.userData.text;
+function expandSelection() {
+  const list = selection.filter(isParam);
+  if (!list.length) return toast('Questi pezzi sono già forme fisse');
+  if (heavyGuard(list)) return;
+  const keep = selection.filter(m => !list.includes(m)), made = [];
+  for (const m of list) {
+    const baked = bakeResult(m, m.userData.name);
+    if (!baked) continue;
+    made.push(replaceWithMerged(m, baked, true));
+  }
+  setSelection([...keep, ...made]); touch(); commit();
+  toast(made.length === 1 ? 'Espanso: ora è una forma fissa' : `Espansi ${made.length} pezzi: ora sono forme fisse`);
+}
 function ctxObjectItems() {
   const S = selection, multi = S.length > 1, grouped = S.some(m => m.userData.gid != null);
   const items = [
@@ -3132,6 +3150,7 @@ function ctxObjectItems() {
   if (multi) items.push({ t: 'Combina', k: '⌘E', f: () => combine() }, { t: 'Interseca', k: '⇧⌘E', f: () => intersect() }, { t: 'Stampo', f: () => mold() });
   if (grouped) items.push({ t: 'Separa gruppo', k: '⇧⌘G', f: ungroupSelection });
   else if (multi) items.push({ t: 'Raggruppa', k: '⌘G', f: groupSelection });
+  if (S.some(isParam)) items.push({ t: 'Espandi', f: expandSelection });
   items.push('sep', { t: 'Appoggia sul piatto', f: () => layOnPlate() }, { t: 'Blocca', f: () => flagSelection('locked') }, { t: 'Nascondi', f: () => flagSelection('hidden') },
     'sep', { t: 'Elimina', k: '⌫', f: deleteSelection });
   return items;
@@ -6359,7 +6378,7 @@ $('#ew-resume').addEventListener('click', async e => {
 });
 offerResume(); rsOn = true;
 
-window.forma = { get __revPrev() { return !!revPrev; }, revolutionProfile, applyRev, get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { expandSelection, get __revPrev() { return !!revPrev; }, revolutionProfile, applyRev, get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */
