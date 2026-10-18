@@ -889,3 +889,6 @@ dialog[open],dialog[open]::backdrop{animation:fade-in .16s ease}
 #side:not(.mini) header .logo{display:none}
 .info-head .logo{display:none}
 .info-head .logo-full{height:40px}
+
+#f-mode button{display:inline-flex;align-items:center;justify-content:center;gap:6px}
+#f-mode .mode-ico{width:22px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linejoin:round}

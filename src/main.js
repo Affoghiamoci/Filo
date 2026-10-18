@@ -30,6 +30,7 @@ const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).
 
 /* Campi numerici (input[data-num], testo e non type=number): accettano la virgola decimale e le espressioni, come 10+1, 2*5, (3+2)/2.
    Un browser in inglese, con type=number, scarta la virgola ("4,5" diventava 45) e non lascia scrivere gli operatori. */
+const fieldNum = el => { const s = String(el.value).trim(); return parseFloat((s === '' ? (el.getAttribute('value') ?? el.placeholder) : s).replace(',', '.')); };   // campo vuoto = il suo valore predefinito
 function evalNum(str) {
   const src = String(str).replace(/\s+/g, '').replace(/,/g, '.').replace(/[×x*]/g, '*').replace(/[÷:]/g, '/').replace(/[−–]/g, '-');
   if (!src || /[^0-9.+\-*/()]/.test(src)) return null;
@@ -1523,15 +1524,18 @@ function handleDouble(key) {                                // true al secondo c
   lastHandleClick = dbl ? { key: null, t: 0 } : { key, t: now };
   return dbl;
 }
-function openValuePopup({ chip, color, label, unit, step, at, apply }) {
-  hpop = { apply };
+const hpopIn2 = $('#hpop-val2');
+function openValuePopup({ chip, color, label, unit, step, at, apply, extra }) {
+  hpop = { apply, extra: !!extra };
+  for (const id of ['#hpop-lbl2', '#hpop-val2', '#hpop-unit2']) $(id).classList.toggle('hidden', !extra);
+  if (extra) { $('#hpop-lbl2').textContent = extra.label; $('#hpop-unit2').textContent = extra.unit; hpopIn2.value = extra.value; }
   $('#hpop-chip').textContent = chip; $('#hpop-chip').style.background = color;
   $('#hpop-lbl').textContent = label; $('#hpop-unit').textContent = unit;
   hpopIn.value = ''; hpopIn.step = step;
   hpopEl.classList.remove('hidden');
   const v = at.clone().project(camera);
   const x = (v.x * 0.5 + 0.5) * window.innerWidth, y = (-v.y * 0.5 + 0.5) * window.innerHeight;
-  hpopEl.style.left = clamp(x + 18, 8, window.innerWidth - 250) + 'px';
+  hpopEl.style.left = clamp(x + 18, 8, window.innerWidth - Math.max(250, hpopEl.offsetWidth + 8)) + 'px';
   hpopEl.style.top = clamp(y - 20, 8, window.innerHeight - 56) + 'px';
   hpopIn.focus();
 }
@@ -1539,14 +1543,17 @@ function openHandlePopup(hd, handle) {
   openValuePopup({ chip: hd.axis.toUpperCase() + (hd.sign > 0 ? '+' : '−'), color: AXIS_COLOR[hd.axis], label: 'allunga di', unit: 'mm', step: state.snap || 0.1, at: handle.position, apply: v => offsetFace(hd, v) });
 }
 function closeHandlePopup() { hpop = null; hpopEl.classList.add('hidden'); }
-hpopIn.addEventListener('keydown', e => {
+const hpopKey = e => {
   if (e.key === 'Enter') {
-    const v = parseFloat(hpopIn.value), pp = hpop;
+    const v = parseFloat(hpopIn.value), v2 = hpop && hpop.extra ? fieldNum(hpopIn2) : undefined, pp = hpop;
     closeHandlePopup(); canvas.focus();
-    if (pp && Number.isFinite(v) && v !== 0) pp.apply(v);
+    if (pp && Number.isFinite(v) && v !== 0) pp.apply(v, v2);
   } else if (e.key === 'Escape') { closeHandlePopup(); canvas.focus(); }
-});
-hpopIn.addEventListener('blur', () => setTimeout(closeHandlePopup, 120));
+};
+hpopIn.addEventListener('keydown', hpopKey); hpopIn2.addEventListener('keydown', hpopKey);
+// il campo si chiude quando il fuoco esce del tutto (con Tab si passa dalla misura alla cima)
+const hpopBlur = () => setTimeout(() => { if (hpop && !hpopEl.contains(document.activeElement)) closeHandlePopup(); }, 120);
+hpopIn.addEventListener('blur', hpopBlur); hpopIn2.addEventListener('blur', hpopBlur);
 function handlesAvailable() {
   return selection.length >= 1 && !state.space && state.tool === 'move';
 }
@@ -1833,12 +1840,13 @@ canvas.addEventListener('pointerup', e => {
     return;
   }
   if (d.mode === 'facepush') {
+    hideFacePrev();
     const dist = d.fd.dist;
     if (d.fd.fs.full && ['cylinder', 'cone'].includes(d.fd.fs.obj.userData.kind)) { d.fd.fs.obj.scale.set(1, 1, 1); selMeshes.forEach(m => { m.visible = true; }); }
     if (d.moved && Math.abs(dist) > 1e-4) applyPush(dist);
     else {
       selMeshes.forEach(m => m.position.set(0, 0, 0)); updateFaceHandle();
-      if (handleDouble('face')) openValuePopup({ chip: 'Lato', color: '#ff6a00', label: faceMode.v === 'extrude' ? 'estrudi di' : 'sposta di', unit: 'mm', step: state.snap || 0.1, at: faceHandle.position, apply: v => applyPush(v) });
+      if (handleDouble('face')) openValuePopup({ chip: 'Lato', color: '#ff6a00', label: faceMode.v === 'extrude' ? 'estrudi di' : 'allunga di', unit: 'mm', step: state.snap || 0.1, at: faceHandle.position, extra: faceMode.v === 'extrude' ? { label: 'cima', unit: '%', value: String($('#f-taper').value || '100') } : null, apply: (v, v2) => { if (Number.isFinite(v2)) $('#f-taper').value = String(v2); applyPush(v); } });
       else TF.push.focus();
     }
     return;
@@ -3902,7 +3910,7 @@ function prismPush(obj, faces, dist, taper = 1) {
 }
 // Sposta i vertici del lato lungo la sua normale: i lati attorno si allungano o si accorciano. Funziona su qualsiasi lato piatto.
 function applyPush(distArg) {
-  const fs = faceSel, dist = typeof distArg === 'number' ? distArg : parseFloat(TF.push.value);
+  const fs = faceSel, dist = typeof distArg === 'number' ? distArg : fieldNum(TF.push);
   if (!fs || !Number.isFinite(dist) || Math.abs(dist) < 1e-4) return;
   faceMode.taper = 1;
   if (faceMode.v === 'extrude') {                                       // "Scala in cima": vuoto = 100 %, il prisma resta dritto
@@ -3918,7 +3926,7 @@ function applyPush(distArg) {
     out.push(r.mesh); ext = ext || r.ext;
   }
   if (out.length) {
-    TF.push.value = '';
+    TF.push.value = '0';
     clearFace(false);
     setSelection(withGroups(out));
     touch(); commit();
@@ -4123,12 +4131,12 @@ function topoPushOne(obj, f, dist) {
   return { mesh: replaceWithMerged(obj, baked, true), ext: extrude };
 }
 const CURVED_MSG = 'Questa superficie curva non si può spostare in modo pulito: per allargare il pezzo usa le maniglie di Sposta (V)';
-function pushOne(obj, faces, dist) {
-  if (faces.length === 1) { const r = topoPushOne(obj, faces[0], dist); if (r) return r; }
+function pushOne(obj, faces, dist, preview = false) {
+  if (!preview && faces.length === 1) { const r = topoPushOne(obj, faces[0], dist); if (r) return r; }
   if (faceMode.v === 'extrude' && !faces.some(f => f.curved)) {   // Estrudi (solo lati piatti; sui lati curvi vale Sposta): prisma con la sagoma del lato, aggiunto (o tolto) senza toccare i lati vicini
     let b2 = null;
     try { b2 = prismPush(obj, faces.slice(), dist, faceMode.taper); } catch (e) { b2 = null; }
-    if (!b2) return { err: 'Non riesco a estrudere questo lato: prova con Sposta il lato' };
+    if (!b2) return { err: 'Non riesco a estrudere questo lato: prova con Allunga' };
     if (isFlat(b2)) return { err: FLAT_MSG };
     return { mesh: replaceWithMerged(obj, b2, true), ext: true };
   }
@@ -4163,92 +4171,110 @@ function pushOne(obj, faces, dist) {
   obj.updateMatrixWorld(true);
   let g = obj.geometry.index ? obj.geometry.toNonIndexed() : obj.geometry.clone();
   g.applyMatrix4(obj.matrixWorld);
-  const pos = g.attributes.position; let arr = new Float32Array(pos.array);
-  const q = v => Math.round(v * 2000);
-  const key = (x, y, z) => q(x) + ',' + q(y) + ',' + q(z);
-  const disp = new Map();
-  for (const f of faces) {
-    const seen = new Set();
-    for (let i = 0; i < f.world.length; i += 3) {
-      const k = key(f.world[i], f.world[i + 1], f.world[i + 2]);
-      if (seen.has(k)) continue;
-      seen.add(k);
-      const d = disp.get(k) || [0, 0, 0];
-      d[0] += f.vn[i] * dist; d[1] += f.vn[i + 1] * dist; d[2] += f.vn[i + 2] * dist;
-      disp.set(k, d);
+  const pos = g.attributes.position;
+  // un tentativo per la distanza d: dove finiscono i vertici, e se i triangoli vicini si stirano troppo o si ribaltano
+  const attempt = dist => {
+    let arr = new Float32Array(pos.array), perp = true;
+    const q = v => Math.round(v * 2000);
+    const key = (x, y, z) => q(x) + ',' + q(y) + ',' + q(z);
+    const disp = new Map();
+    for (const f of faces) {
+      const seen = new Set();
+      for (let i = 0; i < f.world.length; i += 3) {
+        const k = key(f.world[i], f.world[i + 1], f.world[i + 2]);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        const d = disp.get(k) || [0, 0, 0];
+        d[0] += f.vn[i] * dist; d[1] += f.vn[i + 1] * dist; d[2] += f.vn[i + 2] * dist;
+        disp.set(k, d);
+      }
     }
-  }
-  // Lato piatto e inclinato: ogni angolo scorre lungo lo spigolo dei piani vicini (sopra, sotto, fianchi), così quelli restano com'erano
-  // invece di essere trascinati lungo la normale del lato (che inclinerebbe il piano superiore e inferiore).
-  if (faces.length === 1 && !faces[0].curved) {
-    const f0 = faces[0], nf = f0.n, dF = nf.x * f0.world[0] + nf.y * f0.world[1] + nf.z * f0.world[2];
-    const axisAligned = [nf.x, nf.y, nf.z].some(c => Math.abs(Math.abs(c) - 1) < 1e-4);
-    if (!axisAligned) {
-      const pl = new Map(), at = new Map(), A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3(), nn = new THREE.Vector3();
+    // Lato piatto e inclinato: ogni angolo scorre lungo lo spigolo dei piani vicini (sopra, sotto, fianchi), così quelli restano com'erano
+    // invece di essere trascinati lungo la normale del lato (che inclinerebbe il piano superiore e inferiore).
+    if (faces.length === 1 && !faces[0].curved) {
+      const f0 = faces[0], nf = f0.n, dF = nf.x * f0.world[0] + nf.y * f0.world[1] + nf.z * f0.world[2];
+      {
+        const pl = new Map(), at = new Map(), A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3(), nn = new THREE.Vector3();
+        for (let t = 0; t < arr.length / 9; t++) {
+          const o = t * 9;
+          A.set(arr[o], arr[o + 1], arr[o + 2]); B.set(arr[o + 3], arr[o + 4], arr[o + 5]); C.set(arr[o + 6], arr[o + 7], arr[o + 8]);
+          nn.subVectors(B, A).cross(C.clone().sub(A)); const l = nn.length(); if (l < 1e-9) continue; nn.divideScalar(l);
+          const dd = nn.dot(A);
+          if (nn.dot(nf) > 0.9999 && Math.abs(dd - dF) < 1e-3) continue;           // il lato stesso
+          for (let j = 0; j < 3; j++) {
+            const k = key(arr[o + j * 3], arr[o + j * 3 + 1], arr[o + j * 3 + 2]);
+            if (!disp.has(k)) continue;
+            at.set(k, [arr[o + j * 3], arr[o + j * 3 + 1], arr[o + j * 3 + 2]]);
+            const L = pl.get(k) || []; pl.set(k, L);
+            if (!L.some(p => p.n.dot(nn) > 0.9999 && Math.abs(p.d - dd) < 1e-3)) L.push({ n: nn.clone(), d: dd });
+            if (Math.abs(nn.dot(nf)) > 1e-3) perp = false;
+          }
+        }
+        for (const [k, L] of pl) {
+          const v = at.get(k); let res = null;
+          if (L.length === 2) {
+            const m = new THREE.Matrix3().set(nf.x, nf.y, nf.z, L[0].n.x, L[0].n.y, L[0].n.z, L[1].n.x, L[1].n.y, L[1].n.z);
+            if (Math.abs(m.determinant()) > 0.05) {
+              const x = new THREE.Vector3(dF + dist, L[0].d, L[1].d).applyMatrix3(m.invert());
+              res = [x.x - v[0], x.y - v[1], x.z - v[2]];
+            }
+          } else if (L.length === 1) {
+            const u = new THREE.Vector3().crossVectors(nf, L[0].n);
+            if (u.length() > 0.05) {
+              const w = new THREE.Vector3().crossVectors(L[0].n, u).normalize(), den = w.dot(nf);
+              if (Math.abs(den) > 0.1) { const t = dist / den; res = [w.x * t, w.y * t, w.z * t]; }
+            }
+          }
+          if (res && Math.hypot(res[0], res[1], res[2]) <= 8 * Math.abs(dist) + 1e-6) disp.set(k, res);
+        }
+      }
+    }
+    let moved = 0;
+    for (let i = 0; i < arr.length; i += 3) {
+      const d = disp.get(key(arr[i], arr[i + 1], arr[i + 2]));
+      if (!d) continue;
+      arr[i] += d[0]; arr[i + 1] += d[1]; arr[i + 2] += d[2]; moved++;
+    }
+    // se lo spostamento stira troppo i triangoli vicini (spuntoni), si passa all'estrusione per CSG
+    let spiky = false, flushed = false, folded = false;
+    const orig = pos.array;
+    {   // pareti che collassano a zero (il lato arriva a filo con un'altra superficie): lo spostamento lascerebbe triangoli doppi, meglio l'unione per CSG
+      const hOf = (A, t) => { const a = t * 9; let m2 = 0; const e = [[0, 3], [3, 6], [6, 0]].map(([i, j]) => { const l = Math.hypot(A[a + i] - A[a + j], A[a + i + 1] - A[a + j + 1], A[a + i + 2] - A[a + j + 2]); m2 = Math.max(m2, l); return l; });
+        const s = (e[0] + e[1] + e[2]) / 2, ar = Math.sqrt(Math.max(0, s * (s - e[0]) * (s - e[1]) * (s - e[2]))); return m2 > 1e-9 ? 2 * ar / m2 : 0; };
+      let collapsed = 0;
       for (let t = 0; t < arr.length / 9; t++) {
-        const o = t * 9;
-        A.set(arr[o], arr[o + 1], arr[o + 2]); B.set(arr[o + 3], arr[o + 4], arr[o + 5]); C.set(arr[o + 6], arr[o + 7], arr[o + 8]);
-        nn.subVectors(B, A).cross(C.clone().sub(A)); const l = nn.length(); if (l < 1e-9) continue; nn.divideScalar(l);
-        const dd = nn.dot(A);
-        if (nn.dot(nf) > 0.9999 && Math.abs(dd - dF) < 1e-3) continue;           // il lato stesso
-        for (let j = 0; j < 3; j++) {
-          const k = key(arr[o + j * 3], arr[o + j * 3 + 1], arr[o + j * 3 + 2]);
-          if (!disp.has(k)) continue;
-          at.set(k, [arr[o + j * 3], arr[o + j * 3 + 1], arr[o + j * 3 + 2]]);
-          const L = pl.get(k) || []; pl.set(k, L);
-          if (!L.some(p => p.n.dot(nn) > 0.9999 && Math.abs(p.d - dd) < 1e-3)) L.push({ n: nn.clone(), d: dd });
-        }
+        let touched = false; for (let j = 0; j < 9 && !touched; j++) touched = arr[t * 9 + j] !== orig[t * 9 + j];
+        if (touched && hOf(arr, t) < 0.05 && hOf(orig, t) > 0.05) collapsed++;
       }
-      for (const [k, L] of pl) {
-        const v = at.get(k); let res = null;
-        if (L.length === 2) {
-          const m = new THREE.Matrix3().set(nf.x, nf.y, nf.z, L[0].n.x, L[0].n.y, L[0].n.z, L[1].n.x, L[1].n.y, L[1].n.z);
-          if (Math.abs(m.determinant()) > 0.05) {
-            const x = new THREE.Vector3(dF + dist, L[0].d, L[1].d).applyMatrix3(m.invert());
-            res = [x.x - v[0], x.y - v[1], x.z - v[2]];
-          }
-        } else if (L.length === 1) {
-          const u = new THREE.Vector3().crossVectors(nf, L[0].n);
-          if (u.length() > 0.05) {
-            const w = new THREE.Vector3().crossVectors(L[0].n, u).normalize(), den = w.dot(nf);
-            if (Math.abs(den) > 0.1) { const t = dist / den; res = [w.x * t, w.y * t, w.z * t]; }
-          }
-        }
-        if (res && Math.hypot(res[0], res[1], res[2]) <= 8 * Math.abs(dist) + 1e-6) disp.set(k, res);
+      if (collapsed) {
+        const f0 = faces[0], dP = f0.n.x * f0.world[0] + f0.n.y * f0.world[1] + f0.n.z * f0.world[2] + dist;
+        const merged = mergeFlush(arr, orig, f0.n, dP);
+        if (merged) { arr = merged; flushed = true; }
       }
     }
-  }
-  let moved = 0;
-  for (let i = 0; i < arr.length; i += 3) {
-    const d = disp.get(key(arr[i], arr[i + 1], arr[i + 2]));
-    if (!d) continue;
-    arr[i] += d[0]; arr[i + 1] += d[1]; arr[i + 2] += d[2]; moved++;
-  }
-  // se lo spostamento stira troppo i triangoli vicini (spuntoni), si passa all'estrusione per CSG
-  let spiky = false, flushed = false;
-  const orig = pos.array;
-  {   // pareti che collassano a zero (il lato arriva a filo con un'altra superficie): lo spostamento lascerebbe triangoli doppi, meglio l'unione per CSG
-    const hOf = (A, t) => { const a = t * 9; let m2 = 0; const e = [[0, 3], [3, 6], [6, 0]].map(([i, j]) => { const l = Math.hypot(A[a + i] - A[a + j], A[a + i + 1] - A[a + j + 1], A[a + i + 2] - A[a + j + 2]); m2 = Math.max(m2, l); return l; });
-      const s = (e[0] + e[1] + e[2]) / 2, ar = Math.sqrt(Math.max(0, s * (s - e[0]) * (s - e[1]) * (s - e[2]))); return m2 > 1e-9 ? 2 * ar / m2 : 0; };
-    let collapsed = 0;
-    for (let t = 0; t < arr.length / 9; t++) {
-      let touched = false; for (let j = 0; j < 9 && !touched; j++) touched = arr[t * 9 + j] !== orig[t * 9 + j];
-      if (touched && hOf(arr, t) < 0.05 && hOf(orig, t) > 0.05) collapsed++;
+    const maxEdge = (A, t) => { let m = 0; for (let j = 0; j < 3; j++) { const a = t * 9 + j * 3, b = t * 9 + ((j + 1) % 3) * 3; m = Math.max(m, Math.hypot(A[a] - A[b], A[a + 1] - A[b + 1], A[a + 2] - A[b + 2])); } return m; };
+    for (let t = 0; t < arr.length / 9 && !spiky && !flushed; t++) {
+      let touched = false;
+      for (let j = 0; j < 9 && !touched; j++) touched = arr[t * 9 + j] !== orig[t * 9 + j];
+      if (!touched) continue;
+      const o = maxEdge(orig, t), nw = maxEdge(arr, t);
+      if (nw > o * 2.5 && nw - o > 2) spiky = true;
+      if (foldedTri(orig, arr, t)) { spiky = true; folded = true; }                          // triangolo ribaltato: i vertici vicini al bordo sono finiti dall'altra parte (crepe)
     }
-    if (collapsed) {
-      const f0 = faces[0], dP = f0.n.x * f0.world[0] + f0.n.y * f0.world[1] + f0.n.z * f0.world[2] + dist;
-      const merged = mergeFlush(arr, orig, f0.n, dP);
-      if (merged) { arr = merged; flushed = true; }
+    return { arr, moved, spiky, flushed, folded, perp };
+  };
+  let { arr, moved, spiky, folded, perp } = attempt(dist);
+  if (preview) { g.dispose(); return { arr, folded: folded && faces.length === 1 && !faces[0].curved && !perp }; }
+  const flatOne = faces.length === 1 && !faces[0].curved;
+  if (spiky && flatOne && !perp) {
+    if (folded) {                    // Allunga segue i lati vicini: se convergono, oltre una certa misura il lato sparisce
+      let lo = 0, hi = Math.abs(dist);
+      for (let it = 0; it < 30; it++) { const mid = (lo + hi) / 2; if (attempt(Math.sign(dist) * mid).folded) hi = mid; else lo = mid; }
+      g.dispose();
+      const mx = Math.floor(lo * 100) / 100;
+      return { err: `Oltre ${fmt(mx)} mm il lato sparisce (i lati vicini si incontrano): allunga al massimo di ${fmt(mx)} mm, oppure usa Estrudi` };
     }
-  }
-  const maxEdge = (A, t) => { let m = 0; for (let j = 0; j < 3; j++) { const a = t * 9 + j * 3, b = t * 9 + ((j + 1) % 3) * 3; m = Math.max(m, Math.hypot(A[a] - A[b], A[a + 1] - A[b + 1], A[a + 2] - A[b + 2])); } return m; };
-  for (let t = 0; t < arr.length / 9 && !spiky && !flushed; t++) {
-    let touched = false;
-    for (let j = 0; j < 9 && !touched; j++) touched = arr[t * 9 + j] !== orig[t * 9 + j];
-    if (!touched) continue;
-    const o = maxEdge(orig, t), nw = maxEdge(arr, t);
-    if (nw > o * 2.5 && nw - o > 2) spiky = true;
-    if (foldedTri(orig, arr, t)) spiky = true;                          // triangolo ribaltato: i vertici vicini al bordo sono finiti dall'altra parte (crepe)
+    spiky = false;                   // triangoli solo stirati: il risultato è giusto così, niente estrusione
   }
   g.dispose();
   if (!moved) return { err: 'Impossibile spostare questo lato' };
@@ -4375,6 +4401,39 @@ function startFaceDrag(e) {
   const t0 = faceDragAxis(fs, raycaster.ray);
   return { fs, bounds: groupBounds(fs), t0: t0 ?? 0, planes: collectPlanes(fs), dist: 0, snapped: false };
 }
+/* anteprima dal vivo del Lato: in trasparenza il pezzo come verrà (Allunga) o il blocco che esce (Estrudi); rossa se Allunga va oltre il massimo */
+const facePrev = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshStandardMaterial({ color: ACCENT_HEX, transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide, roughness: 0.6 }));
+facePrev.visible = false; facePrev.renderOrder = 5; facePrev.raycast = () => {}; scene.add(facePrev);
+let facePrevT = 0, facePrevPending = null;
+function hideFacePrev() { facePrev.visible = false; facePrevPending = null; dirty = true; }
+function updateFacePrev(fd, dist) {
+  if (Math.abs(dist) < 1e-4 || fd.fs.curved || faceSet.length < 1) { hideFacePrev(); return false; }
+  const now = performance.now();
+  if (now - facePrevT < 60) {                                    // al massimo ~16 volte al secondo; l'ultima posizione arriva comunque
+    if (!facePrevPending) setTimeout(() => { const p = facePrevPending; if (p && drag && drag.mode === 'facepush') { facePrevT = 0; const b = updateFacePrev(p[0], p[1]); if (b !== null) p[0].bad = b; } }, 70);
+    facePrevPending = [fd, dist]; return null;
+  }
+  facePrevT = now; facePrevPending = null;
+  let pos = null, bad = false;
+  try {
+    if (faceMode.v === 'extrude') {
+      const raw = String($('#f-taper').value).trim(), tp = raw === '' ? 1 : parseFloat(raw) / 100;
+      const parts = faceSet.map(f => prismGeometry(f, dist, tp > 0 ? tp : 1));
+      const n = parts.reduce((s, g) => s + g.attributes.position.count * 3, 0); pos = new Float32Array(n);
+      let o = 0; for (const g of parts) { pos.set(g.attributes.position.array, o); o += g.attributes.position.count * 3; g.dispose(); }
+    } else {
+      const objs = [...new Set(faceSet.map(f => f.obj))];
+      if (objs.length !== 1 || objs[0].geometry.attributes.position.count > 120000) { hideFacePrev(); return false; }
+      const r = pushOne(objs[0], faceSet.slice(), dist, true);
+      if (!r || !r.arr) { hideFacePrev(); return false; }
+      pos = r.arr; bad = r.folded;
+    }
+  } catch (e) { hideFacePrev(); return false; }
+  facePrev.geometry.dispose();
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.computeVertexNormals();
+  facePrev.geometry = g; facePrev.material.color.setHex(bad ? 0xe5484d : ACCENT_HEX); facePrev.visible = true; dirty = true;
+  return bad;
+}
 function moveFaceDrag(e, fd) {
   const fs = fd.fs;
   setRay(e);
@@ -4407,7 +4466,8 @@ function moveFaceDrag(e, fd) {
   dragRead.style.display = 'block';
   dragRead.style.left = ((v.x * 0.5 + 0.5) * window.innerWidth + 18) + 'px';
   dragRead.style.top = ((-v.y * 0.5 + 0.5) * window.innerHeight - 12) + 'px';
-  dragRead.textContent = par ? `Ø ${fmt((fs.obj.userData.p.w / 2 + dist) * 2)} mm` : `${faceMode.v === 'extrude' ? (dist < 0 ? 'Scava ' : 'Estrudi ') : ''}${dist > 0 ? '+' : ''}${fmt(dist)} mm${snapped ? ' · allineato' : ''}`;
+  const bad = par ? false : updateFacePrev(fd, dist); if (bad !== null) fd.bad = bad;
+  dragRead.textContent = fd.bad ? `${fmt(dist)} mm · oltre il massimo` : par ? `Ø ${fmt((fs.obj.userData.p.w / 2 + dist) * 2)} mm` : `${faceMode.v === 'extrude' ? (dist < 0 ? 'Scava ' : 'Estrudi ') : 'Allunga '}${dist > 0 ? '+' : ''}${fmt(dist)} mm${snapped ? ' · allineato' : ''}`;
   dirty = true;
 }
 // contorno del lato scelto: i bordi usati da un solo triangolo, uniti in un giro chiuso (null se il lato ha buchi, è curvo o ne sono scelti più d'uno)
@@ -4431,7 +4491,7 @@ function faceLoop(f) {
   return out.length === adj.size ? out.map(k => pt.get(k)) : null;
 }
 function applyFaceScale(pctArg) {
-  const pct = typeof pctArg === 'number' ? pctArg : parseFloat($('#f-scale').value);
+  const pct = typeof pctArg === 'number' ? pctArg : fieldNum($('#f-scale'));
   if (!faceSel) return;
   if (!(pct >= 1 && pct <= 1000)) return toast('Scrivi una scala in % (da 1 a 1000)');
   if (faceSet.length !== 1 || faceSel.curved) return toast('La scala funziona su un lato piatto alla volta');
@@ -4441,7 +4501,7 @@ function applyFaceScale(pctArg) {
   if (heavyGuard([obj])) return;
   const r = scaleEdge(obj, { pts: loop }, pct / 100);
   if (r.err) return toast(r.err);
-  $('#f-scale').value = '';
+  $('#f-scale').value = '100';
   clearFace(false); setSelection([r.mesh]); touch(); commit();
   toast('Lato ridimensionato');
 }
@@ -5027,12 +5087,12 @@ function prefillEdgeSize() {                          // scatola: mostra misura 
   const rks = edgeSel.map(x => x.chain.rkey || (x.chain.closed && ringKeyOf(x.obj, x.chain.pts)));
   if (rks.length && rks.every(Boolean)) {              // cilindro e cono: bordo alto o basso
     const pp = edgeSel[0].obj.userData.p, vs = rks.map(k => pp[k] || 0);
-    if (vs.every(v => v === vs[0]) && vs[0] > 0) { EF.size.value = fmt(vs[0]); edgeMode.v = pp.rm === 'chamfer' ? 'chamfer' : 'fillet'; } else EF.size.value = '';
+    if (vs.every(v => v === vs[0]) && vs[0] > 0) { EF.size.value = fmt(vs[0]); edgeMode.v = pp.rm === 'chamfer' ? 'chamfer' : 'fillet'; } else EF.size.value = EF.size.value || '2';
     return;
   }
   const ks = edgeSel.map(x => x.chain.vkey); if (!ks.length || ks.some(k => !k)) return;
   const mp = edgeMapOf(edgeSel[0].obj.userData.kind, edgeSel[0].obj.userData.p), vs = ks.map(k => mp[k]);
-  if (vs.every(v => v && v.r === vs[0].r && v.t === vs[0].t)) { EF.size.value = fmt(vs[0].r); edgeMode.v = vs[0].t === 'c' ? 'chamfer' : 'fillet'; } else EF.size.value = '';
+  if (vs.every(v => v && v.r === vs[0].r && v.t === vs[0].t)) { EF.size.value = fmt(vs[0].r); edgeMode.v = vs[0].t === 'c' ? 'chamfer' : 'fillet'; } else EF.size.value = EF.size.value || '2';
 }
 function refreshEdgeLines() {
   dropLines(edgeLines); edgeLines = edgeSel.length ? makeLines(edgeSel.map(x => x.chain), edgeMat) : null;
@@ -5181,7 +5241,7 @@ function moveEdgeScale(e, es) {
   dirty = true;
 }
 function applyEdgeScale(pctArg) {
-  const pct = typeof pctArg === 'number' ? pctArg : parseFloat($('#e-scale').value);
+  const pct = typeof pctArg === 'number' ? pctArg : fieldNum($('#e-scale'));
   const loop = selectedLoop();
   if (!loop) return;
   if (!(pct >= 1 && pct <= 1000)) return toast('Scrivi una scala in % (da 1 a 1000)');
@@ -5190,7 +5250,7 @@ function applyEdgeScale(pctArg) {
   const r = scaleEdge(obj, { pts: loop }, pct / 100);
   if (r.err) return toast(r.err);
   clearEdges(); setSelection([r.mesh]); touch(); commit();
-  $('#e-scale').value = '';
+  $('#e-scale').value = '100';
   toast('Spigolo ridimensionato');
 }
 $('#e-scale-go').addEventListener('click', applyEdgeScale);
@@ -5343,11 +5403,11 @@ $('#e-mv-col').addEventListener('change', e => { EM.col = e.target.checked; });
 document.querySelectorAll('#e-mv-ax button').forEach(b => b.addEventListener('click', () => { EM.ax = b.dataset.v; updateEdgePanel(); }));
 $('#e-mv-go').addEventListener('click', () => {
   const mi = moveInfo(); if (!mi) return;
-  const mm = parseFloat(String($('#e-mv').value).replace(',', '.')), ax = edgeMoveAxis(mi);
+  const mm = fieldNum($('#e-mv')), ax = edgeMoveAxis(mi);
   if (!mm) return toast('Scrivi di quanti mm spostare lo spigolo');
   if (ax === mi.par) return toast('Questa direzione è lungo lo spigolo: scegline un\'altra');
   if (heavyGuard([mi.obj])) return;
-  if (moveEdgeBy(mi, ax, mm)) $('#e-mv').value = '';
+  if (moveEdgeBy(mi, ax, mm)) $('#e-mv').value = '5';
 });
 $('#e-mv').addEventListener('keydown', e => { if (e.key === 'Enter') $('#e-mv-go').click(); });
 
@@ -5370,7 +5430,7 @@ function topoEdges(obj, chains, mode, size) {
   return baked;
 }
 function applyEdges() {
-  const size = parseFloat(String(EF.size.value).replace(',', '.'));
+  const size = fieldNum(EF.size);
   if (!edgeSel.length) return;
   const obj = edgeSel[0].obj;
   const rks = ['cylinder', 'cone'].includes(obj.userData.kind) ? edgeSel.map(x => x.chain.rkey || (x.chain.closed && ringKeyOf(x.obj, x.chain.pts))) : [];
@@ -5381,7 +5441,7 @@ function applyEdges() {
     for (const k of new Set(rks)) u.p[k] = size;
     if (size > 0) u.p.rm = edgeMode.v === 'chamfer' ? 'chamfer' : null;
     obj.geometry.dispose(); obj.geometry = buildGeometry(u.kind, u.p); refreshEdges(obj); obj.updateMatrixWorld(true);
-    clearEdges(); setSelection([obj]); touch(); commit(); EF.size.value = '';
+    clearEdges(); setSelection([obj]); touch(); commit();
     return toast(size === 0 ? 'Bordo tolto' : edgeMode.v === 'fillet' ? 'Arrotondamento applicato: resta modificabile dal pannello' : 'Smusso applicato: resta modificabile dal pannello');
   }
   if (edgeSel.every(x => x.chain.vkey)) {              // scatola: spigoli singoli, restano modificabili
@@ -5414,7 +5474,7 @@ function applyEdges() {
       if (size >= Math.min(u.p.w, u.p.d) / 2) return toast('La misura è troppo grande per questa scatola');
       u.p.r = size; u.p.rm = edgeMode.v === 'chamfer' ? 'chamfer' : null;
       obj.geometry.dispose(); obj.geometry = buildGeometry('box', u.p); refreshEdges(obj); obj.updateMatrixWorld(true);
-      clearEdges(); setSelection([obj]); touch(); commit(); EF.size.value = '';
+      clearEdges(); setSelection([obj]); touch(); commit();
       return toast(edgeMode.v === 'fillet' ? 'Arrotondamento applicato: resta modificabile dal pannello' : 'Smusso applicato: resta modificabile dal pannello');
     }
   }
@@ -5431,7 +5491,7 @@ function applyEdges() {
         if (size >= Math.min(u.p.w, u.p.d) / 2 || size >= u.p.h) return toast('La misura è troppo grande per questa scatola');
         u.p[top ? 'ft' : 'fb'] = size; u.p.rm = edgeMode.v === 'chamfer' ? 'chamfer' : null;
         obj.geometry.dispose(); obj.geometry = buildGeometry('box', u.p); refreshEdges(obj); obj.updateMatrixWorld(true);
-        clearEdges(); setSelection([obj]); touch(); commit(); EF.size.value = '';
+        clearEdges(); setSelection([obj]); touch(); commit();
         return toast(edgeMode.v === 'fillet' ? 'Arrotondamento applicato: resta modificabile dal pannello' : 'Smusso applicato: resta modificabile dal pannello');
       }
     }
@@ -5448,7 +5508,7 @@ function applyEdges() {
         if (size >= R || size >= u.p.h) return toast('La misura è troppo grande per questo pezzo');
         u.p[top ? 'ft' : 'fb'] = size; u.p.rm = edgeMode.v === 'chamfer' ? 'chamfer' : null;
         obj.geometry.dispose(); obj.geometry = buildGeometry(u.kind, u.p); refreshEdges(obj); obj.updateMatrixWorld(true);
-        clearEdges(); setSelection([obj]); touch(); commit(); EF.size.value = '';
+        clearEdges(); setSelection([obj]); touch(); commit();
         return toast(edgeMode.v === 'fillet' ? 'Arrotondamento applicato: resta modificabile dal pannello' : 'Smusso applicato: resta modificabile dal pannello');
       }
     }
@@ -5463,7 +5523,6 @@ function applyEdges() {
       clearEdges();
       const nm = replaceWithMerged(obj, tr);
       nm.userData.color = obj.userData.color ?? null;
-      EF.size.value = '';
       return toast(`${edgeMode.v === 'fillet' ? 'Arrotondamento' : 'Smusso'} di ${fmt(size)} mm su ${n} ${n === 1 ? 'spigolo' : 'spigoli'}`);
     }
   }
@@ -5484,7 +5543,6 @@ function applyEdges() {
   clearEdges();
   const nm = replaceWithMerged(obj, baked);
   nm.userData.color = obj.userData.color ?? null;
-  EF.size.value = '';
   toast(`${edgeMode.v === 'fillet' ? 'Arrotondamento' : 'Smusso'} di ${fmt(size)} mm su ${n} ${n === 1 ? 'spigolo' : 'spigoli'}`);
 }
 EF.go.addEventListener('click', applyEdges);
@@ -5498,7 +5556,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '0.10.10';
+const APP_VERSION = '1.0.0';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
@@ -6090,7 +6148,7 @@ $('#ew-resume').addEventListener('click', async e => {
 });
 offerResume(); rsOn = true;
 
-window.forma = { buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */
