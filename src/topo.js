@@ -235,6 +235,14 @@ export function soupVolume(P) {
 
 /* ------------------------------------------------------------ fase 2: operazioni sulle facce */
 
+// i triangoli originali di alcune facce, con le posizioni prese da V (le facce non toccate non si ritriangolano mai:
+// su superfici importate fatte di faccette sottilissime la ritriangolazione può creare triangoli rovesciati, cioè righe scure)
+function trisOf(topo, faces, V, out = []) {
+  for (const F of faces) for (const t of F.tris) for (let j = 0; j < 3; j++) { const v = topo.T[t * 3 + j]; out.push(V[v * 3], V[v * 3 + 1], V[v * 3 + 2]); }
+  return out;
+}
+
+
 function vertFaces(topo) {
   if (topo._vf) return topo._vf;
   const nV = topo.V.length / 3, vf = Array.from({ length: nV }, () => new Set());
@@ -310,7 +318,17 @@ export function moveFace(topo, fid, dist) {
     const s = nf.dot(vec(V, v)) - dF;
     if (s > lo && s < hi) return null;
   }
-  return triangulateTopo({ ...topo, V: V1 });
+  const out = [];
+  for (const F of topo.faces) {
+    let ok = true;
+    if (touched.has(F.id)) for (const t of F.tris) {
+      const A = vec(V1, topo.T[t * 3]), B = vec(V1, topo.T[t * 3 + 1]), C = vec(V1, topo.T[t * 3 + 2]);
+      if (B.clone().sub(A).cross(C.clone().sub(A)).dot(F.n) <= 1e-9) { ok = false; break; }
+    }
+    if (ok) trisOf(topo, [F], V1, out);
+    else out.push(...triangulateTopo({ ...topo, V: V1, faces: [F] }));
+  }
+  return new Float32Array(out);
 }
 
 // Estrude una faccia piana verso l'esterno: pareti nuove lungo tutto il contorno (anche attorno ai buchi) e la faccia in cima,
@@ -324,8 +342,8 @@ export function extrudeFace(topo, fid, dist, taper = 1) {
   const c = new THREE.Vector3(); S.forEach(v => c.add(vec(V, v))); c.divideScalar(S.size);
   const up = v => { const p = vec(V, v); return c.clone().addScaledVector(p.sub(c), taper).addScaledVector(nf, dist); };
   // tutte le facce tranne quella estrusa
-  const rest = triangulateTopo({ ...topo, faces: topo.faces.filter(f => f.id !== fid) });
-  const cap = triangulateTopo({ ...topo, faces: [F] });
+  const rest = trisOf(topo, topo.faces.filter(f => f.id !== fid), V);
+  const cap = trisOf(topo, [F], V);
   const out = Array.from(rest);
   for (const l of F.loops) for (let i = 0; i < l.verts.length; i++) {
     const a = l.verts[i], b = l.verts[(i + 1) % l.verts.length], A = vec(V, a), B = vec(V, b), A2 = up(a), B2 = up(b);
@@ -515,7 +533,7 @@ export function filletEdges(topo, eids, mode, size, ARC = 18) {
     if (!polysOk(F.n, L)) return null;
     rebuilt.push([F, L]);
   }
-  const out = Array.from(triangulateTopo({ ...topo, faces: topo.faces.filter(f => !subs.has(f.id)) }));
+  const out = trisOf(topo, topo.faces.filter(f => !subs.has(f.id)), V);
   for (const [F, L] of rebuilt) {
     const outer = L[F.loops.findIndex(l => l.outer)], holes = L.filter((_, i) => !F.loops[i].outer);
     if (!outer || !triPolys(F.n, outer, holes, out)) return null;
