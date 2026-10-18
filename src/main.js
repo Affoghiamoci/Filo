@@ -4122,9 +4122,10 @@ function topoPushOne(obj, f, dist) {
   if (window.__topoLog) window.__topoLog.push(extrude ? 'extrude' : 'move');
   return { mesh: replaceWithMerged(obj, baked, true), ext: extrude };
 }
+const CURVED_MSG = 'Questa superficie curva non si può spostare in modo pulito: per allargare il pezzo usa le maniglie di Sposta (V)';
 function pushOne(obj, faces, dist) {
   if (faces.length === 1) { const r = topoPushOne(obj, faces[0], dist); if (r) return r; }
-  if (faceMode.v === 'extrude') {                 // Estrudi: prisma con la sagoma del lato, aggiunto (o tolto) senza toccare i lati vicini
+  if (faceMode.v === 'extrude' && !faces.some(f => f.curved)) {   // Estrudi (solo lati piatti; sui lati curvi vale Sposta): prisma con la sagoma del lato, aggiunto (o tolto) senza toccare i lati vicini
     let b2 = null;
     try { b2 = prismPush(obj, faces.slice(), dist, faceMode.taper); } catch (e) { b2 = null; }
     if (!b2) return { err: 'Non riesco a estrudere questo lato: prova con Sposta il lato' };
@@ -4251,6 +4252,7 @@ function pushOne(obj, faces, dist) {
   }
   g.dispose();
   if (!moved) return { err: 'Impossibile spostare questo lato' };
+  if (spiky && faces.some(f => f.curved)) return { err: CURVED_MSG };      // il prisma di ripiego ha senso solo su un lato piatto
   if (spiky) {
     let b2 = null;
     try { b2 = prismPush(obj, faces.slice(), dist); } catch (e) { b2 = null; }
@@ -4260,6 +4262,7 @@ function pushOne(obj, faces, dist) {
   const baked = bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(arr) }, obj.userData.name);
   if (!baked) return { err: 'Il risultato è vuoto' };
   if (isFlat(baked)) return { err: FLAT_MSG };
+  if (faces.some(f => f.curved) && geoIsClosed(baked.geo) === false) return { err: CURVED_MSG };
   return { mesh: replaceWithMerged(obj, baked, true) };
 }
 /* calamita per le maniglie di ridimensionamento: la faccia trascinata si aggancia ai lati paralleli degli altri oggetti (contatto o a filo).
