@@ -10,6 +10,7 @@ import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { unzipSync, zipSync, strToU8 } from 'three/addons/libs/fflate.module.js';
 import { Brush, Evaluator, ADDITION, SUBTRACTION, INTERSECTION } from 'three-bvh-csg';
 import { revolutionProfile, shellProfile, revolve } from './revolve.js';
+import { sectionProfile, sectionSolid } from './section.js';
 import { buildTopo, triangulateTopo, soupVolume, moveFace, extrudeFace, topoFaceFor, filletEdge, filletEdges, topoEdgeFor } from './topo.js';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
 import { initManifold, manifoldEvaluate, manifoldCombine, manifoldStretch, manifoldHalf, manifoldMod, simplifyGeo, geoIsClosed } from './mcsg.js';
@@ -502,6 +503,8 @@ function buildGeometry(kind, p) {
     g.rotateX(Math.PI / 2); g.scale(p.w / 2, p.d / 2, p.h); g.translate(0, 0, p.h / 2);
   } else if (kind === 'rev') {
     return revGeometry(p);
+  } else if (kind === 'sec') {
+    return secGeometry(p).g;
   } else if (kind === 'cone') {
     g = new THREE.CylinderGeometry(Math.max(p.q || 0, 1) / 100, 1, 1, 72, 1);
     g.rotateX(Math.PI / 2); g.scale(p.w / 2, p.d / 2, p.h); g.translate(0, 0, p.h / 2);
@@ -528,6 +531,16 @@ function revGeometry(p) {
   const g = geometryFromPositions(pos);
   g.scale(p.w / p.w0, p.d / p.w0, 1);
   return g;
+}
+// pezzo a sezione costante: la sezione (misure originali) si adatta a larghezza e profondità prima delle righe e delle pareti,
+// così la profondità delle righe e lo spessore delle pareti restano quelli scritti
+function secGeometry(p, check = false) {
+  const sx = p.w / p.w0, sy = p.d / p.d0;
+  const polys = p.polys.map(L => L.map(([x, y]) => [x * sx, y * sy]));
+  let r = sectionSolid({ polys, k: p.k, h: p.h, ribs: p.ribs, shell: p.shell }, manifoldMod());
+  if (r.err && check) return { err: r.err };
+  if (r.err) r = sectionSolid({ polys, k: p.k, h: p.h, ribs: p.ribs, shell: null }, null);
+  return { g: geometryFromPositions(r.pos) };
 }
 /* ------------------------------------------------------------- materiali */
 const M = {
@@ -615,7 +628,7 @@ function matFor(m) {
 }
 function refreshEdges(m) {
   if (m.userData.edges) { m.remove(m.userData.edges); m.userData.edges.geometry.dispose(); }
-  const ribbed = m.userData.kind === 'rev' && m.userData.p.ribs && m.userData.p.ribs.n > 0 && m.userData.p.ribs.depth > 0;   // righe: migliaia di spigoli, si vede solo la superficie
+  const ribbed = (m.userData.kind === 'rev' || m.userData.kind === 'sec') && m.userData.p.ribs && m.userData.p.ribs.n > 0 && m.userData.p.ribs.depth > 0;   // righe: migliaia di spigoli, si vede solo la superficie
   const e = new THREE.LineSegments(m.userData.heavy || ribbed ? new THREE.BufferGeometry() : featureEdges(m.geometry, 30),
     new THREE.LineBasicMaterial({ color: EDGE.normal, transparent: true, opacity: 0.55 }));
   e.raycast = () => {};
@@ -735,7 +748,7 @@ function setTop(m, v) {
   refreshEdges(m);
 }
 const QSPEC = { cone: ['Cima %', 0, 300], prism: ['Lati', 3, 64], torus: ['Spessore %', 5, 50] };
-const REV_KINDS = ['cylinder', 'cone', 'sphere', 'torus', 'rev', 'merged'];
+const REV_KINDS = ['cylinder', 'cone', 'sphere', 'torus', 'rev', 'merged', 'box', 'prism', 'sec'];
 function setQ(m, v) {
   const u = m.userData, sp = QSPEC[u.kind];
   if (!sp) return;
@@ -814,42 +827,51 @@ function setSelection(list) {
 /* -------------------------------------------------- Righe e pareti (pezzi a rotazione) */
 let rvShape = 'round';
 function syncRevPanel(m) {
-  const u = m.userData, rb = u.kind === 'rev' ? (u.p.ribs || {}) : null, sh = u.kind === 'rev' ? (u.p.shell || {}) : null;
+  const u = m.userData, own = u.kind === 'rev' || u.kind === 'sec', rb = own ? (u.p.ribs || {}) : null, sh = own ? (u.p.shell || {}) : null;
   if (rb && $('#p-rev').dataset.id !== String(u.id)) {           // un pezzo a rotazione mostra i suoi valori
     $('#rv-n').value = fmt(rb.n ?? 0); $('#rv-depth').value = fmt(rb.depth ?? 0.8); $('#rv-twist').value = fmt(rb.twist ?? 0); $('#rv-margin').value = fmt(rb.margin ?? 0);
     $('#rv-wall').value = fmt(sh.t ?? 0); $('#rv-bottom').value = fmt(sh.b ?? 2); rvShape = rb.shape || 'round';
   }
   $('#p-rev').dataset.id = String(u.id);
   document.querySelectorAll('#rv-shape button').forEach(b => b.classList.toggle('on', b.dataset.v === rvShape));
-  $('#rv-info').textContent = u.kind === 'rev' ? 'Pezzo a rotazione: righe e pareti restano modificabili' : 'Funziona sui pezzi a rotazione: lo controllo quando premi Applica';
+  $('#rv-info').textContent = u.kind === 'rev' ? 'Pezzo a rotazione: righe e pareti restano modificabili' : u.kind === 'sec' ? 'Pezzo che sale dritto: righe e pareti restano modificabili' : 'Funziona sui pezzi a rotazione e su quelli che salgono dritti: lo controllo quando premi Applica';
 }
 function applyRev() {
   const m = single(); if (!m || m.userData.hole) return;
   const u = m.userData, num = id => fieldNum($(id));
   const ribs = { n: Math.round(clamp(num('#rv-n') || 0, 0, 720)), depth: clamp(num('#rv-depth') || 0, 0, 10), shape: rvShape, twist: clamp(num('#rv-twist') || 0, -720, 720), margin: Math.max(0, num('#rv-margin') || 0) };
   const shell = { t: Math.max(0, num('#rv-wall') || 0), b: Math.max(0, num('#rv-bottom') || 0) };
-  let base;
+  let base, kind = u.kind === 'sec' ? 'sec' : 'rev';
   if (u.kind === 'rev') base = { prof: u.p.prof, w0: u.p.w0, h0: u.p.h0, w: u.p.w, d: u.p.d, h: u.p.h, pos: null };
+  else if (u.kind === 'sec') base = { polys: u.p.polys, k: u.p.k, w0: u.p.w0, d0: u.p.d0, h0: u.p.h0, w: u.p.w, d: u.p.d, h: u.p.h, pos: null };
   else {
     const P = worldPositions(m);
     if (P.length / 9 > 400000) return toast('Pezzo troppo pesante per ricostruirlo');
-    const r = revolutionProfile(P);
-    if (r.err) return toast('Righe e pareti funzionano sui pezzi a rotazione (cilindri, coni, sfere, vasi): questo pezzo non lo è');
-    base = { prof: r.polys, w0: 2 * r.rmax, h0: r.h, w: 2 * r.rmax, d: 2 * r.rmax, h: r.h, pos: [r.cx, r.cy, r.z0] };
+    const r = ['box', 'prism'].includes(u.kind) ? { err: 1 } : revolutionProfile(P);
+    if (!r.err) base = { prof: r.polys, w0: 2 * r.rmax, h0: r.h, w: 2 * r.rmax, d: 2 * r.rmax, h: r.h, pos: [r.cx, r.cy, r.z0] };
+    else {
+      const s = sectionProfile(P);
+      if (s.err) return toast('Righe e pareti funzionano sui pezzi a rotazione (cilindri, coni, vasi) e su quelli che salgono dritti (scatole, prismi): questo pezzo non lo è');
+      kind = 'sec';
+      base = { polys: s.polys, k: s.k, w0: s.w0, d0: s.d0, h0: s.h, w: s.w0, d: s.d0, h: s.h, pos: [s.cx, s.cy, s.z0] };
+    }
   }
-  if (shell.t > 0) {
+  if (kind === 'rev' && shell.t > 0) {
     const kz = base.h / base.h0, s = shellProfile(base.prof.map(L => L.map(([r, z]) => [r, z * kz])), shell.t, shell.b);
     if (s.err) return toast(s.err);
   }
+  const np = kind === 'rev' ? { w: base.w, d: base.d, h: base.h, w0: base.w0, h0: base.h0, prof: base.prof, ribs, shell }
+    : { w: base.w, d: base.d, h: base.h, w0: base.w0, d0: base.d0, h0: base.h0, polys: base.polys, k: base.k, ribs, shell };
+  if (kind === 'sec' && shell.t > 0) { if (!manifoldMod()) return toast('Un attimo: il motore si sta ancora caricando'); const c = secGeometry(np, true); if (c.err) return toast(c.err); c.g.dispose(); }
   if (heavyGuard([m])) return;
-  u.kind = 'rev'; u.base = null; u.geo = null;
-  u.p = { w: base.w, d: base.d, h: base.h, w0: base.w0, h0: base.h0, prof: base.prof, ribs, shell };
-  m.geometry.dispose(); m.geometry = buildGeometry('rev', u.p);
+  u.kind = kind; u.base = null; u.geo = null;
+  u.p = np;
+  m.geometry.dispose(); m.geometry = buildGeometry(kind, u.p);
   if (base.pos) { m.position.set(...base.pos); m.quaternion.identity(); m.scale.set(1, 1, 1); }
   m.updateMatrixWorld(true); refreshEdges(m);
   $('#p-rev').dataset.id = '';
   touch(); syncPanel(); updateHandles(); commit();
-  toast(ribs.n > 0 && ribs.depth > 0 ? `${ribs.n} righe da ${fmt(ribs.depth)} mm${shell.t > 0 ? ', pareti da ' + fmt(shell.t) + ' mm' : ''}` : shell.t > 0 ? `Svuotato: pareti da ${fmt(shell.t)} mm, fondo ${fmt(shell.b)} mm` : 'Pezzo a rotazione, liscio');
+  toast(ribs.n > 0 && ribs.depth > 0 ? `${ribs.n} righe da ${fmt(ribs.depth)} mm${shell.t > 0 ? ', pareti da ' + fmt(shell.t) + ' mm' : ''}` : shell.t > 0 ? `Svuotato: pareti da ${fmt(shell.t)} mm, fondo ${fmt(shell.b)} mm` : kind === 'sec' ? 'Pezzo che sale dritto, liscio' : 'Pezzo a rotazione, liscio');
 }
 document.querySelectorAll('#rv-shape button').forEach(b => b.addEventListener('click', () => { rvShape = b.dataset.v; document.querySelectorAll('#rv-shape button').forEach(x => x.classList.toggle('on', x === b)); }));
 $('#rv-go').addEventListener('click', applyRev);
@@ -956,7 +978,10 @@ function touch() { dirty = dimsDirty = true; if (repPrevG) repeatPreview(); if (
 const bvhEval = new Evaluator();
 bvhEval.attributes = ['position', 'normal'];
 let useManifold = true;                                  // window.__noManifold = true per confrontare con il vecchio motore
-initManifold();
+initManifold().then(() => {                              // pezzi svuotati a sezione costante ripresi prima che il motore fosse pronto: ora si rifanno con le pareti
+  for (const m of objects) if (m.userData.kind === 'sec' && m.userData.p.shell && m.userData.p.shell.t > 0) { m.geometry.dispose(); m.geometry = buildGeometry('sec', m.userData.p); refreshEdges(m); }
+  dirty = true;
+});
 const evaluator = {
   evaluate(a, b, op) {
     if (useManifold && !window.__noManifold) { const r = manifoldEvaluate(a, b, op, a.material); if (r) { evaluator.last = 'manifold'; return r; } }
