@@ -687,9 +687,11 @@ function removeMesh(m) {
   if (m.userData.edges) m.userData.edges.geometry.dispose();
   if (m.userData.kind !== 'merged') m.geometry.dispose();
 }
+// cono con la cima più larga della base: L e P sono la larghezza vera (quella della cima), il parametro interno resta la base
+const coneK = u => u.kind === 'cone' ? Math.max(1, (u.p.q || 0) / 100) : 1;
 function sizeOf(m) {
   const u = m.userData;
-  if (u.kind !== 'merged') return { w: u.p.w, d: u.p.d, h: u.p.h };
+  if (u.kind !== 'merged') { const k = coneK(u); return { w: u.p.w * k, d: u.p.d * k, h: u.p.h }; }
   return { w: u.base.w * m.scale.x, d: u.base.d * m.scale.y, h: u.base.h * m.scale.z };
 }
 function setSize(m, key, v) {
@@ -701,7 +703,7 @@ function setSize(m, key, v) {
     m.scale[ax] = v / u.base[key];
     u.p[key] = v;
   } else {
-    u.p[key] = v;
+    u.p[key] = key === 'h' ? v : v / coneK(u);
     if (u.kind === 'box') u.p.r = Math.min(u.p.r, Math.min(u.p.w, u.p.d) / 2);
     if (ROUND_KINDS.includes(u.kind)) { const lm = edgeLimit(u.kind, u.p); if (u.p.ft > lm) u.p.ft = lm; if (u.p.fb > lm) u.p.fb = lm; if (u.kind === 'prism' && u.p.r > lm) u.p.r = lm; }
     m.geometry.dispose();
@@ -4253,7 +4255,7 @@ function pushOne(obj, faces, dist, preview = false) {
   if (faces.length === 1 && faces[0].full && ['cylinder', 'cone'].includes(obj.userData.kind)) {   // lato intero di un cilindro: allarga o stringe il raggio
     const u = obj.userData, nd = u.p.w + 2 * dist;
     if (nd < 0.2) return { err: FLAT_MSG };
-    setSize(obj, 'w', nd); setSize(obj, 'd', nd);
+    setSize(obj, 'w', nd * coneK(u)); setSize(obj, 'd', nd * coneK(u));
     return { mesh: obj, ext: false };
   }
   if (faces.length === 1 && faces[0].full && faces[0].curved && obj.userData.kind === 'merged') {   // cilindro già modificato: allarga o stringe tutto in modo radiale
