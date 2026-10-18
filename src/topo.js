@@ -430,47 +430,77 @@ export function filletEdges(topo, eids, mode, size, ARC = 18) {
     const u2 = new THREE.Vector3().crossVectors(n2, dir).normalize(); if (cv ? u2.dot(n1) > 0 : u2.dot(n1) < 0) u2.negate();
     const th = Math.acos(Math.max(-1, Math.min(1, u1.dot(u2))));
     if (!(th > 0.3 && th < 3.0)) return null;
-    let prof, Cc = null;
-    if (mode === 'chamfer') prof = [u1.clone().multiplyScalar(size), u2.clone().multiplyScalar(size)];
+    // profilo come funzione di t (0 = lato di F1, 1 = lato di F2): così si possono aggiungere punti dove serve
+    let prm, ts, Cc = null;
+    if (mode === 'chamfer') { const T1 = u1.clone().multiplyScalar(size), T2 = u2.clone().multiplyScalar(size); prm = t => T1.clone().lerp(T2, t); ts = [0, 1]; }
     else {
-      const t = size / Math.tan(th / 2), T1 = u1.clone().multiplyScalar(t), T2 = u2.clone().multiplyScalar(t);
+      const t0 = size / Math.tan(th / 2), T1 = u1.clone().multiplyScalar(t0), T2 = u2.clone().multiplyScalar(t0);
       Cc = u1.clone().add(u2).normalize().multiplyScalar(size / Math.sin(th / 2));
       const a0 = T1.clone().sub(Cc), b0 = T2.clone().sub(Cc), ang = Math.acos(Math.max(-1, Math.min(1, a0.dot(b0) / (a0.length() * b0.length())))), ax = a0.clone().cross(b0).normalize();
-      prof = []; for (let k = 0; k <= ARC; k++) prof.push(a0.clone().applyAxisAngle(ax, ang * k / ARC).add(Cc));
+      prm = t => a0.clone().applyAxisAngle(ax, ang * t).add(Cc);
+      ts = []; for (let k = 0; k <= ARC; k++) ts.push(k / ARC);
     }
-    E.push({ e, path, a, b, A, B, dir, f1, f2, n1, n2, u1, u2, cv, prof, Cc });
+    E.push({ e, path, a, b, A, B, dir, f1, f2, n1, n2, u1, u2, cv, prm, ts, Cc });
   }
-  // estremi: liberi (un solo spigolo scelto) o angoli a pallina (tre spigoli scelti)
+  // estremi: liberi (un solo spigolo scelto, anche dove si incontrano più facce, es. le falde di un tetto) o angoli a pallina (tre spigoli scelti)
   const at = new Map();
   for (const x of E) for (const v of [x.a, x.b]) (at.get(v) || at.set(v, []).get(v)).push(x);
   const corner = new Map();                        // vertice -> centro della sfera
   for (const [v, xs] of at) {
-    if (vf[v].size !== 3) return null;
+    if (vf[v].size < 3) return null;
     if (xs.length === 1) continue;
-    if (xs.length !== 3 || mode !== 'fillet' || xs.some(x => !x.cv)) return null;
+    if (vf[v].size !== 3 || xs.length !== 3 || mode !== 'fillet' || xs.some(x => !x.cv)) return null;
     const Fs = [...vf[v]].map(g => topo.faces[g]);
     const m = new THREE.Matrix3().set(...Fs.flatMap(F => [F.n.x, F.n.y, F.n.z]));
     if (Math.abs(m.determinant()) < 0.05) return null;
     corner.set(v, { c: new THREE.Vector3(Fs[0].d - size, Fs[1].d - size, Fs[2].d - size).applyMatrix3(m.invert()), Fs });
   }
-  // profilo di ogni estremo: sulla faccia di testa (estremo libero) o sul piano che passa per il centro della sfera (angolo)
+  // profilo di ogni estremo: tagliato dalle facce di testa (la prima che il raccordo incontra uscendo) o dal piano che passa per il centro della sfera
   const subs = new Map();                          // faccia -> (vertice -> punti che lo sostituiscono)
   const sub = (f, v, val) => { let m = subs.get(f); if (!m) subs.set(f, m = new Map()); if (m.has(v)) return false; m.set(v, val); return true; };
   for (const x of E) {
-    const end = (v, P0) => {
+    const ends = [];
+    for (const [v, P0, o] of [[x.a, x.A, x.dir.clone().negate()], [x.b, x.B, x.dir.clone()]]) {
       const cn = corner.get(v);
-      const plane = cn ? { n: x.dir, d: x.dir.dot(cn.c) } : (() => { const g = [...vf[v]].find(f => f !== x.f1 && f !== x.f2); const F = topo.faces[g]; x['E' + v] = F; return F; })();
-      if (Math.abs(plane.n.dot(x.dir)) < 0.05) return null;
-      return x.prof.map(o => { const q = P0.clone().add(o), s = (plane.d - plane.n.dot(q)) / plane.n.dot(x.dir); return q.addScaledVector(x.dir, s); });
-    };
-    x.PA = end(x.a, x.A); x.PB = end(x.b, x.B);
-    if (!x.PA || !x.PB) return null;
+      const planes = cn ? [{ id: -1, n: o, d: o.dot(cn.c) }] : [...vf[v]].filter(g => g !== x.f1 && g !== x.f2).map(g => ({ id: g, n: topo.faces[g].n, d: topo.faces[g].d }));
+      if (!planes.length || planes.some(pl => pl.n.dot(o) < 0.05)) return null;
+      const hit = t => { const q = P0.clone().add(x.prm(t)); let bi = 0, bs = Infinity; planes.forEach((pl, i) => { const s2 = (pl.d - pl.n.dot(q)) / pl.n.dot(o); if (s2 < bs) { bs = s2; bi = i; } }); return { i: bi, s: bs, q }; };
+      ends.push({ v, P0, o, planes, hit, cn });
+    }
+    // dove il profilo passa da una faccia di testa all'altra si aggiunge un punto esatto (sullo spigolo tra le due facce)
+    const extra = [];
+    for (const en of ends) if (en.planes.length > 1) for (let k = 0; k < x.ts.length - 1; k++) {
+      let lo = x.ts[k], hi = x.ts[k + 1]; const i0 = en.hit(lo).i, i1 = en.hit(hi).i;
+      if (i0 === i1) continue;
+      const P = en.planes, f = t => { const q = en.P0.clone().add(x.prm(t)); return (P[i0].d - P[i0].n.dot(q)) / P[i0].n.dot(en.o) - (P[i1].d - P[i1].n.dot(q)) / P[i1].n.dot(en.o); };
+      const flo = f(lo);
+      for (let it = 0; it < 60; it++) { const mid = (lo + hi) / 2, fm = f(mid); if ((fm < 0) === (flo < 0)) lo = mid; else hi = mid; }
+      extra.push((lo + hi) / 2);
+    }
+    x.ts = [...x.ts, ...extra].sort((p, q) => p - q).filter((t, i, arr) => i === 0 || t - arr[i - 1] > 1e-9);
+    for (const en of ends) {
+      en.pts = []; en.memb = [];
+      for (const t of x.ts) {
+        const h = en.hit(t), q = h.q.clone().addScaledVector(en.o, h.s);
+        en.pts.push(q);
+        en.memb.push(new Set(en.planes.filter(pl => Math.abs(pl.n.dot(q) - pl.d) < 1e-5).map(pl => pl.id)));
+      }
+    }
+    x.PA = ends[0].pts; x.PB = ends[1].pts;
     for (const v of x.path.slice(1, -1)) { if (!sub(x.f1, v, []) || !sub(x.f2, v, [])) return null; }
-    for (const [v, P] of [[x.a, x.PA], [x.b, x.PB]]) {
-      if (corner.has(v)) continue;
+    for (const en of ends) {
+      if (en.cn) continue;
+      const P = en.pts, v = en.v;
       if (!sub(x.f1, v, [P[0]]) || !sub(x.f2, v, [P[P.length - 1]])) return null;
-      const Ef = x['E' + v], n1 = x.n1, d1 = topo.faces[x.f1].d;
-      if (!sub(Ef.id, v, prev => Math.abs(n1.dot(pos(prev)) - d1) < 1e-4 ? P : P.slice().reverse())) return null;
+      for (const pl of en.planes) {
+        const idx = en.memb.map((m, i) => m.has(pl.id) ? i : -1).filter(i => i >= 0);
+        if (!idx.length || idx[idx.length - 1] - idx[0] !== idx.length - 1) return null;      // ogni faccia di testa prende un tratto unico del profilo
+        const run = P.slice(idx[0], idx[idx.length - 1] + 1);
+        if (!sub(pl.id, v, (prev, next) => {
+          const pp = pos(prev), nq = pos(next), r = run[0], s2 = run[run.length - 1];
+          return pp.distanceTo(r) + nq.distanceTo(s2) <= pp.distanceTo(s2) + nq.distanceTo(r) ? run : run.slice().reverse();
+        })) return null;
+      }
     }
   }
   for (const [v, cn] of corner) for (const F of cn.Fs) if (!sub(F.id, v, [cn.c.clone().addScaledVector(F.n, size)])) return null;
@@ -480,7 +510,7 @@ export function filletEdges(topo, eids, mode, size, ARC = 18) {
     const F = topo.faces[fid];
     const L = F.loops.map(l => l.verts.flatMap((v, i) => {
       if (!m.has(v)) return [pos(v)];
-      const r = m.get(v); return typeof r === 'function' ? r(l.verts[(i + l.verts.length - 1) % l.verts.length]) : r;
+      const r = m.get(v); return typeof r === 'function' ? r(l.verts[(i + l.verts.length - 1) % l.verts.length], l.verts[(i + 1) % l.verts.length]) : r;
     }));
     if (!polysOk(F.n, L)) return null;
     rebuilt.push([F, L]);
