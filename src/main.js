@@ -553,6 +553,8 @@ const M = {
   holeSel: new THREE.MeshStandardMaterial({ color: 0xff7a45, transparent: true, opacity: 0.6, depthWrite: false, roughness: 0.7, emissive: 0xff7a45, emissiveIntensity: 0.2 }),
 };
 const EDGE = { normal: 0x5b5f6b, sel: 0xff6a00, key: 0xff6a00 };
+const ghostMat = (c, o) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, depthFunc: THREE.GreaterDepth, depthWrite: false });
+const GHOST = { normal: ghostMat(EDGE.normal, 0.16), sel: ghostMat(EDGE.sel, 0.2) };
 
 /* --------------------------------------------------------------- oggetti */
 // Spigoli "veri": solo dove due triangoli adiacenti formano un angolo netto.
@@ -653,6 +655,11 @@ function refreshEdges(m) {
   x.raycast = () => {}; x.renderOrder = 2; x.visible = state.xray;
   m.add(x);
   m.userData.xray = x;
+  // Raggi X per ogni forma (anche curve, con le righe, pesanti o unite): le superfici coperte si vedono in trasparenza, oltre agli spigoli tratteggiati
+  if (m.userData.ghost) m.remove(m.userData.ghost);
+  const gh = new THREE.Mesh(m.geometry, GHOST.normal);
+  gh.raycast = () => {}; gh.renderOrder = 1; gh.visible = state.xray && !m.userData.hole; gh.castShadow = gh.receiveShadow = false;
+  m.add(gh); m.userData.ghost = gh;
   if (m.userData.silX) { m.remove(m.userData.silX); m.userData.silX.geometry.dispose(); m.userData.silX.material.dispose(); m.userData.silX = null; }
   if ((u.kind === 'cylinder' || u.kind === 'cone') && u.p && !u.heavy) {      // contorno della parete curva: segue la vista, quindi si calcola a ogni disegno
     const sg = new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(12), 3));
@@ -670,6 +677,8 @@ function styleObject(m) {
   e.material.opacity = sel ? 1 : 0.55;
   const x = m.userData.xray;
   if (x) { x.material.color.setHex(isKey ? EDGE.key : sel ? EDGE.sel : EDGE.normal); x.material.opacity = sel ? 0.8 : 0.45; x.visible = state.xray; }
+  const gh = m.userData.ghost;
+  if (gh) { gh.material = sel ? GHOST.sel : GHOST.normal; gh.visible = state.xray && !m.userData.hole; }
 }
 const HEAVY = 250000;   // oltre questa soglia: niente bordi, ombre e anteprima dei lati
 const triCount = g => g.index ? g.index.count / 3 : g.attributes.position.count / 3;
@@ -6236,6 +6245,8 @@ function snapThumb() {
       m.material = u.hole ? M.hole : u.color ? colMat(u.color, false) : M.solid;
       if (u.edges) { u.edges.material.color.setHex(EDGE.normal); u.edges.material.opacity = 0.55; }
       if (u.xray) u.xray.visible = false;
+      if (u.ghost) u.ghost.visible = false;
+      if (u.silX) u.silX.visible = false;
     });
     rt = new THREE.WebGLRenderTarget(W, H, { samples: 4 }); rt.texture.colorSpace = THREE.SRGBColorSpace;
     const cc = new THREE.Color(), ca = renderer.getClearAlpha(); renderer.getClearColor(cc);

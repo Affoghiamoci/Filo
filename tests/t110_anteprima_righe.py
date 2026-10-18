@@ -43,6 +43,18 @@ with sync_playwright() as p:
     pg.fill('#rv-n','60'); pg.wait_for_timeout(800)
     pg.evaluate("forma.setSelection([])"); pg.wait_for_timeout(200)
     check('cambiando selezione l\'anteprima sparisce',pg.evaluate("forma.__revPrev")==False and pg.evaluate("forma.objects[0].userData.p.ribs.n")==30)
+    # margine: fascia liscia per tutta la sua altezza (non più a botte)
+    pg.evaluate("forma.setSelection([forma.objects[0]])"); pg.wait_for_timeout(200)
+    for id_,v in [('rv-n',40),('rv-depth',1),('rv-twist',0),('rv-margin',5),('rv-wall',0)]: pg.fill('#'+id_,str(v))
+    pg.click('#rv-go'); pg.wait_for_timeout(2000)
+    band=pg.evaluate("""(()=>{const o=forma.objects[0],p=o.userData.p,P=forma.worldPositions(o),b=forma.worldBox(o),cx=(b.min.x+b.max.x)/2,cy=(b.min.y+b.max.y)/2;let lo=0,mid=0;
+      const r0=z=>p.prof[0][1][0]+(p.prof[0][2][0]-p.prof[0][1][0])*z/20;for(let i=0;i<P.length;i+=3){const z=P[i+2]-b.min.z,r=Math.hypot(P[i]-cx,P[i+1]-cy)*p.w0/p.w;if(z>0.1&&z<4.9)lo=Math.max(lo,r-r0(z));if(z>8&&z<12)mid=Math.max(mid,r-r0(z))}return [lo,mid]})()""")
+    check('margine 5 mm: fascia liscia in basso (rilievo %.3f), righe piene a metà (%.2f)'%(band[0],band[1]),band[0]<0.01 and band[1]>0.9)
+    # Raggi X: anche i pezzi con le righe (senza spigoli disegnati) si vedono in trasparenza
+    pg.click('#b-xray'); pg.wait_for_timeout(200)
+    check('Raggi X: velo trasparente acceso su ogni pezzo',pg.evaluate("forma.objects.every(o=>o.userData.hole||(o.userData.ghost&&o.userData.ghost.visible))"))
+    pg.click('#b-xray'); pg.wait_for_timeout(200)
+    check('Raggi X spento: niente velo',pg.evaluate("forma.objects.every(o=>!o.userData.ghost||!o.userData.ghost.visible)"))
     # pezzo non adatto: l'avviso arriva subito, senza anteprima
     pg.evaluate("forma.createObject('torus')"); pg.wait_for_timeout(150)
     pg.evaluate("forma.createObject('box')"); pg.wait_for_timeout(150)

@@ -2,6 +2,7 @@
 // si riconoscono tagliandoli in orizzontale a più altezze. Dalla sezione si ricostruisce il pezzo con le Righe lungo il perimetro
 // (un numero intero di righe per ogni faccia, così gli spigoli restano netti) e con Svuota (pareti di spessore costante, aperto in alto).
 import * as THREE from 'three';
+import { mgT } from './revolve.js';
 
 const TAU = Math.PI * 2;
 const area = L => { let a = 0; for (let i = 0; i < L.length; i++) { const p = L[i], q = L[(i + 1) % L.length]; a += p[0] * q[1] - q[0] * p[1]; } return a / 2; };
@@ -161,7 +162,7 @@ export function sectionSolid(p, M) {
   const outerC = p.polys;
   const scaleAt = z => 1 + (k - 1) * z / H;
   // quote dei piani di costruzione: con torsione o margine servono più piani per tenere le righe morbide
-  const step = R ? (R.twist ? 0.5 : (R.margin > 0 ? 1 : 0)) : 0;
+  const step = R ? (R.twist || R.margin > 0 ? 0.5 : 0) : 0;
   const zs = [0]; if (step) for (let z = step; z < H - 1e-6; z += step) zs.push(z); zs.push(H);
   const mg = R ? Math.max(0, R.margin || 0) : 0, S = R ? (SHAPES[R.shape] || SHAPES.round) : null;
   const perim = outerC.filter(c => area(c) > 0).reduce((t, c) => t + c.reduce((s, q, i) => s + Math.hypot(c[(i + 1) % c.length][0] - q[0], c[(i + 1) % c.length][1] - q[1]), 0), 0);
@@ -176,7 +177,7 @@ export function sectionSolid(p, M) {
   const at = (pt, z) => {
     const s = scaleAt(z); let x = pt.p[0] * s, y = pt.p[1] * s;
     if (pt.tex) {
-      const fade = mg > 0 ? smooth(0, mg, z) * smooth(0, mg, H - z) : 1;
+      const fade = mg > 0 ? smooth(mg, mg + mgT(R), z) * smooth(mg, mg + mgT(R), H - z) : 1;
       const ph = pt.ph + (R.twist || 0) / 360 * perim / pt.pitch * (z / H);
       const a = R.depth * S(ph - Math.floor(ph)) * fade;
       x += a * pt.n[0]; y += a * pt.n[1];

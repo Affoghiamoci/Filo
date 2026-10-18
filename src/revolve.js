@@ -198,6 +198,8 @@ export function shellProfile(polys, t, b) {
 
 // Ricostruisce il pezzo girando il profilo attorno all'asse. ribs: { n, depth, shape, twist (gradi), margin (mm) }.
 // Restituisce le posizioni dei triangoli (non indicizzati), con l'origine al centro della base.
+// Margine: per tutta la sua altezza la parete resta liscia, poi le righe crescono in un tratto breve (non per tutto il margine, che faceva il pezzo a botte)
+export const mgT = R => Math.min(3, Math.max(1, 1.5 * (R.depth || 0)));
 export function revolve(polys, ribs) {
   const R = ribs && ribs.n > 0 && ribs.depth > 0 ? ribs : null;
   const N = R ? Math.min(2880, Math.max(96, Math.round(R.n) * (R.shape === 'point' ? 6 : 8))) : 128;
@@ -206,7 +208,7 @@ export function revolve(polys, ribs) {
     // sulle pareti che guardano fuori si infittisce il profilo, così le righe (e la torsione) restano morbide
     let L = L0;
     if (R) {
-      const step = R.twist ? 0.5 : 1, nn = vNormals(L0); L = [];
+      const step = R.twist || R.margin > 0 ? 0.5 : 1, nn = vNormals(L0); L = [];
       for (let i = 0; i < L0.length; i++) {
         const a = L0[i], b = L0[(i + 1) % L0.length]; L.push(a);
         if (nn[i][0] > 0.3 && nn[(i + 1) % L0.length][0] > 0.3) {
@@ -222,7 +224,7 @@ export function revolve(polys, ribs) {
     const P = (i, j) => {
       let [r, z] = L[i]; const th = TAU * j / N;
       if (S && wt[i] > 0) {
-        const fade = mg > 0 ? smooth(0, mg, z - zA) * smooth(0, mg, zB - z) : 1;
+        const fade = mg > 0 ? smooth(mg, mg + mgT(R), z - zA) * smooth(mg, mg + mgT(R), zB - z) : 1;   // margine: fascia liscia alta mg, poi le righe salgono in poco spazio
         const ph = R.n * (th + tw * (z - zA) / HT) / TAU;
         const a = R.depth * S(ph - Math.floor(ph)) * fade * wt[i];
         r += a * nrm[i][0]; z += a * nrm[i][1];
