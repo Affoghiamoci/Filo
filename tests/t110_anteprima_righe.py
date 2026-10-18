@@ -31,7 +31,7 @@ with sync_playwright() as p:
     v0=pg.evaluate("forma.objects[0].geometry.attributes.position.count"); k0=pg.evaluate("forma.objects[0].userData.kind")
     pg.fill('#rv-n','40'); pg.fill('#rv-depth','1'); pg.fill('#rv-wall','2'); pg.wait_for_timeout(800)
     info=pg.inner_text('#rv-info')
-    check('anteprima accesa: "%s"'%info,'Anteprima' in info and pg.evaluate("forma.__revPrev")==True)
+    check('anteprima accesa, nessun testo superfluo ("%s")'%info,info=='' and pg.evaluate("forma.__revPrev")==True)
     check('il pezzo vero non è cambiato',pg.evaluate("forma.objects[0].geometry.attributes.position.count")==v0 and pg.evaluate("forma.objects[0].userData.kind")==k0)
     pg.screenshot(path=O+'anteprima-righe.png',clip={'x':330,'y':150,'width':640,'height':560})
     pg.click('#rv-shape [data-v=point]'); pg.wait_for_timeout(800)

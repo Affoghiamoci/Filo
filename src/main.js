@@ -838,7 +838,7 @@ function syncRevPanel(m) {
   }
   $('#p-rev').dataset.id = String(u.id);
   document.querySelectorAll('#rv-shape button').forEach(b => b.classList.toggle('on', b.dataset.v === rvShape));
-  $('#rv-info').textContent = u.kind === 'rev' ? 'Pezzo a rotazione: righe e pareti restano modificabili' : u.kind === 'sec' ? 'Pezzo che sale dritto: righe e pareti restano modificabili' : 'Funziona sui pezzi a rotazione e su quelli che salgono dritti: cambia un valore per vedere l\'anteprima';
+  if (!revPrev) $('#rv-info').textContent = '';                    // il pannello parla solo quando c'è un problema
 }
 // Calcola il pezzo nuovo senza toccare quello vero: serve sia all'anteprima sia ad Applica. Restituisce { kind, np, pos } oppure { err }.
 const revBaseCache = new WeakMap();                   // geometria → profilo già riconosciuto (l'anteprima non rifà l'analisi a ogni tasto)
@@ -896,8 +896,7 @@ function revPreviewNow() {
   mesh.castShadow = mesh.receiveShadow = true; mesh.raycast = () => {};
   m.traverse(o => o.layers.set(2));                     // il pezzo vero non si vede (resta selezionato), al suo posto l'anteprima
   scene.add(mesh); revPrev = { mesh, obj: m }; dirty = true;
-  const tris = (g.index ? g.index.count : g.attributes.position.count) / 3;
-  $('#rv-info').textContent = `${tr('Anteprima')}: ${r.ribs.n > 0 && r.ribs.depth > 0 ? r.ribs.n + ' ' + tr('righe') : tr('liscio')}${r.shell.t > 0 ? ' · ' + tr('pareti') + ' ' + fmt(r.shell.t) + ' mm' : ''} · ${Math.round(tris).toLocaleString(getLang() === 'en' ? 'en-US' : 'it-IT')} ${tr('triangoli')}. ${tr('Applica per confermare, Esc per annullare')}`;
+  $('#rv-info').textContent = '';
 }
 function revPreview() { clearTimeout(revPrevTimer); revPrevTimer = setTimeout(revPreviewNow, 180); }
 function applyRev() {
@@ -2431,9 +2430,7 @@ function syncPanel() {
     else if (nUnits < 2 && b.dataset.ax === 'z' && b.dataset.mode !== 'min') { off = true; why = 'Con un solo oggetto in altezza si può solo appoggiare al piatto'; }
     b.style.opacity = off ? '.38' : ''; b.title = off ? why : b.dataset.tip;
   });
-  $('#p-key').textContent = nUnits < 2 ? ''
-    : keyObj ? `Oggetto chiave: ${keyObj.userData.name}. Clicca un altro oggetto selezionato per cambiarlo.`
-    : 'Allineo alla selezione. Per scegliere un oggetto chiave, clicca uno degli oggetti selezionati.';
+  $('#p-key').textContent = nUnits >= 2 && keyObj ? `Oggetto chiave: ${keyObj.userData.name}` : '';
 }
 // posizione di un gruppo o di più oggetti: X e Y sono il centro dell'ingombro, Z la base
 ['x', 'y', 'z'].forEach(ax => {
@@ -5296,7 +5293,7 @@ const EF = { size: $('#e-size'), go: $('#e-go'), info: $('#e-info'), hint: $('#e
 function updateEdgePanel() {
   const n = edgeSel.length;
   EF.info.textContent = n ? `· ${n} ${n === 1 ? 'spigolo' : 'spigoli'}` : tr('· nessuno selezionato');
-  EF.hint.textContent = n ? (edgeSel.every(x => x.chain.vkey || x.chain.rkey || (x.chain.closed && ringKeyOf(x.obj, x.chain.pts))) ? 'Scegli tipo e misura, poi Applica. Per cambiarlo dopo, riseleziona lo spigolo (con 0 lo togli).' : 'Scegli tipo e misura, poi Applica.') : 'Clicca uno spigolo. Con Maiusc ne scegli più di uno.';
+  EF.hint.textContent = n ? '' : 'Clicca uno spigolo. Con Maiusc ne scegli più di uno.';
   EF.go.disabled = !n;
   const lp = !!selectedLoop();
   $('#e-fillet-box').classList.toggle('dim', !n); $('#e-scale-box').classList.toggle('dim', !lp);
