@@ -9,7 +9,7 @@ import { mergeVertices, mergeGeometries, toCreasedNormals } from 'three/addons/u
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { unzipSync, zipSync, strToU8 } from 'three/addons/libs/fflate.module.js';
 import { Brush, Evaluator, ADDITION, SUBTRACTION, INTERSECTION } from 'three-bvh-csg';
-import { initManifold, manifoldEvaluate, manifoldCombine, manifoldStretch, manifoldHalf, manifoldMod, simplifyGeo } from './mcsg.js';
+import { initManifold, manifoldEvaluate, manifoldCombine, manifoldStretch, manifoldHalf, manifoldMod, simplifyGeo, geoIsClosed } from './mcsg.js';
 import { ConvexHull } from 'three/addons/math/ConvexHull.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
@@ -4100,8 +4100,9 @@ function foldedTri(orig, arr, t) {
   if (la < 1e-6) return false;                                           // triangolo già degenere
   return lb < la * 1e-3 ? false : (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / (la * lb) < 0.2;
 }
+const CURVED_MSG = 'Questa superficie curva non si può spostare in modo pulito: per allargare il pezzo usa le maniglie di Sposta (V)';
 function pushOne(obj, faces, dist) {
-  if (faceMode.v === 'extrude') {                 // Estrudi: prisma con la sagoma del lato, aggiunto (o tolto) senza toccare i lati vicini
+  if (faceMode.v === 'extrude' && !faces.some(f => f.curved)) {   // Estrudi (solo lati piatti; sui lati curvi vale Sposta): prisma con la sagoma del lato, aggiunto (o tolto) senza toccare i lati vicini
     let b2 = null;
     try { b2 = prismPush(obj, faces.slice(), dist, faceMode.taper); } catch (e) { b2 = null; }
     if (!b2) return { err: 'Non riesco a estrudere questo lato: prova con Sposta il lato' };
@@ -4228,6 +4229,7 @@ function pushOne(obj, faces, dist) {
   }
   g.dispose();
   if (!moved) return { err: 'Impossibile spostare questo lato' };
+  if (spiky && faces.some(f => f.curved)) return { err: CURVED_MSG };      // il prisma di ripiego ha senso solo su un lato piatto
   if (spiky) {
     let b2 = null;
     try { b2 = prismPush(obj, faces.slice(), dist); } catch (e) { b2 = null; }
@@ -4237,6 +4239,7 @@ function pushOne(obj, faces, dist) {
   const baked = bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(arr) }, obj.userData.name);
   if (!baked) return { err: 'Il risultato è vuoto' };
   if (isFlat(baked)) return { err: FLAT_MSG };
+  if (faces.some(f => f.curved) && geoIsClosed(baked.geo) === false) return { err: CURVED_MSG };
   return { mesh: replaceWithMerged(obj, baked, true) };
 }
 /* calamita per le maniglie di ridimensionamento: la faccia trascinata si aggancia ai lati paralleli degli altri oggetti (contatto o a filo).

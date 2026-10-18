@@ -178,6 +178,7 @@ const EN = {
   'Questo lato ha dei buchi o un contorno non chiuso: non lo posso ridimensionare': "This face has holes or an open outline: I can't resize it",
   'Lato ridimensionato': 'Face resized',
   'Lato: nuovo interruttore Sposta il lato / Estrudi e campo Scala per ridimensionare il lato': 'Face: new Move the face / Extrude switch and a Scale field to resize the face',
+  'Questa superficie curva non si può spostare in modo pulito: per allargare il pezzo usa le maniglie di Sposta (V)': "This curved surface can't be moved cleanly: to widen the piece use the Move (V) handles",
   'Modo': 'Mode', 'Sposta il lato': 'Move the face', 'Estrudi': 'Extrude',
   "Sposta il lato: il lato si muove e quelli vicini si allungano o si accorciano. Estrudi: dal lato nasce materiale nuovo con la sua stessa sagoma (o si scava, se il valore è negativo) e i lati vicini restano com'erano.": 'Move the face: the face moves and the neighbouring faces grow or shrink. Extrude: new material grows from the face with its own outline (or it digs, if the value is negative) and the neighbouring faces stay as they were.',
   'Non riesco a estrudere questo lato: prova con Sposta il lato': "I can't extrude this face: try Move the face",
