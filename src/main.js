@@ -339,6 +339,9 @@ function boxFilleted(p, ringFn = boxRing, lim) {
 /* cilindro, cono e prisma con bordi alto e basso (e angoli verticali per il prisma): stessi anelli sovrapposti della scatola */
 const ROUND_KINDS = ['box', 'cylinder', 'cone', 'prism'];
 function prismSides(p) { return Math.round(clamp(p.q || 6, 3, 64)); }
+// Cima: rapporto tra la cima e la base. Cono e cilindro possono allargarsi verso l'alto (fino a 300 %), scatola e prisma solo stringersi
+const TOP_MAX = { cylinder: 300, cone: 300 };
+function topRatio(kind, p) { return kind === 'cone' ? Math.max(p.q || 0, 1) / 100 : clamp(p.t ?? 100, 1, TOP_MAX[kind] || 100) / 100; }
 function edgeLimit(kind, p) {                          // il bordo non può superare il raggio interno della forma
   const base = Math.min(p.w, p.d) / 2;
   return (kind === 'prism' ? base * Math.cos(Math.PI / prismSides(p)) : base) - 0.05;
@@ -362,8 +365,8 @@ function roundRing(kind, p, d) {
 }
 function roundedSolid(kind, p) {
   let g = boxFilleted(p, (pp, d) => roundRing(kind, pp, d), edgeLimit(kind, p));
-  const tt = kind === 'cone' ? Math.max(p.q || 0, 1) / 100 : clamp(p.t ?? 100, 1, 100) / 100;
-  if (tt < 0.9999) {
+  const tt = topRatio(kind, p);
+  if (Math.abs(tt - 1) > 1e-4) {
     g = g.index ? g.toNonIndexed() : g; g.deleteAttribute('normal');
     const a = g.attributes.position; for (let i = 0; i < a.count; i++) { const k = 1 + (tt - 1) * a.getZ(i) / p.h; a.setX(i, a.getX(i) * k); a.setY(i, a.getY(i) * k); }
     g = toCreasedNormals(g, 30 * D2R); clean(g);
@@ -499,7 +502,7 @@ function buildGeometry(kind, p) {
       g = toCreasedNormals(g, 30 * D2R); clean(g);
     }
   } else if (kind === 'cylinder') {
-    g = new THREE.CylinderGeometry(clamp(p.t ?? 100, 1, 100) / 100, 1, 1, 72, 1);
+    g = new THREE.CylinderGeometry(topRatio('cylinder', p), 1, 1, 72, 1);
     g.rotateX(Math.PI / 2); g.scale(p.w / 2, p.d / 2, p.h); g.translate(0, 0, p.h / 2);
   } else if (kind === 'rev') {
     return revGeometry(p);
@@ -639,7 +642,7 @@ function refreshEdges(m) {
   let xg = e.geometry;
   const u = m.userData;
   if ((u.kind === 'cylinder' || u.kind === 'cone') && u.p && !u.heavy && xg.attributes.position) {      // le pareti curve non hanno spigoli: in Raggi X si disegnano 4 linee lungo la parete (dritte o oblique)
-    const p = u.p, rt = u.kind === 'cone' ? Math.max(p.q || 0, 1) / 100 : clamp(p.t ?? 100, 1, 100) / 100, z0 = Math.min(p.fb || 0, p.h / 2), z1 = p.h - Math.min(p.ft || 0, p.h / 2), extra = [];
+    const p = u.p, rt = topRatio(u.kind, p), z0 = Math.min(p.fb || 0, p.h / 2), z1 = p.h - Math.min(p.ft || 0, p.h / 2), extra = [];
     const at = (th, z) => { const k = 1 + (rt - 1) * z / p.h; return [Math.cos(th) * p.w / 2 * k, Math.sin(th) * p.d / 2 * k, z]; };
     for (let i = 0; i < 4; i++) { const th = i * Math.PI / 2; extra.push(...at(th, z0), ...at(th, z1)); }
     const base = xg.attributes.position.array, all = new Float32Array(base.length + extra.length); all.set(base); all.set(extra, base.length);
@@ -700,8 +703,8 @@ function removeMesh(m) {
   if (m.userData.edges) m.userData.edges.geometry.dispose();
   if (m.userData.kind !== 'merged') m.geometry.dispose();
 }
-// cono con la cima più larga della base: L e P sono la larghezza vera (quella della cima), il parametro interno resta la base
-const coneK = u => u.kind === 'cone' ? Math.max(1, (u.p.q || 0) / 100) : 1;
+// cono o cilindro con la cima più larga della base: L e P sono la larghezza vera (quella della cima), il parametro interno resta la base
+const coneK = u => u.kind === 'cone' || u.kind === 'cylinder' ? Math.max(1, topRatio(u.kind, u.p)) : 1;
 function sizeOf(m) {
   const u = m.userData;
   if (u.kind !== 'merged') { const k = coneK(u); return { w: u.p.w * k, d: u.p.d * k, h: u.p.h }; }
@@ -742,7 +745,7 @@ function setRadius(m, r) {
 function setTop(m, v) {
   const u = m.userData;
   if (!['box', 'cylinder', 'prism'].includes(u.kind)) return;
-  u.p.t = clamp(Math.round(v), 1, 100);
+  u.p.t = clamp(Math.round(v), 1, TOP_MAX[u.kind] || 100);
   m.geometry.dispose();
   m.geometry = buildGeometry(u.kind, u.p);
   refreshEdges(m);
@@ -812,6 +815,7 @@ function setSelection(list) {
   queueMicrotask(updateRotGizmo);
   selection = list.filter(m => m && m.visible && !m.userData.locked);
   if (repPrevG) hideRepeatPreview();
+  if (revPrev && !(selection.length === 1 && selection[0] === revPrev.obj)) hideRevPreview();
   if (typeof hpop !== 'undefined' && hpop) closeHandlePopup();
   if (!selection.includes(keyObj)) keyObj = null;
   if (faceSel && !selection.includes(faceSel.obj)) clearFace(false);
@@ -834,10 +838,11 @@ function syncRevPanel(m) {
   }
   $('#p-rev').dataset.id = String(u.id);
   document.querySelectorAll('#rv-shape button').forEach(b => b.classList.toggle('on', b.dataset.v === rvShape));
-  $('#rv-info').textContent = u.kind === 'rev' ? 'Pezzo a rotazione: righe e pareti restano modificabili' : u.kind === 'sec' ? 'Pezzo che sale dritto: righe e pareti restano modificabili' : 'Funziona sui pezzi a rotazione e su quelli che salgono dritti: lo controllo quando premi Applica';
+  $('#rv-info').textContent = u.kind === 'rev' ? 'Pezzo a rotazione: righe e pareti restano modificabili' : u.kind === 'sec' ? 'Pezzo che sale dritto: righe e pareti restano modificabili' : 'Funziona sui pezzi a rotazione e su quelli che salgono dritti: cambia un valore per vedere l\'anteprima';
 }
-function applyRev() {
-  const m = single(); if (!m || m.userData.hole) return;
+// Calcola il pezzo nuovo senza toccare quello vero: serve sia all'anteprima sia ad Applica. Restituisce { kind, np, pos } oppure { err }.
+const revBaseCache = new WeakMap();                   // geometria → profilo già riconosciuto (l'anteprima non rifà l'analisi a ogni tasto)
+function computeRev(m) {
   const u = m.userData, num = id => fieldNum($(id));
   const ribs = { n: Math.round(clamp(num('#rv-n') || 0, 0, 720)), depth: clamp(num('#rv-depth') || 0, 0, 10), shape: rvShape, twist: clamp(num('#rv-twist') || 0, -720, 720), margin: Math.max(0, num('#rv-margin') || 0) };
   const shell = { t: Math.max(0, num('#rv-wall') || 0), b: Math.max(0, num('#rv-bottom') || 0) };
@@ -845,37 +850,79 @@ function applyRev() {
   if (u.kind === 'rev') base = { prof: u.p.prof, w0: u.p.w0, h0: u.p.h0, w: u.p.w, d: u.p.d, h: u.p.h, pos: null };
   else if (u.kind === 'sec') base = { polys: u.p.polys, k: u.p.k, w0: u.p.w0, d0: u.p.d0, h0: u.p.h0, w: u.p.w, d: u.p.d, h: u.p.h, pos: null };
   else {
-    const P = worldPositions(m);
-    if (P.length / 9 > 400000) return toast('Pezzo troppo pesante per ricostruirlo');
-    const r = ['box', 'prism'].includes(u.kind) ? { err: 1 } : revolutionProfile(P);
-    if (!r.err) base = { prof: r.polys, w0: 2 * r.rmax, h0: r.h, w: 2 * r.rmax, d: 2 * r.rmax, h: r.h, pos: [r.cx, r.cy, r.z0] };
+    m.updateMatrixWorld(true);
+    const key = m.matrixWorld.elements.map(v => v.toFixed(5)).join(','), hit = revBaseCache.get(m.geometry);
+    if (hit && hit.key === key) { kind = hit.kind; base = hit.base; }
     else {
-      const s = sectionProfile(P);
-      if (s.err) return toast('Righe e pareti funzionano sui pezzi a rotazione (cilindri, coni, vasi) e su quelli che salgono dritti (scatole, prismi): questo pezzo non lo è');
-      kind = 'sec';
-      base = { polys: s.polys, k: s.k, w0: s.w0, d0: s.d0, h0: s.h, w: s.w0, d: s.d0, h: s.h, pos: [s.cx, s.cy, s.z0] };
+      const P = worldPositions(m);
+      if (P.length / 9 > 400000) return { err: 'Pezzo troppo pesante per ricostruirlo' };
+      const r = ['box', 'prism'].includes(u.kind) ? { err: 1 } : revolutionProfile(P);
+      if (!r.err) base = { prof: r.polys, w0: 2 * r.rmax, h0: r.h, w: 2 * r.rmax, d: 2 * r.rmax, h: r.h, pos: [r.cx, r.cy, r.z0] };
+      else {
+        const s = sectionProfile(P);
+        if (s.err) return { err: 'Righe e pareti funzionano sui pezzi a rotazione (cilindri, coni, vasi) e su quelli che salgono dritti (scatole, prismi): questo pezzo non lo è' };
+        kind = 'sec';
+        base = { polys: s.polys, k: s.k, w0: s.w0, d0: s.d0, h0: s.h, w: s.w0, d: s.d0, h: s.h, pos: [s.cx, s.cy, s.z0] };
+      }
+      revBaseCache.set(m.geometry, { key, kind, base });
     }
   }
   if (kind === 'rev' && shell.t > 0) {
     const kz = base.h / base.h0, s = shellProfile(base.prof.map(L => L.map(([r, z]) => [r, z * kz])), shell.t, shell.b);
-    if (s.err) return toast(s.err);
+    if (s.err) return { err: s.err };
   }
   const np = kind === 'rev' ? { w: base.w, d: base.d, h: base.h, w0: base.w0, h0: base.h0, prof: base.prof, ribs, shell }
     : { w: base.w, d: base.d, h: base.h, w0: base.w0, d0: base.d0, h0: base.h0, polys: base.polys, k: base.k, ribs, shell };
-  if (kind === 'sec' && shell.t > 0) { if (!manifoldMod()) return toast('Un attimo: il motore si sta ancora caricando'); const c = secGeometry(np, true); if (c.err) return toast(c.err); c.g.dispose(); }
+  if (kind === 'sec' && shell.t > 0) { if (!manifoldMod()) return { err: 'Un attimo: il motore si sta ancora caricando' }; const c = secGeometry(np, true); if (c.err) return { err: c.err }; c.g.dispose(); }
+  return { kind, np, pos: base.pos, ribs, shell };
+}
+// Anteprima: mentre cambi i campi il pezzo si mostra già con righe e pareti (il pezzo vero resta com'era finché non premi Applica; Esc la toglie)
+var revPrev = null, revPrevTimer = 0;
+function hideRevPreview() {
+  clearTimeout(revPrevTimer);
+  if (!revPrev) return;
+  scene.remove(revPrev.mesh); revPrev.mesh.geometry.dispose();
+  if (revPrev.obj) { revPrev.obj.layers.set(0); revPrev.obj.traverse(o => o.layers.set(0)); }
+  revPrev = null; dirty = true;
+}
+function revPreviewNow() {
+  const m = single();
+  hideRevPreview();
+  if (!m || m.userData.hole || $('#p-rev').classList.contains('hidden')) return;
+  const r = computeRev(m);
+  if (r.err) { $('#rv-info').textContent = tr(r.err); return; }
+  const g = buildGeometry(r.kind, r.np), mesh = new THREE.Mesh(g, matFor(m));
+  if (r.pos) mesh.position.set(...r.pos); else { mesh.position.copy(m.position); mesh.quaternion.copy(m.quaternion); mesh.scale.copy(m.scale); }
+  mesh.castShadow = mesh.receiveShadow = true; mesh.raycast = () => {};
+  m.traverse(o => o.layers.set(2));                     // il pezzo vero non si vede (resta selezionato), al suo posto l'anteprima
+  scene.add(mesh); revPrev = { mesh, obj: m }; dirty = true;
+  const tris = (g.index ? g.index.count : g.attributes.position.count) / 3;
+  $('#rv-info').textContent = `${tr('Anteprima')}: ${r.ribs.n > 0 && r.ribs.depth > 0 ? r.ribs.n + ' ' + tr('righe') : tr('liscio')}${r.shell.t > 0 ? ' · ' + tr('pareti') + ' ' + fmt(r.shell.t) + ' mm' : ''} · ${Math.round(tris).toLocaleString(getLang() === 'en' ? 'en-US' : 'it-IT')} ${tr('triangoli')}. ${tr('Applica per confermare, Esc per annullare')}`;
+}
+function revPreview() { clearTimeout(revPrevTimer); revPrevTimer = setTimeout(revPreviewNow, 180); }
+function applyRev() {
+  const m = single(); if (!m || m.userData.hole) return;
+  hideRevPreview();
+  const u = m.userData, r = computeRev(m);
+  if (r.err) return toast(r.err);
+  const { kind, np, ribs, shell } = r;
   if (heavyGuard([m])) return;
   u.kind = kind; u.base = null; u.geo = null;
   u.p = np;
   m.geometry.dispose(); m.geometry = buildGeometry(kind, u.p);
-  if (base.pos) { m.position.set(...base.pos); m.quaternion.identity(); m.scale.set(1, 1, 1); }
+  if (r.pos) { m.position.set(...r.pos); m.quaternion.identity(); m.scale.set(1, 1, 1); }
   m.updateMatrixWorld(true); refreshEdges(m);
   $('#p-rev').dataset.id = '';
   touch(); syncPanel(); updateHandles(); commit();
   toast(ribs.n > 0 && ribs.depth > 0 ? `${ribs.n} righe da ${fmt(ribs.depth)} mm${shell.t > 0 ? ', pareti da ' + fmt(shell.t) + ' mm' : ''}` : shell.t > 0 ? `Svuotato: pareti da ${fmt(shell.t)} mm, fondo ${fmt(shell.b)} mm` : kind === 'sec' ? 'Pezzo che sale dritto, liscio' : 'Pezzo a rotazione, liscio');
 }
-document.querySelectorAll('#rv-shape button').forEach(b => b.addEventListener('click', () => { rvShape = b.dataset.v; document.querySelectorAll('#rv-shape button').forEach(x => x.classList.toggle('on', x === b)); }));
+document.querySelectorAll('#rv-shape button').forEach(b => b.addEventListener('click', () => { rvShape = b.dataset.v; document.querySelectorAll('#rv-shape button').forEach(x => x.classList.toggle('on', x === b)); revPreview(); }));
 $('#rv-go').addEventListener('click', applyRev);
-for (const id of ['#rv-n', '#rv-depth', '#rv-twist', '#rv-margin', '#rv-wall', '#rv-bottom']) $(id).addEventListener('keydown', e => { if (e.key === 'Enter') applyRev(); });
+for (const id of ['#rv-n', '#rv-depth', '#rv-twist', '#rv-margin', '#rv-wall', '#rv-bottom']) {
+  $(id).addEventListener('keydown', e => { if (e.key === 'Enter') applyRev(); });
+  $(id).addEventListener('input', revPreview);
+  $(id).addEventListener('change', revPreview);
+}
 
 /* -------------------------------------------------- cronologia (annulla) */
 const history = [];
@@ -956,6 +1003,7 @@ function jumpTo(i) {
   hIdx = i; restore(history[i]); scheduleHistory();
 }
 function restore(s) {
+  if (revPrev) hideRevPreview();
   [...objects].forEach(removeMesh);
   keyObj = null;
   const made = s.list.map(d => makeMesh({ ...d }));
@@ -974,7 +1022,7 @@ function updatePerfNote() {
   $('#perf-note').classList.toggle('hidden', !heavy || perfDismissed);
 }
 $('#perf-x').addEventListener('click', () => { perfDismissed = true; updatePerfNote(); });
-function touch() { dirty = dimsDirty = true; if (repPrevG) repeatPreview(); if (window.__chkStale) window.__chkStale(); if (wantPixelRatio() !== pixelRatio) resize(); updatePerfNote(); $('#empty-hint').classList.toggle('hidden', objects.length > 0); if (rsOn && !objects.length !== rsWas) { rsWas = !objects.length; if (rsWas) offerResume(); } scheduleLayers(); updateRotGizmo(); }
+function touch() { dirty = dimsDirty = true; if (repPrevG) repeatPreview(); if (revPrev) revPreview(); if (window.__chkStale) window.__chkStale(); if (wantPixelRatio() !== pixelRatio) resize(); updatePerfNote(); $('#empty-hint').classList.toggle('hidden', objects.length > 0); if (rsOn && !objects.length !== rsWas) { rsWas = !objects.length; if (rsWas) offerResume(); } scheduleLayers(); updateRotGizmo(); }
 const bvhEval = new Evaluator();
 bvhEval.attributes = ['position', 'normal'];
 let useManifold = true;                                  // window.__noManifold = true per confrontare con il vecchio motore
@@ -2361,6 +2409,7 @@ function syncPanel() {
     document.querySelectorAll('#p-rm button').forEach(b => b.classList.toggle('on', (m.userData.p.rm === 'chamfer') === (b.dataset.v === 'chamfer')));
     const hasT = ['box', 'cylinder', 'prism'].includes(m.userData.kind), qs = QSPEC[m.userData.kind];
     $('#p-t-wrap').classList.toggle('hidden', !hasT);
+    if (hasT) F.t.max = TOP_MAX[m.userData.kind] || 100;
     $('#p-q-wrap').classList.toggle('hidden', !qs);
     $('#p-shape').classList.toggle('hidden', !hasT && !qs);
     const rvOk = !m.userData.hole && REV_KINDS.includes(m.userData.kind);
@@ -3128,6 +3177,7 @@ function setTool(t) {
 function setToolInner(t) {
   state.tool = t;
   if (repPrevG) hideRepeatPreview();
+  if (revPrev) hideRevPreview();
   updateRotGizmo();
   if (t !== 'face') { clearFace(false); hideHover(); }
   if (t !== 'edge') clearEdges();
@@ -3444,7 +3494,8 @@ function closeOpenMenus() {
 window.addEventListener('keydown', e => {
   if (e.key !== 'Escape' || e.isComposing) return;
   const t = e.target;
-  if (repPrevG && !(t.closest && t.closest('#p-repeat'))) { hideRepeatPreview(); e.preventDefault(); e.stopPropagation(); return; }   // Esc fuori dai campi: prima l'anteprima di Ripeti
+  if (repPrevG && !(t.closest && t.closest('#p-repeat'))) { hideRepeatPreview(); e.preventDefault(); e.stopPropagation(); return; }
+  if (revPrev) { hideRevPreview(); if (single()) syncRevPanel(single()); e.preventDefault(); e.stopPropagation(); if (t.blur) t.blur(); return; }   // Esc: via l'anteprima di Righe e pareti   // Esc fuori dai campi: prima l'anteprima di Ripeti
   if (t.tagName === 'INPUT' && (t.hasAttribute('data-num') || t.id === 'p-name') && !t.closest('dialog, #hpop') && fieldStart.has(t)) {
     e.preventDefault(); e.stopPropagation();
     const v0 = fieldStart.get(t);
@@ -5073,7 +5124,7 @@ function updateSilhouettes() {                     // Raggi X: contorno (i due l
     if (!sx) continue;
     sx.visible = state.xray && m.visible;
     if (!sx.visible || !u.p) continue;
-    const p = u.p, rt = u.kind === 'cone' ? Math.max(p.q || 0, 1) / 100 : clamp(p.t ?? 100, 1, 100) / 100, z0 = Math.min(p.fb || 0, p.h / 2), z1 = p.h - Math.min(p.ft || 0, p.h / 2);
+    const p = u.p, rt = topRatio(u.kind, p), z0 = Math.min(p.fb || 0, p.h / 2), z1 = p.h - Math.min(p.ft || 0, p.h / 2);
     const km = z => 1 + (rt - 1) * z / p.h, a = p.w / 2, b = p.d / 2, zm = (z0 + z1) / 2;
     _cl.copy(camera.position); m.worldToLocal(_cl);
     const A = _cl.x / (a * km(zm)), B = _cl.y / (b * km(zm)), R = Math.hypot(A, B);
@@ -5184,7 +5235,7 @@ function edgeAtPointer(e, hit) {
     return best ? { obj, virt: { key: best.key, chain: { pts: best.pts, closed: false, verts: [best.key], vkey: best.key } } } : null;
   }
   if (ringShape(obj)) {                                // cilindro e cono con bordo arrotondato: l'anello vivo non c'è più, lo cerco dove si vede la curva
-    const u = obj.userData, p = u.p, tt = u.kind === 'cone' ? Math.max(p.q || 0, 1) / 100 : clamp(p.t ?? 100, 1, 100) / 100;
+    const u = obj.userData, p = u.p, tt = topRatio(u.kind, p);
     let best = null, bd = Math.max(0.8, 14 * wpp), ln = new THREE.Line3(), q = new THREE.Vector3();
     for (const [rk, f] of [['ft', p.ft], ['fb', p.fb]]) {
       if (!(f > 0)) continue;
@@ -5272,10 +5323,10 @@ function scaleEdge(obj, chain, f) {
     const rebuild = () => { obj.geometry.dispose(); obj.geometry = buildGeometry(u.kind, u.p); refreshEdges(obj); obj.updateMatrixWorld(true); return { mesh: obj }; };
     if (top && Math.abs(rad - u.p.w / 2 * Math.max(q0, 1) / 100) < 0.05) {
       const q = Math.max(q0, 1) * f;
-      if (q >= 1 && q <= (kk === 'q' ? 300 : 100)) { u.p[kk] = q; return rebuild(); }
+      if (q >= 1 && q <= 300) { u.p[kk] = q; return rebuild(); }
     } else if (bottom && Math.abs(rad - u.p.w / 2) < 0.05) {
       const q = Math.max(q0, 1) / f, w = u.p.w * f;
-      if (q >= 1 && q <= (kk === 'q' ? 300 : 100) && w >= 0.2) { u.p.w = w; u.p.d = w; u.p[kk] = q; return rebuild(); }
+      if (q >= 1 && q <= 300 && w >= 0.2) { u.p.w = w; u.p.d = w; u.p[kk] = q; return rebuild(); }
     }
   }
   const arr = worldPositions(obj), key = (x, y, z) => Math.round(x * 2000) + ',' + Math.round(y * 2000) + ',' + Math.round(z * 2000);
@@ -6293,7 +6344,7 @@ $('#ew-resume').addEventListener('click', async e => {
 });
 offerResume(); rsOn = true;
 
-window.forma = { revolutionProfile, applyRev, get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { get __revPrev() { return !!revPrev; }, revolutionProfile, applyRev, get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */
