@@ -9,6 +9,7 @@ import { mergeVertices, mergeGeometries, toCreasedNormals } from 'three/addons/u
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { unzipSync, zipSync, strToU8 } from 'three/addons/libs/fflate.module.js';
 import { Brush, Evaluator, ADDITION, SUBTRACTION, INTERSECTION } from 'three-bvh-csg';
+import { revolutionProfile, shellProfile, revolve } from './revolve.js';
 import { buildTopo, triangulateTopo, soupVolume, moveFace, extrudeFace, topoFaceFor, filletEdge, filletEdges, topoEdgeFor } from './topo.js';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
 import { initManifold, manifoldEvaluate, manifoldCombine, manifoldStretch, manifoldHalf, manifoldMod, simplifyGeo, geoIsClosed } from './mcsg.js';
@@ -499,6 +500,8 @@ function buildGeometry(kind, p) {
   } else if (kind === 'cylinder') {
     g = new THREE.CylinderGeometry(clamp(p.t ?? 100, 1, 100) / 100, 1, 1, 72, 1);
     g.rotateX(Math.PI / 2); g.scale(p.w / 2, p.d / 2, p.h); g.translate(0, 0, p.h / 2);
+  } else if (kind === 'rev') {
+    return revGeometry(p);
   } else if (kind === 'cone') {
     g = new THREE.CylinderGeometry(Math.max(p.q || 0, 1) / 100, 1, 1, 72, 1);
     g.rotateX(Math.PI / 2); g.scale(p.w / 2, p.d / 2, p.h); g.translate(0, 0, p.h / 2);
@@ -516,6 +519,16 @@ function buildGeometry(kind, p) {
   return clean(g);
 }
 
+// pezzo a rotazione: il profilo (misure originali) si adatta all'altezza, poi Svuota e Righe, poi si adatta a larghezza e profondità
+function revGeometry(p) {
+  const kz = p.h / p.h0;
+  let polys = p.prof.map(L => L.map(([r, z]) => [r, z * kz]));
+  if (p.shell && p.shell.t > 0) { const s = shellProfile(polys, p.shell.t, p.shell.b ?? 2); if (!s.err) polys = s.polys; }
+  const pos = revolve(polys, p.ribs);
+  const g = geometryFromPositions(pos);
+  g.scale(p.w / p.w0, p.d / p.w0, 1);
+  return g;
+}
 /* ------------------------------------------------------------- materiali */
 const M = {
   solid: new THREE.MeshStandardMaterial({ color: 0xd9dce3, roughness: 0.55, metalness: 0.05 }),
@@ -602,7 +615,8 @@ function matFor(m) {
 }
 function refreshEdges(m) {
   if (m.userData.edges) { m.remove(m.userData.edges); m.userData.edges.geometry.dispose(); }
-  const e = new THREE.LineSegments(m.userData.heavy ? new THREE.BufferGeometry() : featureEdges(m.geometry, 30),
+  const ribbed = m.userData.kind === 'rev' && m.userData.p.ribs && m.userData.p.ribs.n > 0 && m.userData.p.ribs.depth > 0;   // righe: migliaia di spigoli, si vede solo la superficie
+  const e = new THREE.LineSegments(m.userData.heavy || ribbed ? new THREE.BufferGeometry() : featureEdges(m.geometry, 30),
     new THREE.LineBasicMaterial({ color: EDGE.normal, transparent: true, opacity: 0.55 }));
   e.raycast = () => {};
   m.add(e);
@@ -718,7 +732,8 @@ function setTop(m, v) {
   m.geometry = buildGeometry(u.kind, u.p);
   refreshEdges(m);
 }
-const QSPEC = { cone: ['Cima %', 0, 100], prism: ['Lati', 3, 64], torus: ['Spessore %', 5, 50] };
+const QSPEC = { cone: ['Cima %', 0, 300], prism: ['Lati', 3, 64], torus: ['Spessore %', 5, 50] };
+const REV_KINDS = ['cylinder', 'cone', 'sphere', 'torus', 'rev', 'merged'];
 function setQ(m, v) {
   const u = m.userData, sp = QSPEC[u.kind];
   if (!sp) return;
@@ -793,6 +808,50 @@ function setSelection(list) {
   if (planeTool()) cutReset();
   if (onSelChange) onSelChange();
 }
+
+/* -------------------------------------------------- Righe e pareti (pezzi a rotazione) */
+let rvShape = 'round';
+function syncRevPanel(m) {
+  const u = m.userData, rb = u.kind === 'rev' ? (u.p.ribs || {}) : null, sh = u.kind === 'rev' ? (u.p.shell || {}) : null;
+  if (rb && $('#p-rev').dataset.id !== String(u.id)) {           // un pezzo a rotazione mostra i suoi valori
+    $('#rv-n').value = fmt(rb.n ?? 0); $('#rv-depth').value = fmt(rb.depth ?? 0.8); $('#rv-twist').value = fmt(rb.twist ?? 0); $('#rv-margin').value = fmt(rb.margin ?? 0);
+    $('#rv-wall').value = fmt(sh.t ?? 0); $('#rv-bottom').value = fmt(sh.b ?? 2); rvShape = rb.shape || 'round';
+  }
+  $('#p-rev').dataset.id = String(u.id);
+  document.querySelectorAll('#rv-shape button').forEach(b => b.classList.toggle('on', b.dataset.v === rvShape));
+  $('#rv-info').textContent = u.kind === 'rev' ? 'Pezzo a rotazione: righe e pareti restano modificabili' : 'Funziona sui pezzi a rotazione: lo controllo quando premi Applica';
+}
+function applyRev() {
+  const m = single(); if (!m || m.userData.hole) return;
+  const u = m.userData, num = id => fieldNum($(id));
+  const ribs = { n: Math.round(clamp(num('#rv-n') || 0, 0, 720)), depth: clamp(num('#rv-depth') || 0, 0, 10), shape: rvShape, twist: clamp(num('#rv-twist') || 0, -720, 720), margin: Math.max(0, num('#rv-margin') || 0) };
+  const shell = { t: Math.max(0, num('#rv-wall') || 0), b: Math.max(0, num('#rv-bottom') || 0) };
+  let base;
+  if (u.kind === 'rev') base = { prof: u.p.prof, w0: u.p.w0, h0: u.p.h0, w: u.p.w, d: u.p.d, h: u.p.h, pos: null };
+  else {
+    const P = worldPositions(m);
+    if (P.length / 9 > 400000) return toast('Pezzo troppo pesante per ricostruirlo');
+    const r = revolutionProfile(P);
+    if (r.err) return toast('Righe e pareti funzionano sui pezzi a rotazione (cilindri, coni, sfere, vasi): questo pezzo non lo è');
+    base = { prof: r.polys, w0: 2 * r.rmax, h0: r.h, w: 2 * r.rmax, d: 2 * r.rmax, h: r.h, pos: [r.cx, r.cy, r.z0] };
+  }
+  if (shell.t > 0) {
+    const kz = base.h / base.h0, s = shellProfile(base.prof.map(L => L.map(([r, z]) => [r, z * kz])), shell.t, shell.b);
+    if (s.err) return toast(s.err);
+  }
+  if (heavyGuard([m])) return;
+  u.kind = 'rev'; u.base = null; u.geo = null;
+  u.p = { w: base.w, d: base.d, h: base.h, w0: base.w0, h0: base.h0, prof: base.prof, ribs, shell };
+  m.geometry.dispose(); m.geometry = buildGeometry('rev', u.p);
+  if (base.pos) { m.position.set(...base.pos); m.quaternion.identity(); m.scale.set(1, 1, 1); }
+  m.updateMatrixWorld(true); refreshEdges(m);
+  $('#p-rev').dataset.id = '';
+  touch(); syncPanel(); updateHandles(); commit();
+  toast(ribs.n > 0 && ribs.depth > 0 ? `${ribs.n} righe da ${fmt(ribs.depth)} mm${shell.t > 0 ? ', pareti da ' + fmt(shell.t) + ' mm' : ''}` : shell.t > 0 ? `Svuotato: pareti da ${fmt(shell.t)} mm, fondo ${fmt(shell.b)} mm` : 'Pezzo a rotazione, liscio');
+}
+document.querySelectorAll('#rv-shape button').forEach(b => b.addEventListener('click', () => { rvShape = b.dataset.v; document.querySelectorAll('#rv-shape button').forEach(x => x.classList.toggle('on', x === b)); }));
+$('#rv-go').addEventListener('click', applyRev);
+for (const id of ['#rv-n', '#rv-depth', '#rv-twist', '#rv-margin', '#rv-wall', '#rv-bottom']) $(id).addEventListener('keydown', e => { if (e.key === 'Enter') applyRev(); });
 
 /* -------------------------------------------------- cronologia (annulla) */
 const history = [];
@@ -2277,6 +2336,9 @@ function syncPanel() {
     $('#p-t-wrap').classList.toggle('hidden', !hasT);
     $('#p-q-wrap').classList.toggle('hidden', !qs);
     $('#p-shape').classList.toggle('hidden', !hasT && !qs);
+    const rvOk = !m.userData.hole && REV_KINDS.includes(m.userData.kind);
+    $('#p-rev').classList.toggle('hidden', !rvOk);
+    if (rvOk) syncRevPanel(m);
     if (qs) { const lab = $('#p-q-lab'); if (lab.dataset.k !== m.userData.kind) { lab.dataset.k = m.userData.kind; lab.firstChild.data = qs[0]; F.q.min = qs[1]; F.q.max = qs[2]; F.q.step = m.userData.kind === 'prism' ? 1 : 5; } }
   } else {
     const gb = selBox(), gs = gb.getSize(new THREE.Vector3());
@@ -5183,10 +5245,10 @@ function scaleEdge(obj, chain, f) {
     const rebuild = () => { obj.geometry.dispose(); obj.geometry = buildGeometry(u.kind, u.p); refreshEdges(obj); obj.updateMatrixWorld(true); return { mesh: obj }; };
     if (top && Math.abs(rad - u.p.w / 2 * Math.max(q0, 1) / 100) < 0.05) {
       const q = Math.max(q0, 1) * f;
-      if (q >= 1 && q <= 100) { u.p[kk] = q; return rebuild(); }
+      if (q >= 1 && q <= (kk === 'q' ? 300 : 100)) { u.p[kk] = q; return rebuild(); }
     } else if (bottom && Math.abs(rad - u.p.w / 2) < 0.05) {
       const q = Math.max(q0, 1) / f, w = u.p.w * f;
-      if (q >= 1 && q <= 100 && w >= 0.2) { u.p.w = w; u.p.d = w; u.p[kk] = q; return rebuild(); }
+      if (q >= 1 && q <= (kk === 'q' ? 300 : 100) && w >= 0.2) { u.p.w = w; u.p.d = w; u.p[kk] = q; return rebuild(); }
     }
   }
   const arr = worldPositions(obj), key = (x, y, z) => Math.round(x * 2000) + ',' + Math.round(y * 2000) + ',' + Math.round(z * 2000);
@@ -5605,7 +5667,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
@@ -6204,7 +6266,7 @@ $('#ew-resume').addEventListener('click', async e => {
 });
 offerResume(); rsOn = true;
 
-window.forma = { get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { revolutionProfile, applyRev, get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */
@@ -6224,7 +6286,7 @@ function scheduleLayers() {
   requestAnimationFrame(() => { layersQueued = false; renderLayers(); });
 }
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const kindIcon = m => m.userData.hole ? 'hole' : ({ box: 'box', cylinder: 'cylinder', sphere: 'sphere', cone: 'cone', prism: 'prism', torus: 'torus', merged: 'combine' }[m.userData.kind] || 'box');
+const kindIcon = m => m.userData.hole ? 'hole' : ({ box: 'box', cylinder: 'cylinder', sphere: 'sphere', cone: 'cone', prism: 'prism', torus: 'torus', rev: 'cylinder', merged: 'combine' }[m.userData.kind] || 'box');
 function renderLayers() {
   if (!layersOn || document.activeElement?.classList?.contains('lren')) return;
   const LK = on => `<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9"/><path d="${on ? 'M8 11V8a4 4 0 0 1 8 0v3' : 'M8 11V8a4 4 0 0 1 7.6-1.7'}"/></svg>`;

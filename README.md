@@ -9,7 +9,7 @@ Shortcuts that feel like the Adobe suite. Free, right in your browser.
 
 [**Open Filo → filo.affogo.fyi**](https://filo.affogo.fyi)
 
-![version](https://img.shields.io/badge/version-1.0.0_beta-ff6a00?style=flat-square)
+![version](https://img.shields.io/badge/version-1.1.0_beta-ff6a00?style=flat-square)
 ![free](https://img.shields.io/badge/free-1a1a1a?style=flat-square)
 ![license](https://img.shields.io/badge/license-PolyForm_Noncommercial-1a1a1a?style=flat-square)
 ![formats](https://img.shields.io/badge/3MF_·_STL_·_SVG-1a1a1a?style=flat-square)
@@ -155,7 +155,7 @@ The official site only counts visits anonymously, no cookies. Your models never 
 
 ## License
 
-Filo is **source-available** under the [PolyForm Noncommercial License 1.0.0](LICENSE). You can read the code, use Filo, modify it and share it for any non-commercial purpose (personal projects, hobby, study, research, non-profits). Using it commercially, for example reselling it, bundling it in a paid product or offering a modified version as a service, needs my permission: get in touch.
+Filo is **source-available** under the [PolyForm Noncommercial License 1.1.0](LICENSE). You can read the code, use Filo, modify it and share it for any non-commercial purpose (personal projects, hobby, study, research, non-profits). Using it commercially, for example reselling it, bundling it in a paid product or offering a modified version as a service, needs my permission: get in touch.
 
 - **What you make is yours.** Models, 3MF/STL files and prints made with Filo belong to you, and you can print and sell them. The license covers the software, not your work.
 - **Earlier versions.** Versions up to 0.10.7, published before this change, were released under the MIT license, and whoever received them keeps those terms.
