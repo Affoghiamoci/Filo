@@ -9,6 +9,7 @@ import { mergeVertices, mergeGeometries, toCreasedNormals } from 'three/addons/u
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { unzipSync, zipSync, strToU8 } from 'three/addons/libs/fflate.module.js';
 import { Brush, Evaluator, ADDITION, SUBTRACTION, INTERSECTION } from 'three-bvh-csg';
+import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
 import { initManifold, manifoldEvaluate, manifoldCombine, manifoldStretch, manifoldHalf, manifoldMod, simplifyGeo, geoIsClosed } from './mcsg.js';
 import { ConvexHull } from 'three/addons/math/ConvexHull.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
@@ -774,6 +775,7 @@ function ungroupSelection() {
   commit();
   toast('Gruppo separato');
 }
+let onSelChange = null;                               // chi vuole sapere che la selezione è cambiata (es. Controlla aperto)
 function setSelection(list) {
   scheduleLayers();
   queueMicrotask(updateRotGizmo);
@@ -788,6 +790,7 @@ function setSelection(list) {
   updateHandles();
   dimsDirty = dirty = true;
   if (planeTool()) cutReset();
+  if (onSelChange) onSelChange();
 }
 
 /* -------------------------------------------------- cronologia (annulla) */
@@ -3897,6 +3900,47 @@ function prismGeometry(f, dist, taper = 1) {
   g.computeVertexNormals();
   return g;
 }
+// centro del contorno di un lato e "cima" di un suo punto (come in prismGeometry)
+function prismTop(f, P, dist, taper) {
+  const w = f.world, q = x => Math.round(x * 2000), key = i => q(w[i]) + ',' + q(w[i + 1]) + ',' + q(w[i + 2]);
+  if (!f._cen) {
+    const de = new Set(); for (let t = 0; t < w.length / 9; t++) for (let j = 0; j < 3; j++) de.add(key(t * 9 + j * 3) + '>' + key(t * 9 + ((j + 1) % 3) * 3));
+    const cs = new Map();
+    for (let t = 0; t < w.length / 9; t++) for (let j = 0; j < 3; j++) { const a = t * 9 + j * 3, b = t * 9 + ((j + 1) % 3) * 3; if (!de.has(key(b) + '>' + key(a))) cs.set(key(a), a); }
+    const c = new THREE.Vector3(); for (const i of cs.values()) c.add(new THREE.Vector3(w[i], w[i + 1], w[i + 2])); f._cen = c.divideScalar(Math.max(cs.size, 1));
+  }
+  return f._cen.clone().addScaledVector(P.clone().sub(f._cen), taper).addScaledVector(f.n, dist);
+}
+// due lati estrusi insieme che condividono uno spigolo (convesso): il cuneo vuoto tra i due blocchi si riempie fino a dove le cime si incontrano
+function prismJoints(faces, dist, taper) {
+  const out = [], q = x => Math.round(x * 2000);
+  const edges = f => { const w = f.world, k = i => q(w[i]) + ',' + q(w[i + 1]) + ',' + q(w[i + 2]), m = new Map();
+    for (let t = 0; t < w.length / 9; t++) for (let j = 0; j < 3; j++) { const a = t * 9 + j * 3, b = t * 9 + ((j + 1) % 3) * 3; m.set(k(a) + '>' + k(b), [new THREE.Vector3(w[a], w[a + 1], w[a + 2]), new THREE.Vector3(w[b], w[b + 1], w[b + 2])]); }
+    for (const kk of [...m.keys()]) { const [x, y] = kk.split('>'); if (m.has(y + '>' + x)) { m.delete(kk); m.delete(y + '>' + x); } }
+    return m; };
+  const E = faces.map(edges);
+  for (let i = 0; i < faces.length; i++) for (let j = i + 1; j < faces.length; j++) {
+    const fi = faces[i], fj = faces[j];
+    if (Math.abs(fi.n.dot(fj.n)) > 0.999) continue;
+    for (const [kk, [a, b]] of E[i]) {
+      const [x, y] = kk.split('>'); if (!E[j].has(y + '>' + x)) continue;
+      const t = b.clone().sub(a).normalize();
+      prismTop(fi, a, 0, 1); prismTop(fj, a, 0, 1);              // calcola i centri dei contorni
+      if (!(fi.n.dot(a.clone().sub(fj._cen)) > 1e-6 && fj.n.dot(a.clone().sub(fi._cen)) > 1e-6)) continue;   // solo spigoli convessi: in quelli interni i blocchi si sovrappongono già
+      const pts = [];
+      for (const P of [a, b]) {
+        const A1 = prismTop(fi, P, dist, taper), A2 = prismTop(fj, P, dist, taper);
+        const m3 = new THREE.Matrix3().set(fi.n.x, fi.n.y, fi.n.z, fj.n.x, fj.n.y, fj.n.z, t.x, t.y, t.z);
+        if (Math.abs(m3.determinant()) < 0.05) continue;
+        const M2 = new THREE.Vector3(fi.n.dot(A1), fj.n.dot(A2), t.dot(A1.clone().add(A2).multiplyScalar(0.5))).applyMatrix3(m3.invert());   // all'altezza delle cime (con la Cima < 100 sono rientrate)
+        const inP = P.clone().addScaledVector(fi.n.clone().add(fj.n).normalize(), -0.3);
+        pts.push(inP, A1, A2, M2, A1.clone().addScaledVector(fi.n, -0.3), A2.clone().addScaledVector(fj.n, -0.3));
+      }
+      if (pts.length === 12) { try { out.push(new ConvexGeometry(pts)); } catch (e) { /* forma degenere: niente riempimento */ } }
+    }
+  }
+  return out;
+}
 function prismPush(obj, faces, dist, taper = 1) {
   let acc = obj;
   obj.updateMatrixWorld(true);
@@ -3904,6 +3948,10 @@ function prismPush(obj, faces, dist, taper = 1) {
     const br = new Brush(prismGeometry(f, dist, taper), M.solid);
     br.updateMatrixWorld(true);
     acc = evaluator.evaluate(acc, br, dist > 0 ? ADDITION : SUBTRACTION);
+  }
+  if (dist > 0 && faces.length > 1) for (const g of prismJoints(faces, dist, taper)) {
+    const br = new Brush(g, M.solid); br.updateMatrixWorld(true);
+    acc = evaluator.evaluate(acc, br, ADDITION);
   }
   return bakeResult(acc, obj.userData.name);
 }
@@ -4382,7 +4430,7 @@ function startFaceDrag(e) {
 const facePrev = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshStandardMaterial({ color: ACCENT_HEX, transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide, roughness: 0.6 }));
 facePrev.visible = false; facePrev.renderOrder = 5; facePrev.raycast = () => {}; scene.add(facePrev);
 let facePrevT = 0, facePrevPending = null;
-function hideFacePrev() { facePrev.visible = false; facePrevPending = null; dirty = true; }
+function hideFacePrev() { facePrev.visible = false; facePrevPending = null; selMeshes.forEach(s => { s.visible = true; }); dirty = true; }
 function updateFacePrev(fd, dist) {
   if (Math.abs(dist) < 1e-4 || fd.fs.curved || faceSet.length < 1) { hideFacePrev(); return false; }
   const now = performance.now();
@@ -4409,6 +4457,7 @@ function updateFacePrev(fd, dist) {
   facePrev.geometry.dispose();
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.computeVertexNormals();
   facePrev.geometry = g; facePrev.material.color.setHex(bad ? 0xe5484d : ACCENT_HEX); facePrev.visible = true; dirty = true;
+  if (faceMode.v !== 'extrude') selMeshes.forEach(s => { s.visible = false; });   // Allunga: il lato arancione alla misura vecchia confonderebbe, conta solo l'anteprima
   return bad;
 }
 function moveFaceDrag(e, fd) {
@@ -5900,7 +5949,7 @@ async function chkRun() {
   $('#chk-wait').textContent = tr('Sto analizzando…');
   await new Promise(r => setTimeout(r, 30));
   chkClear();
-  const list = checkList();
+  const list = checkList(); chk.key = list.map(o => o.userData.id).join(',');
   if (!list.length) { toast('Niente da controllare: aggiungi almeno un solido'); chk.busy = false; dlgChk.close(); return; }
   const hooks = { progress: f => { $('#chk-wait').textContent = tr('Sto analizzando…') + ' ' + Math.round(f * 100) + ' %'; }, cancelled: () => chk.again || !dlgChk.open };
   let res;
@@ -5928,6 +5977,13 @@ async function chkRun() {
 }
 window.__chkStale = () => { if (!dlgChk.open) return; clearTimeout(chk.timer); chk.timer = setTimeout(chkRun, 700); };
 function openCheck() { if (!dlgChk.open) dlgChk.show(); chkRun(); }
+// con Controlla aperto, selezionando un altro oggetto il controllo passa a quello
+onSelChange = () => {
+  if (!dlgChk.open) return;
+  const k = checkList().map(o => o.userData.id).join(',');
+  if (k === chk.key) return;
+  clearTimeout(chk.selT); chk.selT = setTimeout(() => { if (dlgChk.open) chkRun(); }, 150);
+};
 $('#b-check').addEventListener('click', () => dlgChk.open ? dlgChk.close() : openCheck());
 $('#chk-x').addEventListener('click', () => dlgChk.close());
 dlgChk.addEventListener('close', () => { clearTimeout(chk.timer); chkClear(); });
