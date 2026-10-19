@@ -898,3 +898,49 @@ dialog[open],dialog[open]::backdrop{animation:fade-in .16s ease}
 
 #f-mode button{display:inline-flex;align-items:center;justify-content:center;gap:6px}
 #f-mode .mode-ico{width:22px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linejoin:round}
+
+/* ===================== telefono e tablet (body.mob): interfaccia compatta ===================== */
+.sheet-tab{display:none}
+body.mob{--sw:0px}
+body.mob #side{left:8px;right:8px;top:auto;bottom:calc(8px + env(safe-area-inset-bottom));width:auto;height:60px;max-height:none;flex-direction:row;align-items:center;overflow:hidden;padding:0}
+body.mob #side header,body.mob #help-open,body.mob #foot,body.mob #nav-help,body.mob #t-more{display:none!important}
+body.mob #tools-wrap{flex:1;min-width:0;height:100%;overflow:hidden}
+body.mob #tools{display:flex;flex-direction:row;align-items:center;gap:2px;height:100%;padding:0 6px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+body.mob #tools::-webkit-scrollbar{display:none}
+body.mob #tools h3{flex:none;width:1px;height:32px;margin:0 4px;padding:0;font-size:0;background:var(--line)}
+body.mob #tools .tool{flex:none;display:flex;align-items:center;justify-content:center;width:46px;height:46px;padding:0;margin:0}
+body.mob #tools .tool .t,body.mob #tools .tool kbd{display:none}
+body.mob #tools .tool .ico svg{width:22px;height:22px}
+body.mob #topbar{top:calc(8px + env(safe-area-inset-top));right:8px;width:auto;gap:6px}
+body.mob #topbar .btn{height:40px}
+body.mob #topbar .btn.ic,body.mob #topbar .btn.ic.primary{flex:0 0 44px}
+body.mob #viewcube{top:calc(10px + env(safe-area-inset-top));left:10px;transform:scale(.7);transform-origin:0 0}
+body.mob #bar{top:calc(58px + env(safe-area-inset-top));bottom:auto;left:8px;right:8px;max-width:none;width:auto;transform:none;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;padding:4px;-webkit-overflow-scrolling:touch}
+body.mob #bar::-webkit-scrollbar{display:none}
+body.mob #bar .cap{display:none}
+body.mob #bar .sec{flex:none}
+body.mob #bar kbd{display:none}
+body.mob #props{left:8px;right:8px;top:auto;bottom:calc(76px + env(safe-area-inset-bottom));width:auto;max-height:min(38vh,520px);transition:max-height .2s ease}
+body.mob #props .sheet-tab{display:flex;align-items:center;justify-content:center;flex:none;height:22px;width:100%;border:0;background:none;padding:0;cursor:pointer}
+body.mob #props .sheet-tab i{display:block;width:40px;height:4px;border-radius:2px;background:var(--line)}
+body.mob #props.sheet-low{max-height:22px}
+body.mob #props.sheet-low #p-scroll,body.mob #props.sheet-low>*:not(.sheet-tab){display:none}
+body.mob #layers,body.mob #history{left:8px;right:8px;top:calc(108px + env(safe-area-inset-top));bottom:auto;width:auto;max-height:40vh}
+body.mob #cut-card,body.mob #ruler-card{left:8px;right:8px;top:auto;bottom:calc(76px + env(safe-area-inset-bottom));max-width:none;width:auto}
+body.mob #perf-note{top:calc(108px + env(safe-area-inset-top));left:50%;max-width:calc(100vw - 16px)}
+body.mob #flyout{width:min(256px,calc(100vw - 16px))}
+body.mob #empty-hint{left:50%;top:44%;width:calc(100vw - 24px)}
+body.mob #toast{bottom:calc(84px + env(safe-area-inset-bottom))}
+body.mob .mob-how{color:var(--muted);font-size:12.5px}
+body.mob #viewcube{display:none}
+body.mob #toast{top:auto;bottom:calc(140px + env(safe-area-inset-bottom));left:50%;transform:translate(-50%,10px);max-width:calc(100vw - 32px);white-space:normal;text-align:center}
+body.mob #empty-hint{top:calc(112px + env(safe-area-inset-top));bottom:calc(76px + env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;align-items:flex-start;justify-content:center;overflow:auto;pointer-events:auto}
+body.mob #empty-hint .ew{max-width:100%}
+/* tablet e telefono in orizzontale: il pannello sta in colonna a destra e la vista resta libera al centro */
+@media (min-width:700px){
+  body.mob #props{left:auto;right:8px;width:min(330px,42vw);top:calc(112px + env(safe-area-inset-top));max-height:none}
+  body.mob #props.sheet-low{max-height:22px;bottom:auto}
+  body.mob #layers,body.mob #history{right:auto;width:min(300px,40vw)}
+  body.mob #cut-card,body.mob #ruler-card{right:auto;width:min(330px,60vw)}
+}
+body.mob #layers .lfoot{display:none}

@@ -1,0 +1,52 @@
+# Versione mobile: interfaccia compatta su telefono e tablet, avviso in italiano e inglese, pizzico per lo zoom, pressione lunga per il menu,
+# pannello a foglio che si abbassa; sul computer non cambia niente
+from playwright.sync_api import sync_playwright
+ok=True
+def check(name,cond):
+    global ok; ok=ok and bool(cond); print('OK ' if cond else 'KO ',name)
+with sync_playwright() as p:
+    b=p.chromium.launch(args=["--use-gl=swiftshader"])
+    ctx=b.new_context(**p.devices['iPhone 13']); pg=ctx.new_page(); errs=[]; pg.on('pageerror',lambda e:errs.append(str(e)))
+    pg.goto('file:///tmp/forma/dist/forma.html');pg.wait_for_function("window.forma");pg.wait_for_timeout(1200)
+    check('telefono: interfaccia mobile accesa',pg.evaluate("forma.MOB.on && document.body.classList.contains('mob')"))
+    t=pg.inner_text('#dlg-mobile'); check('avviso in italiano ("%s")'%t[:60].replace('\n',' '),'progetto secondario' in t and 'aggiornamenti poco frequenti' in t and pg.evaluate("document.querySelector('#dlg-mobile').open"))
+    pg.click('#mob-ok'); pg.wait_for_timeout(200)
+    r=pg.evaluate("(()=>{const s=document.querySelector('#side').getBoundingClientRect();return [s.top,s.bottom,innerHeight,s.width]})()")
+    check('strumenti in basso (%s)'%r,r[1]>r[2]-20 and r[0]>r[2]-90 and r[3]>300)
+    pg.evaluate("forma.createObject('box')"); pg.wait_for_timeout(300)
+    pr=pg.evaluate("(()=>{const s=document.querySelector('#props').getBoundingClientRect();return [s.top,s.bottom,s.width]})()")
+    check('pannello a foglio sopra gli strumenti (%s)'%pr,pr[1]<r[0] and pr[2]>300)
+    pg.click('#sheet-tab'); pg.wait_for_timeout(300)
+    h=pg.evaluate("document.querySelector('#props').getBoundingClientRect().height"); check('linguetta: il foglio si abbassa (%d px)'%h,h<40)
+    pg.click('#sheet-tab'); pg.wait_for_timeout(300)
+    pg.evaluate("forma.setSelection([]);forma.cam.dist=400;forma.cam.target.set(0,0,0);forma.cam.az=135;forma.cam.el=35")
+    cdp=ctx.new_cdp_session(pg)
+    def T(typ,pts): cdp.send('Input.dispatchTouchEvent',{'type':typ,'touchPoints':[{'x':x,'y':y,'id':20+i} for i,(x,y) in enumerate(pts)]})
+    d0=pg.evaluate("forma.cam.dist")
+    T('touchStart',[(120,240)]); T('touchStart',[(120,240),(250,240)]);
+    for k in range(1,8): T('touchMove',[(120-k*8,240),(250+k*8,240)]); pg.wait_for_timeout(30)
+    T('touchEnd',[]); pg.wait_for_timeout(300)
+    check('due dita: zoom (%.0f → %.0f)'%(d0,pg.evaluate("forma.cam.dist")),pg.evaluate("forma.cam.dist")<d0*0.8)
+    pg.evaluate("forma.setSelection([]);forma.cam.dist=400"); pg.wait_for_timeout(300)
+    az0=pg.evaluate("forma.cam.az")
+    T('touchStart',[(30,240)])
+    for k in range(1,8): T('touchMove',[(30+k*10,240)]); pg.wait_for_timeout(30)
+    T('touchEnd',[]); pg.wait_for_timeout(200)
+    check('un dito sul vuoto: la vista ruota',abs(pg.evaluate("forma.cam.az")-az0)>5)
+    pg.evaluate("forma.fitView()"); pg.wait_for_timeout(500)
+    xy=pg.evaluate("(()=>{const r=forma.canvas.getBoundingClientRect();const v=new forma.THREE.Vector3(0,0,15).project(forma.camera);return [r.left+(v.x+1)/2*r.width,r.top+(1-v.y)/2*r.height]})()")
+    T('touchStart',[tuple(xy)]); pg.wait_for_timeout(800); T('touchEnd',[]); pg.wait_for_timeout(300)
+    items=pg.evaluate("[...document.querySelectorAll('#ctx:not(.hidden) button span')].map(b=>b.textContent)")
+    check('pressione lunga su un oggetto: menu (%s)'%items,'Espandi' in items and 'Elimina' in items)
+    check('nessun errore',not errs); print(errs[:3]); ctx.close()
+    # inglese
+    ctx=b.new_context(**p.devices['iPhone 13'],locale='en-US'); pg=ctx.new_page()
+    pg.goto('file:///tmp/forma/dist/forma.html');pg.wait_for_function("window.forma");pg.wait_for_timeout(1000)
+    pg.evaluate("document.querySelector('#lang [data-lang=en]').click()"); pg.wait_for_timeout(300)
+    t=pg.inner_text('#dlg-mobile'); check('avviso in inglese ("%s")'%t[:60].replace('\n',' '),'side project' in t and 'infrequent updates' in t)
+    ctx.close()
+    # computer: niente cambia
+    pg=b.new_page(viewport={'width':1300,'height':900}); pg.goto('file:///tmp/forma/dist/forma.html');pg.wait_for_function("window.forma");pg.wait_for_timeout(800)
+    check('computer: interfaccia normale',not pg.evaluate("forma.MOB.on") and not pg.evaluate("document.querySelector('#dlg-mobile').open"))
+    b.close()
+print('TUTTO OK' if ok else 'ERRORI'); raise SystemExit(0 if ok else 1)

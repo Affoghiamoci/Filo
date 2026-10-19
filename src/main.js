@@ -174,13 +174,14 @@ applyTheme();
 // Viste Davanti/Sopra/Destra: prospettiva quasi nulla (FOV minuscolo, camera lontana), quindi misure e allineamenti si leggono senza deformazioni.
 // cam.dist resta la distanza "equivalente" a FOV 35: l'inquadratura non cambia.
 const BASE_FOV = 35, ORTHO_FOV = 2, fovSprites = [];
+const MOB = { on: false };                              // telefono o tablet: interfaccia compatta e maniglie più grandi
 const cam = { az: 135, el: 35.264, dist: 320, fov: BASE_FOV, target: new THREE.Vector3(0, 0, 10) };
 function applyCamera() {
   const az = cam.az * D2R, el = cam.el * D2R;
   const k = Math.tan(BASE_FOV * D2R / 2) / Math.tan(cam.fov * D2R / 2), D = cam.dist * k;
   camK = k; gridMat.size = dotBase * k;
   if (camera.fov !== cam.fov) { camera.fov = cam.fov; camera.near = Math.max(1, k); camera.far = 6000 * k; camera.updateProjectionMatrix(); }
-  { const r = Math.tan(cam.fov * D2R / 2) / Math.tan(BASE_FOV * D2R / 2); for (const [sp, s0] of fovSprites) sp.scale.setScalar(s0 * r); }
+  { const r = Math.tan(cam.fov * D2R / 2) / Math.tan(BASE_FOV * D2R / 2); for (const [sp, s0] of fovSprites) sp.scale.setScalar(s0 * r * (MOB.on ? 1.9 : 1)); }
   camera.position.set(
     cam.target.x + D * Math.sin(az) * Math.cos(el),
     cam.target.y - D * Math.cos(az) * Math.cos(el),
@@ -3015,8 +3016,14 @@ function openFlyout(b, focusFirst = false) {
   const sr = sideEl.getBoundingClientRect(), r = b.getBoundingClientRect();
   flyEl.classList.remove('hidden');
   const h = flyEl.offsetHeight;
-  flyEl.style.left = sr.right + 8 + 'px';
-  flyEl.style.top = Math.max(12, Math.min(r.top - 6, window.innerHeight - h - 12)) + 'px';
+  if (MOB.on) {                                                   // telefono: la barra è in basso, le varianti si aprono sopra il pulsante
+    const w = flyEl.offsetWidth;
+    flyEl.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
+    flyEl.style.top = Math.max(8, sr.top - h - 8) + 'px';
+  } else {
+    flyEl.style.left = sr.right + 8 + 'px';
+    flyEl.style.top = Math.max(12, Math.min(r.top - 6, window.innerHeight - h - 12)) + 'px';
+  }
   if (focusFirst) flyEl.querySelector('.tool').focus();
 }
 flyEl.addEventListener('click', e => {
@@ -5903,11 +5910,71 @@ try {
     fetch('https://dash.affogo.fyi/api/hit', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ id: vid }) }).catch(() => {});
   }
 } catch (e) { /* ignora */ }
+// Telefono e tablet: interfaccia compatta (strumenti in basso, pannello che sale dal basso), maniglie più grandi, gesti con le dita.
+// È un progetto secondario: quello che funziona funziona, le cose di precisione restano da computer.
+const isMob = () => (matchMedia('(pointer: coarse)').matches && Math.min(window.innerWidth, window.innerHeight) < 900) || window.innerWidth < 700;
+function applyMob() {
+  const on = isMob();
+  if (on === MOB.on && document.body.classList.contains('mob') === on) return;
+  MOB.on = on; document.body.classList.toggle('mob', on);
+  if (on) { sideEl.classList.remove('mini'); }
+  applyCamera(); resize(); dirty = true;
+}
+applyMob();
+window.addEventListener('resize', applyMob);
+// pannello a foglio: si abbassa e si rialza toccando la sua linguetta
+{
+  const tab = document.createElement('button');
+  tab.id = 'sheet-tab'; tab.className = 'sheet-tab'; tab.setAttribute('aria-label', 'Riduci o espandi il pannello'); tab.innerHTML = '<i></i>';
+  $('#props').prepend(tab);
+  tab.addEventListener('click', () => { $('#props').classList.toggle('sheet-low'); });
+}
+// gesti: due dita = zoom (pizzico) e spostamento della vista; pressione lunga su un oggetto = menu del tasto destro
+const tPts = new Map(); let pinch = null, tLpTimer = 0, tLpFired = false, tLpAt = null;
+canvas.addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'touch') return;
+  tPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (tPts.size === 1) {
+    tLpFired = false; clearTimeout(tLpTimer); tLpAt = { x: e.clientX, y: e.clientY };
+    tLpTimer = setTimeout(() => {
+      if (tPts.size !== 1 || !drag || drag.moved) return;
+      tLpFired = true; drag = null; vtxMark.visible = false; guide.visible = false;
+      openCtx({ clientX: tLpAt.x, clientY: tLpAt.y, button: 2, preventDefault() {}, stopPropagation() {} });
+    }, 550);
+    return;
+  }
+  clearTimeout(tLpTimer);
+  if (tPts.size === 2) {
+    if (drag && drag.moved && !['orbit', 'pan'].includes(drag.mode)) return;   // un oggetto già in movimento continua col primo dito
+    if (drag && drag.mode === 'marquee') mqEl.classList.add('hidden');
+    drag = null;
+    const [a, b] = [...tPts.values()];
+    pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
+    e.stopImmediatePropagation();
+  }
+}, true);
+canvas.addEventListener('pointermove', e => {
+  if (e.pointerType !== 'touch' || !tPts.has(e.pointerId)) return;
+  tPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (tLpAt && Math.hypot(e.clientX - tLpAt.x, e.clientY - tLpAt.y) > 8) clearTimeout(tLpTimer);
+  if (!pinch || tPts.size < 2) return;
+  const [a, b] = [...tPts.values()], d = Math.hypot(a.x - b.x, a.y - b.y) || 1, cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+  zoom(pinch.d / d); panPixels(cx - pinch.cx, cy - pinch.cy);
+  pinch = { d, cx, cy };
+  e.stopImmediatePropagation();
+}, true);
+const touchEnd = e => {
+  if (e.pointerType !== 'touch') return;
+  tPts.delete(e.pointerId); clearTimeout(tLpTimer);
+  if (tLpFired) { tLpFired = false; drag = null; e.stopImmediatePropagation(); return; }
+  if (pinch) { if (tPts.size < 2) pinch = null; drag = null; e.stopImmediatePropagation(); }
+};
+canvas.addEventListener('pointerup', touchEnd, true);
+canvas.addEventListener('pointercancel', touchEnd, true);
 // avviso mobile: una volta per sessione
 (function () {
-  const mobile = (window.matchMedia && matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 900) || /Android|iPhone|iPod|Mobile/i.test(navigator.userAgent);
   let seen = false; try { seen = sessionStorage.getItem('forma.mobile') === '1'; } catch (e) {}
-  if (!mobile || seen) return;
+  if (!MOB.on || seen) return;
   const d = $('#dlg-mobile');
   const close = () => { try { sessionStorage.setItem('forma.mobile', '1'); } catch (e) {} d.close(); };
   $('#mob-ok').addEventListener('click', close);
@@ -6485,7 +6552,7 @@ $('#ew-resume').addEventListener('click', async e => {
 });
 offerResume(); rsOn = true;
 
-window.forma = { get __selMeshScale() { return selMeshes[0] ? selMeshes[0].scale.x : null; }, get __scalePrev() { return !!scalePrev; }, get msgLog() { return msgLog; }, expandSelection, get __revPrev() { return !!revPrev; }, get __revPrevMesh() { return revPrev && revPrev.mesh; }, revolutionProfile, applyRev, get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { get __touch() { return { n: tPts.size, pinch: !!pinch, drag: drag && drag.mode }; }, MOB, applyMob, get __selMeshScale() { return selMeshes[0] ? selMeshes[0].scale.x : null; }, get __scalePrev() { return !!scalePrev; }, get msgLog() { return msgLog; }, expandSelection, get __revPrev() { return !!revPrev; }, get __revPrevMesh() { return revPrev && revPrev.mesh; }, revolutionProfile, applyRev, get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */
