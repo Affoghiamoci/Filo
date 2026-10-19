@@ -911,7 +911,8 @@ body.mob #tools h3{flex:none;width:1px;height:32px;margin:0 4px;padding:0;font-s
 body.mob #tools .tool{flex:none;display:flex;align-items:center;justify-content:center;width:46px;height:46px;padding:0;margin:0}
 body.mob #tools .tool .t,body.mob #tools .tool kbd{display:none}
 body.mob #tools .tool .ico svg{width:22px;height:22px}
-body.mob #topbar{top:calc(8px + env(safe-area-inset-top));right:8px;width:auto;gap:6px}
+body.mob #topbar{top:calc(8px + env(safe-area-inset-top));left:8px;right:8px;width:auto;max-width:calc(100vw - 16px);justify-content:flex-end;gap:6px}
+body.mob #topbar #b-check{flex:0 1 auto;min-width:0}
 body.mob #topbar .btn{height:40px}
 body.mob #topbar .btn.ic,body.mob #topbar .btn.ic.primary{flex:0 0 44px}
 body.mob #viewcube{top:calc(10px + env(safe-area-inset-top));left:10px;transform:scale(.7);transform-origin:0 0}

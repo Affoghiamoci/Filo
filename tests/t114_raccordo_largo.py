@@ -24,8 +24,13 @@ with sync_playwright() as p:
     start(); mk([('w',50),('d',20),('h',3),('x',0),('y',0),('z',0)]); mk([('w',50),('d',3),('h',31),('x',0),('y',8.5),('z',0)]); mk([('w',50),('d',8),('h',3),('x',0),('y',8.5),('z',28)]); union()
     t=fil(['0,7,3'],5); check('raccordo grande in basso: fatto (%s)'%t,'Arrotondamento' in t and pg.evaluate(MAN))
     n0=pg.evaluate("forma.objects[0].geometry.attributes.position.count")
-    t=fil(['0,7,28','0,10,28'],4); check('raggio 4 sotto una sporgenza di 2,5: avviso con il massimo (%s)'%t,'al massimo 2.4' in t and pg.evaluate("forma.objects[0].geometry.attributes.position.count")==n0)
-    t=fil(['0,7,28','0,10,28'],2.4); check('raggio 2,4: fatto, chiuso (%s)'%t,'Arrotondamento' in t and pg.evaluate(MAN))
+    pg.evaluate("forma.setTool('move');forma.setTool('edge')"); pg.wait_for_timeout(150)
+    pg.evaluate("forma.selectEdgeAt({object:forma.objects[0],point:new forma.THREE.Vector3(0,7,28)},false)"); pg.evaluate("forma.selectEdgeAt({object:forma.objects[0],point:new forma.THREE.Vector3(0,10,28)},true)"); pg.wait_for_timeout(200)
+    h=pg.evaluate("document.querySelector('#e-hint').textContent"); check('sotto il campo: massimo (%s)'%h,'2.4' in h)
+    t=fil(['0,7,28','0,10,28'],4); check('raggio 4 sotto una sporgenza di 2,5: ridotto a 2,4 e fatto (%s)'%t,'ridotto a 2.4' in t and pg.evaluate(MAN) and pg.input_value('#e-size')=='2.4')
+    # scatola parametrica: valore troppo alto → massimo
+    start(); mk([('w',20),('d',20),('h',10),('x',0),('y',0),('z',0)])
+    t=fil(['0,-10,10'],50); check('scatola, raggio 50: ridotto (%s)'%t,'ridotto a' in t and pg.evaluate(MAN))
     # blocco su una piastra più grande: lo spigolo è più corto della faccia della piastra
     start(); mk([('w',60),('d',60),('h',4),('x',0),('y',0),('z',0)]); mk([('w',20),('d',20),('h',15),('x',0),('y',0),('z',4)]); union()
     t=fil(['0,-10,4'],3); check('blocco su piastra, raccordo 3: fatto (%s)'%t,'Arrotondamento' in t and pg.evaluate(MAN))

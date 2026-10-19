@@ -341,7 +341,7 @@ function boxFilleted(p, ringFn = boxRing, lim) {
 const ROUND_KINDS = ['box', 'cylinder', 'cone', 'prism'];
 function prismSides(p) { return Math.round(clamp(p.q || 6, 3, 64)); }
 // Cima: rapporto tra la cima e la base. Cono e cilindro possono allargarsi verso l'alto (fino a 300 %), scatola e prisma solo stringersi
-const TOP_MAX = { cylinder: 300, cone: 300 };
+const TOP_MAX = { cylinder: 300, cone: 300, box: 300, prism: 300 };
 function topRatio(kind, p) { return kind === 'cone' ? Math.max(p.q || 0, 1) / 100 : clamp(p.t ?? 100, 1, TOP_MAX[kind] || 100) / 100; }
 function edgeLimit(kind, p) {                          // il bordo non può superare il raggio interno della forma
   const base = Math.min(p.w, p.d) / 2;
@@ -496,8 +496,8 @@ function buildGeometry(kind, p) {
     if (p.ft > 0 || p.fb > 0) g = boxFilleted(p);
     else if (p.r <= 0.001) { g = new THREE.BoxGeometry(p.w, p.d, p.h); g.translate(0, 0, p.h / 2); }
     else g = mergeVertices(clean(new THREE.ExtrudeGeometry(roundedRectShape(p.w, p.d, p.r, p.rm === 'chamfer'), { depth: p.h, bevelEnabled: false, curveSegments: 12 })));
-    const tt = clamp(p.t ?? 100, 1, 100) / 100;
-    if (tt < 0.9999) {                                                // cima più stretta: tronco di piramide
+    const tt = clamp(p.t ?? 100, 1, 300) / 100;
+    if (Math.abs(tt - 1) > 1e-4) {                                    // cima più stretta o più larga: tronco di piramide
       g = g.index ? g.toNonIndexed() : g; g.deleteAttribute('normal');
       const a = g.attributes.position; for (let i = 0; i < a.count; i++) { const k = 1 + (tt - 1) * a.getZ(i) / p.h; a.setX(i, a.getX(i) * k); a.setY(i, a.getY(i) * k); }
       g = toCreasedNormals(g, 30 * D2R); clean(g);
@@ -513,7 +513,7 @@ function buildGeometry(kind, p) {
     g = new THREE.CylinderGeometry(Math.max(p.q || 0, 1) / 100, 1, 1, 72, 1);
     g.rotateX(Math.PI / 2); g.scale(p.w / 2, p.d / 2, p.h); g.translate(0, 0, p.h / 2);
   } else if (kind === 'prism') {
-    g = new THREE.CylinderGeometry(clamp(p.t ?? 100, 1, 100) / 100, 1, 1, Math.round(clamp(p.q || 6, 3, 64)), 1);
+    g = new THREE.CylinderGeometry(clamp(p.t ?? 100, 1, 300) / 100, 1, 1, Math.round(clamp(p.q || 6, 3, 64)), 1);
     g.rotateX(Math.PI / 2); g.rotateZ(Math.PI / 2); g.scale(p.w / 2, p.d / 2, p.h); g.translate(0, 0, p.h / 2);
   } else if (kind === 'torus') {
     const t = clamp(p.q || 25, 5, 50) / 100;
@@ -716,7 +716,7 @@ function removeMesh(m) {
   if (m.userData.kind !== 'merged') m.geometry.dispose();
 }
 // cono o cilindro con la cima più larga della base: L e P sono la larghezza vera (quella della cima), il parametro interno resta la base
-const coneK = u => u.kind === 'cone' || u.kind === 'cylinder' ? Math.max(1, topRatio(u.kind, u.p)) : 1;
+const coneK = u => u.kind === 'cone' || u.kind === 'cylinder' || u.kind === 'box' || u.kind === 'prism' ? Math.max(1, topRatio(u.kind, u.p)) : 1;
 function sizeOf(m) {
   const u = m.userData;
   if (u.kind !== 'merged') { const k = coneK(u); return { w: u.p.w * k, d: u.p.d * k, h: u.p.h }; }
@@ -5425,11 +5425,22 @@ function clearEdges() {
   edgeSel = []; refreshEdgeLines(); updateEdgeHandle(); dragRead.style.display = 'none';
   dropLines(edgeHoverLine); edgeHoverLine = null; edgeHoverKey = null;
 }
+function edgeMaxSize() {                                // misura più grande che sta sugli spigoli scelti (null = non si sa)
+  const obj = edgeSel[0].obj, u = obj.userData, ch = edgeMode.v === 'chamfer';
+  if (!edgeSel.every(x => x.obj === obj)) return null;
+  const rks = ['cylinder', 'cone'].includes(u.kind) ? edgeSel.map(x => x.chain.rkey || (x.chain.closed && ringKeyOf(x.obj, x.chain.pts))) : [];
+  if (rks.length && rks.every(Boolean)) return Math.floor((Math.min(Math.min(u.p.w, u.p.d) / 2, u.p.h) - 0.05) * 10) / 10;
+  if (edgeSel.every(x => x.chain.vkey)) return Math.floor(Math.min(...edgeSel.map(x => edgeKeyLimit(u.kind, u.p, x.chain.vkey, ch ? 'c' : 'f'))) * 10) / 10;
+  if (u.kind === 'box' || edgeSel.some(x => x.chain.closed)) return null;
+  const r = topoEdges(obj, edgeSel.map(x => x.chain), edgeMode.v, 1000);
+  return r && r.err && r.max >= 0.1 ? Math.floor(r.max * 10) / 10 : null;
+}
 const EF = { size: $('#e-size'), go: $('#e-go'), info: $('#e-info'), hint: $('#e-hint') };
 function updateEdgePanel() {
   const n = edgeSel.length;
   EF.info.textContent = n ? `· ${n} ${n === 1 ? 'spigolo' : 'spigoli'}` : tr('· nessuno selezionato');
-  EF.hint.textContent = n ? '' : 'Clicca uno spigolo. Con Maiusc ne scegli più di uno.';
+  let mxs = null; if (n) { try { mxs = edgeMaxSize(); } catch (e) {} }
+  EF.hint.textContent = n ? (mxs ? `Massimo per questo spigolo: ${fmt(mxs)} mm` : '') : 'Clicca uno spigolo. Con Maiusc ne scegli più di uno.';
   EF.go.disabled = !n;
   const lp = !!selectedLoop();
   $('#e-fillet-box').classList.toggle('dim', !n); $('#e-scale-box').classList.toggle('dim', !lp);
@@ -5758,33 +5769,35 @@ function topoEdges(obj, chains, mode, size) {
   return baked;
 }
 function applyEdges() {
-  const size = fieldNum(EF.size);
+  let size = fieldNum(EF.size), clampNote = '';
+  const toastE = (m, ms) => toast(clampNote ? `${edgeMode.v === 'fillet' ? 'Arrotondamento' : 'Smusso'} ridotto a ${fmt(size)} mm: è il massimo possibile qui` : m, ms);
+  const clampTo = mx => { mx = Math.floor(mx * 10) / 10; if (!(mx >= 0.1)) return false; clampNote = 'x'; size = mx; EF.size.value = fmt(mx); return true; };
   if (!edgeSel.length) return;
   const obj = edgeSel[0].obj;
   const rks = ['cylinder', 'cone'].includes(obj.userData.kind) ? edgeSel.map(x => x.chain.rkey || (x.chain.closed && ringKeyOf(x.obj, x.chain.pts))) : [];
   if (rks.length && rks.every(Boolean) && edgeSel.every(x => x.obj === obj)) {   // cilindro e cono: bordo alto e basso, restano modificabili
     const u = obj.userData;
-    if (!(size >= 0)) return toast('Scrivi una misura in mm (0 per togliere)');
-    if (size > 0 && (size >= Math.min(u.p.w, u.p.d) / 2 || size >= u.p.h)) return toast('La misura è troppo grande per questo pezzo');
+    if (!(size >= 0)) return toastE('Scrivi una misura in mm (0 per togliere)');
+    if (size > 0) { const mx = Math.min(Math.min(u.p.w, u.p.d) / 2, u.p.h) - 0.05; if (size > mx && !clampTo(mx)) return toastE('La misura è troppo grande per questo pezzo'); }
     for (const k of new Set(rks)) u.p[k] = size;
     if (size > 0) u.p.rm = edgeMode.v === 'chamfer' ? 'chamfer' : null;
     obj.geometry.dispose(); obj.geometry = buildGeometry(u.kind, u.p); refreshEdges(obj); obj.updateMatrixWorld(true);
     clearEdges(); setSelection([obj]); touch(); commit();
-    return toast(size === 0 ? 'Bordo tolto' : edgeMode.v === 'fillet' ? 'Arrotondamento applicato: resta modificabile dal pannello' : 'Smusso applicato: resta modificabile dal pannello');
+    return toastE(size === 0 ? 'Bordo tolto' : edgeMode.v === 'fillet' ? 'Arrotondamento applicato: resta modificabile dal pannello' : 'Smusso applicato: resta modificabile dal pannello');
   }
   if (edgeSel.every(x => x.chain.vkey)) {              // scatola: spigoli singoli, restano modificabili
     const u = obj.userData, p = u.p, lim = Math.min(...edgeSel.map(x => edgeKeyLimit(u.kind, p, x.chain.vkey, edgeMode.v === 'chamfer' ? 'c' : 'f')));
-    if (!(size >= 0)) return toast('Scrivi una misura in mm (0 per togliere)');
-    if (size > lim) return toast('La misura è troppo grande per questo pezzo: massimo ' + fmt(lim) + ' mm');
+    if (!(size >= 0)) return toastE('Scrivi una misura in mm (0 per togliere)');
+    if (size > lim && !clampTo(lim)) return toastE('La misura è troppo grande per questo pezzo: massimo ' + fmt(lim) + ' mm');
     const ed = {}; for (const [k, v] of Object.entries(edgeMapOf(u.kind, p))) ed[k] = v;     // i parametri globali diventano spigoli singoli
     for (const x of edgeSel) ed[x.chain.vkey] = size > 0 ? { r: size, t: edgeMode.v === 'chamfer' ? 'c' : 'f' } : { r: 0, t: 'f' };
     u.p = { ...p, ft: 0, fb: 0, rm: null, ed }; if (u.kind === 'box') u.p.r = 0;
     obj.geometry.dispose(); obj.geometry = buildGeometry(u.kind, u.p); refreshEdges(obj); obj.updateMatrixWorld(true);
     syncPanel(); touch(); commit(); dirty = true;
     const n = edgeSel.length;
-    return toast(size === 0 ? `Tolto da ${n} ${n === 1 ? 'spigolo' : 'spigoli'}` : `${edgeMode.v === 'fillet' ? 'Arrotondamento' : 'Smusso'} di ${fmt(size)} mm su ${n} ${n === 1 ? 'spigolo' : 'spigoli'}: resta modificabile`);
+    return toastE(size === 0 ? `Tolto da ${n} ${n === 1 ? 'spigolo' : 'spigoli'}` : `${edgeMode.v === 'fillet' ? 'Arrotondamento' : 'Smusso'} di ${fmt(size)} mm su ${n} ${n === 1 ? 'spigolo' : 'spigoli'}: resta modificabile`);
   }
-  if (!(size > 0)) return toast('Scrivi una misura in mm');
+  if (!(size > 0)) return toastE('Scrivi una misura in mm');
   if (heavyGuard([obj])) return;
   // i 4 spigoli verticali di una scatola: raccordo o smusso restano parametrici (stesso campo Raggio)
   if (obj.userData.kind === 'box' && edgeSel.length === 4 && !(obj.userData.p.r > 0.001)) {
@@ -5799,11 +5812,11 @@ function applyEdges() {
       corners.add(Math.sign(L[0].x) + ',' + Math.sign(L[0].y)); return true;
     });
     if (ok && corners.size === 4) {
-      if (size >= Math.min(u.p.w, u.p.d) / 2) return toast('La misura è troppo grande per questa scatola');
+      if (size >= Math.min(u.p.w, u.p.d) / 2) return toastE('La misura è troppo grande per questa scatola');
       u.p.r = size; u.p.rm = edgeMode.v === 'chamfer' ? 'chamfer' : null;
       obj.geometry.dispose(); obj.geometry = buildGeometry('box', u.p); refreshEdges(obj); obj.updateMatrixWorld(true);
       clearEdges(); setSelection([obj]); touch(); commit();
-      return toast(edgeMode.v === 'fillet' ? 'Arrotondamento applicato: resta modificabile dal pannello' : 'Smusso applicato: resta modificabile dal pannello');
+      return toastE(edgeMode.v === 'fillet' ? 'Arrotondamento applicato: resta modificabile dal pannello' : 'Smusso applicato: resta modificabile dal pannello');
     }
   }
   // bordo alto o basso di una scatola (anello chiuso a Z = altezza o Z = 0): resta parametrico
@@ -5816,11 +5829,11 @@ function applyEdges() {
       const ex = Math.max(...L.map(v => Math.abs(v.x))), ey = Math.max(...L.map(v => Math.abs(v.y)));
       const kk = top ? tt : 1;
       if ((top || bot) && Math.abs(ex - u.p.w / 2 * kk) < 0.01 && Math.abs(ey - u.p.d / 2 * kk) < 0.01) {
-        if (size >= Math.min(u.p.w, u.p.d) / 2 || size >= u.p.h) return toast('La misura è troppo grande per questa scatola');
+        if (size >= Math.min(u.p.w, u.p.d) / 2 || size >= u.p.h) return toastE('La misura è troppo grande per questa scatola');
         u.p[top ? 'ft' : 'fb'] = size; u.p.rm = edgeMode.v === 'chamfer' ? 'chamfer' : null;
         obj.geometry.dispose(); obj.geometry = buildGeometry('box', u.p); refreshEdges(obj); obj.updateMatrixWorld(true);
         clearEdges(); setSelection([obj]); touch(); commit();
-        return toast(edgeMode.v === 'fillet' ? 'Arrotondamento applicato: resta modificabile dal pannello' : 'Smusso applicato: resta modificabile dal pannello');
+        return toastE(edgeMode.v === 'fillet' ? 'Arrotondamento applicato: resta modificabile dal pannello' : 'Smusso applicato: resta modificabile dal pannello');
       }
     }
   }
@@ -5833,33 +5846,34 @@ function applyEdges() {
       const top = L.every(v => Math.abs(v.z - u.p.h) < 0.01), bot = L.every(v => Math.abs(v.z) < 0.01);
       if (top || bot) {
         const R = Math.max(...L.map(v => Math.hypot(v.x, v.y)));
-        if (size >= R || size >= u.p.h) return toast('La misura è troppo grande per questo pezzo');
+        if (size >= R || size >= u.p.h) return toastE('La misura è troppo grande per questo pezzo');
         u.p[top ? 'ft' : 'fb'] = size; u.p.rm = edgeMode.v === 'chamfer' ? 'chamfer' : null;
         obj.geometry.dispose(); obj.geometry = buildGeometry(u.kind, u.p); refreshEdges(obj); obj.updateMatrixWorld(true);
         clearEdges(); setSelection([obj]); touch(); commit();
-        return toast(edgeMode.v === 'fillet' ? 'Arrotondamento applicato: resta modificabile dal pannello' : 'Smusso applicato: resta modificabile dal pannello');
+        return toastE(edgeMode.v === 'fillet' ? 'Arrotondamento applicato: resta modificabile dal pannello' : 'Smusso applicato: resta modificabile dal pannello');
       }
     }
   }
   const nConc = edgeSel.filter(x => x.chain.concave).length;
-  if (nConc && nConc < edgeSel.length) return toast('Spigoli esterni e interni insieme: applica prima gli uni, poi gli altri');
+  if (nConc && nConc < edgeSel.length) return toastE('Spigoli esterni e interni insieme: applica prima gli uni, poi gli altri');
   const concave = nConc > 0;
   {   // motore 1.0: raccordo o smusso fatti sulla struttura del pezzo (niente booleane); se il caso non è semplice, si usa il metodo di prima
-    const tr = topoEdges(obj, edgeSel.map(x => x.chain), edgeMode.v, size);
+    let tr = topoEdges(obj, edgeSel.map(x => x.chain), edgeMode.v, size);
+    if (tr && tr.err && clampTo(tr.max)) tr = topoEdges(obj, edgeSel.map(x => x.chain), edgeMode.v, size);   // troppo grande: si usa il massimo possibile
     if (tr && tr.err) {
       const mx = Math.floor(tr.max * 10) / 10, what = edgeMode.v === 'fillet' ? 'Il raggio' : 'Lo smusso';
-      return toast(mx >= 0.1 ? `${what} di ${fmt(size)} mm è più largo del lato vicino: al massimo ${fmt(mx)} mm` : 'Il lato vicino è troppo stretto per arrotondare questo spigolo', 4000);
+      return toast(mx >= 0.1 ? `${what} di ${fmt(size)} mm è più largo del lato vicino: al massimo ${fmt(mx)} mm` : 'Qui non c\'è spazio: il lato vicino è troppo stretto o è già occupato da un altro raccordo. Riduci o togli quel raccordo e riprova', 4000);
     }
     if (tr) {
       const n = edgeSel.length;
       clearEdges();
       const nm = replaceWithMerged(obj, tr);
       nm.userData.color = obj.userData.color ?? null;
-      return toast(`${edgeMode.v === 'fillet' ? 'Arrotondamento' : 'Smusso'} di ${fmt(size)} mm su ${n} ${n === 1 ? 'spigolo' : 'spigoli'}`);
+      return toastE(`${edgeMode.v === 'fillet' ? 'Arrotondamento' : 'Smusso'} di ${fmt(size)} mm su ${n} ${n === 1 ? 'spigolo' : 'spigoli'}`);
     }
   }
   const cutters = edgeSel.map(x => cutter(x.chain, edgeMode.v, size));
-  if (cutters.some(g => !g)) return toast('Questo spigolo è troppo particolare per arrotondarlo');
+  if (cutters.some(g => !g)) return toastE('Questo spigolo è troppo particolare per arrotondarlo');
   obj.updateMatrixWorld(true);
   let g0 = obj.geometry.index ? obj.geometry.toNonIndexed() : obj.geometry.clone();
   g0.applyMatrix4(obj.matrixWorld);
@@ -5870,7 +5884,7 @@ function applyEdges() {
     acc = evaluator.evaluate(acc, br, concave ? ADDITION : SUBTRACTION);     // interno: si aggiunge materiale nell'angolo
   }
   const baked = bakeResult(acc, obj.userData.name);
-  if (!baked) return toast('Il risultato è vuoto: la misura è troppo grande');
+  if (!baked) return toastE('Il risultato è vuoto: la misura è troppo grande');
   const n = edgeSel.length;
   clearEdges();
   const nm = replaceWithMerged(obj, baked);
@@ -5888,7 +5902,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '1.2.1';
+const APP_VERSION = '1.2.2';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
