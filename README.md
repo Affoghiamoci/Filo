@@ -9,7 +9,7 @@ Shortcuts that feel like the Adobe suite. Free, right in your browser.
 
 [**Open Filo → filo.affogo.fyi**](https://filo.affogo.fyi)
 
-![version](https://img.shields.io/badge/version-1.1.1_beta-ff6a00?style=flat-square)
+![version](https://img.shields.io/badge/version-1.1.1-ff6a00?style=flat-square)
 ![free](https://img.shields.io/badge/free-1a1a1a?style=flat-square)
 ![license](https://img.shields.io/badge/license-PolyForm_Noncommercial-1a1a1a?style=flat-square)
 ![formats](https://img.shields.io/badge/3MF_·_STL_·_SVG-1a1a1a?style=flat-square)
@@ -147,7 +147,7 @@ Filo is designed and directed by me, and the code is written with the help of an
 
 ## Status
 
-Filo is in beta. It's a one-person project, so expect rough edges. Feedback is very welcome, from bugs to "this would help my prints" ideas. You can [open an issue](https://github.com/Affoghiamoci/Filo/issues) here, or comment on the Reddit post where I shared it.
+Filo is out of beta since 1.0.0. It's still a one-person project, so expect some rough edges. Feedback is very welcome, from bugs to "this would help my prints" ideas. You can [open an issue](https://github.com/Affoghiamoci/Filo/issues) here, or comment on the Reddit post where I shared it.
 
 ## Privacy
 
