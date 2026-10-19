@@ -592,6 +592,154 @@ export function filletEdges(topo, eids, mode, size, ARC = 18) {
   }
   return new Float32Array(out);
 }
+
+// Raccordo o smusso di uno spigolo DRITTO tra una faccia piana e una superficie curva fatta di tante faccette (cilindro, tubo...).
+// Il pezzo, lungo lo spigolo, ha sempre la stessa sezione: si calcola il raccordo sulla sezione 2D (palla che rotola tra le due linee)
+// e se ne fa un prisma lungo come lo spigolo, che il chiamante unisce (spigolo interno) o toglie (spigolo esterno).
+// Ritorna { prisms: [Float32Array], concave }, { err: 'big', max } o null se il caso non è di questo tipo.
+export function sweepFillets(topo, eids, mode, size, ARC = 24) {
+  if (!(size > 0) || !eids.length || (mode !== 'fillet' && mode !== 'chamfer')) return null;
+  const V = topo.V, nV = V.length / 3, pos = v => vec(V, v);
+  if (!topo._segEdge) { const m = new Map(); for (const e of topo.edges) for (const [a, b] of e.segs) m.set(a < b ? a * nV + b : b * nV + a, e); topo._segEdge = m; }
+  const edgeOf = (a, b) => topo._segEdge.get(a < b ? a * nV + b : b * nV + a);
+  const prisms = []; let concave = null, bigMax = null;
+  for (const eid of eids) {
+    const r = oneSweep(eid);
+    if (!r) return null;
+    if (r.err) { bigMax = bigMax === null ? r.max : Math.min(bigMax, r.max); continue; }
+    if (concave === null) concave = r.concave; else if (concave !== r.concave) return null;
+    prisms.push(r.prism);
+  }
+  if (bigMax !== null) return { err: 'big', max: bigMax };
+  return { prisms, concave };
+
+  function oneSweep(eid) {
+    const e = topo.edges[eid];
+    if (!e || !e.sharp || e.mixed) return null;
+    const adj = new Map();
+    for (const [a, b] of e.segs) { (adj.get(a) || adj.set(a, []).get(a)).push(b); (adj.get(b) || adj.set(b, []).get(b)).push(a); }
+    const ends = [...adj].filter(([, l]) => l.length === 1).map(([v]) => v);
+    if (ends.length !== 2 || [...adj.values()].some(l => l.length > 2)) return null;
+    const A = pos(ends[0]), B = pos(ends[1]), len = A.distanceTo(B); if (len < 1e-4) return null;
+    const dir = B.clone().sub(A).normalize();
+    for (const v of adj.keys()) if (pos(v).sub(A).cross(dir).length() > 1e-4) return null;     // solo spigoli dritti
+    const [f1, f2] = e.faces, cv = e.convex;
+    const n1 = topo.faces[f1].n, n2 = topo.faces[f2].n;
+    const u1 = new THREE.Vector3().crossVectors(n1, dir).normalize(); if (cv ? u1.dot(n2) > 0 : u1.dot(n2) < 0) u1.negate();
+    const u2 = new THREE.Vector3().crossVectors(n2, dir).normalize(); if (cv ? u2.dot(n1) > 0 : u2.dot(n1) < 0) u2.negate();
+    const th = Math.acos(Math.max(-1, Math.min(1, u1.dot(u2))));
+    if (!(th > 0.3 && th < 3.0)) return null;
+    const pv = u1.clone(), qv = new THREE.Vector3().crossVectors(dir, pv); if (qv.dot(u2) < 0) qv.negate();
+    const to2 = P => { const d = P.clone().sub(A); return [d.dot(pv), d.dot(qv)]; };
+    const to3 = (x, y) => A.clone().addScaledVector(pv, x).addScaledVector(qv, y);
+    // linea della sezione: dallo spigolo, faccia dopo faccia, finché non c'è uno spigolo vivo
+    const chain = f0 => {
+      const pts = [[0, 0]], faces = [f0]; let cur = f0, prev = [0, 0];
+      for (let step = 0; step < 400; step++) {
+        const F = topo.faces[cur], L = F.loops.find(l => l.outer) || F.loops[0], vs = L.verts, n = vs.length, ex = [];
+        for (let i = 0; i < n; i++) {
+          const a = vs[i], b = vs[(i + 1) % n], P = pos(a), d = pos(b).sub(P), l = d.length();
+          if (l < 1e-7 || d.clone().cross(dir).length() / l > 1e-4) continue;
+          const x = to2(P); if (Math.hypot(x[0] - prev[0], x[1] - prev[1]) > 1e-5) ex.push([a, b, x]);
+        }
+        if (!ex.length) return null;
+        const X = ex[0][2]; if (ex.some(q => Math.hypot(q[2][0] - X[0], q[2][1] - X[1]) > 1e-5)) return null;
+        pts.push(X);
+        const eo = edgeOf(ex[0][0], ex[0][1]); if (!eo) return null;
+        if (eo.sharp) return pts;
+        cur = eo.faces[0] === cur ? eo.faces[1] : eo.faces[0];
+        if (faces.includes(cur) || cur === f1 || cur === f2) return null;
+        faces.push(cur); prev = X;
+      }
+      return null;
+    };
+    const P1 = chain(f1), P2 = chain(f2);
+    if (!P1 || !P2) return null;
+    const unit = (a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy); return [dx / l, dy / l, l]; };
+    const t1v = unit(P1[0], P1[1]), t2v = unit(P2[0], P2[1]);
+    if (Math.abs(t1v[0] - 1) > 1e-3 || Math.abs(t1v[1]) > 1e-3 || Math.abs(t2v[0] - Math.cos(th)) > 1e-3 || Math.abs(t2v[1] - Math.sin(th)) > 1e-3) return null;
+    const cum = P => { const c = [0]; for (let i = 1; i < P.length; i++) c.push(c[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1])); return c; };
+    const C1 = cum(P1), C2 = cum(P2), L1 = C1[C1.length - 1], L2 = C2[C2.length - 1];
+    const at = (P, C, s) => { let k = 0; while (k < P.length - 2 && C[k + 1] < s) k++; const l = C[k + 1] - C[k], t = l > 0 ? (s - C[k]) / l : 0; return { k, p: [P[k][0] + (P[k + 1][0] - P[k][0]) * t, P[k][1] + (P[k + 1][1] - P[k][1]) * t] }; };
+    const pd = (c, P) => {
+      let best = { d: Infinity };
+      for (let k = 0; k < P.length - 1; k++) {
+        const a = P[k], b = P[k + 1], dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
+        const t = Math.max(0, Math.min(1, ((c[0] - a[0]) * dx + (c[1] - a[1]) * dy) / l2)), x = a[0] + dx * t, y = a[1] + dy * t, d = Math.hypot(c[0] - x, c[1] - y);
+        if (d < best.d) best = { d, k, t, p: [x, y] };
+      }
+      return best;
+    };
+    // quanto si può arrivare: misura di ogni lato → punti di contatto (T1 sulla faccia piana, T2 sulla linea curva) o null
+    const contacts = r => {
+      if (mode === 'chamfer') {
+        if (r > L1 - 0.02 || r > L2 - 0.02) return null;
+        return { t1: at(P1, C1, r).p, t2: at(P2, C2, r), s1: r, c: null };
+      }
+      // palla di raggio r che rotola lungo la faccia piana, da lontano verso lo spigolo, fino a toccare l'altra linea
+      const n1v = [0, 1], cen = s => [s, r], N = 500;
+      let prevS = L1, prevG = pd(cen(L1), P2).d - r;
+      if (prevG <= 0) return null;
+      for (let i = 1; i <= N; i++) {
+        const s = L1 * (1 - i / N), g = pd(cen(s), P2).d - r;
+        if (g <= 0) {
+          let hi = prevS, lo = s;
+          for (let it = 0; it < 50; it++) { const m = (hi + lo) / 2; if (pd(cen(m), P2).d - r > 0) hi = m; else lo = m; }
+          const sc = (hi + lo) / 2, c = cen(sc), q = pd(c, P2);
+          if (sc > L1 - 0.02 || (q.k === P2.length - 2 && q.t > 0.995) || sc < 1e-6) return null;
+          const tp = { k: q.k, p: q.p };
+          return { t1: [sc, 0], t2: tp, s1: sc, c, r };
+        }
+        prevS = s; prevG = g;
+      }
+      return null;
+    };
+    // la faccia piana è la prima: P1 è dritta (1 segmento) solo se la linea dal primo lato è una sola faccia; altrimenti la palla rotola solo sul primo tratto
+    if (mode === 'fillet' && P1.length > 2 && Math.abs(P1[2][1]) > 1e-6) return null;
+    let k = contacts(size);
+    if (!k) {
+      let lo = 0, hi = Math.min(L1, L2, 60);
+      if (!contacts(0.02)) return { err: 'big', max: 0 };
+      for (let it = 0; it < 30; it++) { const m = (lo + hi) / 2; if (contacts(Math.max(m, 0.02))) lo = m; else hi = m; }
+      return { err: 'big', max: Math.max(0, lo * 0.98) };
+    }
+    // contorno 2D della parte da aggiungere o togliere: spigolo → faccia piana → arco → linea curva → spigolo
+    const R = [[0, 0]];
+    for (let i = 1; i < P1.length; i++) if (C1[i] < k.s1 - 1e-6) R.push(P1[i]);
+    R.push(k.t1);
+    if (mode === 'fillet') {
+      const c = k.c, r = k.r, a1 = Math.atan2(k.t1[1] - c[1], k.t1[0] - c[0]), a2 = Math.atan2(k.t2.p[1] - c[1], k.t2.p[0] - c[0]);
+      let d = a2 - a1; while (d > Math.PI) d -= 2 * Math.PI; while (d <= -Math.PI) d += 2 * Math.PI;
+      const mid = a1 + d / 2, ox = -c[0], oy = -c[1];
+      if (Math.cos(mid) * ox + Math.sin(mid) * oy < 0) d = d > 0 ? d - 2 * Math.PI : d + 2 * Math.PI;
+      for (let i = 1; i < ARC; i++) R.push([c[0] + r * Math.cos(a1 + d * i / ARC), c[1] + r * Math.sin(a1 + d * i / ARC)]);
+    }
+    R.push(k.t2.p);
+    for (let i = k.t2.k; i >= 1; i--) R.push(P2[i]);
+    const Q = R.filter((p, i) => i === 0 || Math.hypot(p[0] - R[i - 1][0], p[1] - R[i - 1][1]) > 1e-6);
+    while (Q.length > 2 && Math.hypot(Q[0][0] - Q[Q.length - 1][0], Q[0][1] - Q[Q.length - 1][1]) < 1e-6) Q.pop();
+    let area = 0; for (let i = 0; i < Q.length; i++) { const a = Q[i], b = Q[(i + 1) % Q.length]; area += a[0] * b[1] - b[0] * a[1]; }
+    if (Math.abs(area) < 1e-6) return null;
+    if (area < 0) Q.reverse();
+    const A3 = Q.map(p => to3(p[0], p[1])), B3 = A3.map(p => p.clone().addScaledVector(dir, len));
+    if (!polysOk(dir, [A3])) return null;
+    const out = [];
+    const tri = (x, y, z, outw) => {
+      const nn = y.clone().sub(x).cross(z.clone().sub(x));
+      if (nn.lengthSq() < 1e-16) return;
+      const [p0, p1, p2] = nn.dot(outw) >= 0 ? [x, y, z] : [x, z, y];
+      out.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+    };
+    if (!triPolys(dir.clone().negate(), A3, [], out) || !triPolys(dir, B3, [], out)) return null;
+    for (let i = 0; i < Q.length; i++) {
+      const j = (i + 1) % Q.length, dx = Q[j][0] - Q[i][0], dy = Q[j][1] - Q[i][1];
+      const ow = pv.clone().multiplyScalar(dy).addScaledVector(qv, -dx);
+      tri(A3[i], A3[j], B3[j], ow); tri(A3[i], B3[j], B3[i], ow);
+    }
+    return { prism: new Float32Array(out), concave: !cv };
+  }
+}
+
 export const filletEdge = (topo, eid, mode, size, ARC = 18) => filletEdges(topo, [eid], mode, size, ARC);
 
 // lo spigolo della topologia che corrisponde a una catena di Filo (stessi estremi)

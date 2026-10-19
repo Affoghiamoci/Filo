@@ -11,7 +11,7 @@ import { unzipSync, zipSync, strToU8 } from 'three/addons/libs/fflate.module.js'
 import { Brush, Evaluator, ADDITION, SUBTRACTION, INTERSECTION } from 'three-bvh-csg';
 import { revolutionProfile, shellProfile, revolve } from './revolve.js';
 import { sectionProfile, sectionSolid } from './section.js';
-import { buildTopo, triangulateTopo, soupVolume, moveFace, extrudeFace, topoFaceFor, filletEdge, filletEdges, topoEdgeFor } from './topo.js';
+import { buildTopo, triangulateTopo, soupVolume, moveFace, extrudeFace, topoFaceFor, filletEdge, filletEdges, sweepFillets, topoEdgeFor } from './topo.js';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
 import { initManifold, manifoldEvaluate, manifoldCombine, manifoldStretch, manifoldHalf, manifoldMod, simplifyGeo, geoIsClosed } from './mcsg.js';
 import { ConvexHull } from 'three/addons/math/ConvexHull.js';
@@ -5760,6 +5760,11 @@ function topoEdges(obj, chains, mode, size) {
     const eids = chains.map(c => topoEdgeFor(tp, c.pts));
     if (eids.some(e => e < 0)) return null;
     out = filletEdges(tp, eids, mode, size);       // tutti insieme: dove tre spigoli si incontrano nasce l'angolo a pallina
+    if (!out || out.err) {                          // spigolo dritto contro una superficie curva (cilindro...): si calcola sulla sezione
+      const sw = sweepFillets(tp, eids, mode, size);
+      if (sw && !sw.err) return sw;
+      if (sw && sw.err && (!out || out.max < sw.max)) out = sw;
+    }
   } catch (e) { return null; }
   if (!out) return null;
   if (out.err) return out;                                  // misura troppo grande: si dice il massimo invece di fare un raccordo che esce dal pezzo
@@ -5860,6 +5865,26 @@ function applyEdges() {
   {   // motore 1.0: raccordo o smusso fatti sulla struttura del pezzo (niente booleane); se il caso non è semplice, si usa il metodo di prima
     let tr = topoEdges(obj, edgeSel.map(x => x.chain), edgeMode.v, size);
     if (tr && tr.err && clampTo(tr.max)) tr = topoEdges(obj, edgeSel.map(x => x.chain), edgeMode.v, size);   // troppo grande: si usa il massimo possibile
+    if (tr && tr.prisms) {                          // contro una superficie curva: prisma da unire (spigolo interno) o togliere (esterno)
+      obj.updateMatrixWorld(true);
+      let g0 = obj.geometry.index ? obj.geometry.toNonIndexed() : obj.geometry.clone();
+      g0.applyMatrix4(obj.matrixWorld); g0.computeVertexNormals();
+      let acc = new Brush(g0, M.solid); acc.updateMatrixWorld(true);
+      for (const pr of tr.prisms) {
+        const cg = geometryFromPositions(pr); cg.computeVertexNormals();
+        const br = new Brush(cg, M.solid); br.updateMatrixWorld(true);
+        acc = evaluator.evaluate(acc, br, tr.concave ? ADDITION : SUBTRACTION);
+      }
+      const baked = bakeResult(acc, obj.userData.name);
+      if (baked && !isFlat(baked) && geoIsClosed(baked.geo) !== false) {
+        const n = edgeSel.length;
+        clearEdges();
+        const nm = replaceWithMerged(obj, baked);
+        nm.userData.color = obj.userData.color ?? null;
+        return toastE(`${edgeMode.v === 'fillet' ? 'Arrotondamento' : 'Smusso'} di ${fmt(size)} mm su ${n} ${n === 1 ? 'spigolo' : 'spigoli'}`);
+      }
+      tr = null;
+    }
     if (tr && tr.err) {
       const mx = Math.floor(tr.max * 10) / 10, what = edgeMode.v === 'fillet' ? 'Il raggio' : 'Lo smusso';
       return toast(mx >= 0.1 ? `${what} di ${fmt(size)} mm è più largo del lato vicino: al massimo ${fmt(mx)} mm` : 'Qui non c\'è spazio: il lato vicino è troppo stretto o è già occupato da un altro raccordo. Riduci o togli quel raccordo e riprova', 4000);
@@ -5902,7 +5927,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '1.2.2';
+const APP_VERSION = '1.2.3';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
