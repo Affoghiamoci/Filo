@@ -897,7 +897,7 @@ var revPrev = null, revPrevTimer = 0, revWhich = 'ribs';
 function hideRevPreview() {
   clearTimeout(revPrevTimer);
   if (!revPrev) return;
-  scene.remove(revPrev.mesh); revPrev.mesh.geometry.dispose();
+  scene.remove(revPrev.mesh); revPrev.mesh.geometry.dispose(); for (const k of ['edges', 'xray']) { const c = revPrev.mesh.userData[k]; if (c) { c.geometry.dispose(); c.material.dispose(); } }
   if (revPrev.obj) { revPrev.obj.layers.set(0); revPrev.obj.traverse(o => o.layers.set(0)); }
   revPrev = null; dirty = true;
 }
@@ -911,6 +911,12 @@ function revPreviewNow() {
   const g = buildGeometry(r.kind, r.np), mesh = new THREE.Mesh(g, matFor(m));
   if (r.pos) mesh.position.set(...r.pos); else { mesh.position.copy(m.position); mesh.quaternion.copy(m.quaternion); mesh.scale.copy(m.scale); }
   mesh.castShadow = mesh.receiveShadow = true; mesh.raycast = () => {};
+  mesh.userData = { kind: r.kind, p: r.np, hole: false };            // spigoli, Raggi X e velo come un pezzo vero (così con Raggi X si vede dentro la cavità)
+  refreshEdges(mesh); mesh.material = matFor(m);
+  const sel = selection.includes(m);
+  mesh.userData.edges.material.color.setHex(sel ? EDGE.sel : EDGE.normal); mesh.userData.edges.material.opacity = sel ? 1 : 0.55;
+  mesh.userData.xray.material.color.setHex(sel ? EDGE.sel : EDGE.normal); mesh.userData.xray.material.opacity = sel ? 0.8 : 0.45;
+  mesh.userData.ghost.material = sel ? GHOST.sel : GHOST.normal;
   m.traverse(o => o.layers.set(2));                     // il pezzo vero non si vede (resta selezionato), al suo posto l'anteprima
   scene.add(mesh); revPrev = { mesh, obj: m }; dirty = true;
 }
@@ -3345,6 +3351,7 @@ function setXray(on) {   // contorni delle parti coperte, attivabile e disattiva
   state.xray = on ?? !state.xray;
   $('#b-xray').classList.toggle('on', state.xray);
   objects.forEach(styleObject);
+  if (revPrev) { const u = revPrev.mesh.userData; if (u.xray) u.xray.visible = state.xray; if (u.ghost) u.ghost.visible = state.xray; }
   dirty = true;
   try { localStorage.setItem('forma.xray', state.xray ? '1' : '0'); } catch (e) {}
 }
@@ -6378,7 +6385,7 @@ $('#ew-resume').addEventListener('click', async e => {
 });
 offerResume(); rsOn = true;
 
-window.forma = { expandSelection, get __revPrev() { return !!revPrev; }, revolutionProfile, applyRev, get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { expandSelection, get __revPrev() { return !!revPrev; }, get __revPrevMesh() { return revPrev && revPrev.mesh; }, revolutionProfile, applyRev, get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */
