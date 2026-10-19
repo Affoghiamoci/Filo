@@ -5751,6 +5751,7 @@ function topoEdges(obj, chains, mode, size) {
     out = filletEdges(tp, eids, mode, size);       // tutti insieme: dove tre spigoli si incontrano nasce l'angolo a pallina
   } catch (e) { return null; }
   if (!out) return null;
+  if (out.err) return out;                                  // misura troppo grande: si dice il massimo invece di fare un raccordo che esce dal pezzo
   const baked = bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(out) }, obj.userData.name);
   if (!baked || isFlat(baked) || geoIsClosed(baked.geo) === false) return null;
   if (window.__topoLog) window.__topoLog.push('edge-' + mode);
@@ -5845,6 +5846,10 @@ function applyEdges() {
   const concave = nConc > 0;
   {   // motore 1.0: raccordo o smusso fatti sulla struttura del pezzo (niente booleane); se il caso non è semplice, si usa il metodo di prima
     const tr = topoEdges(obj, edgeSel.map(x => x.chain), edgeMode.v, size);
+    if (tr && tr.err) {
+      const mx = Math.floor(tr.max * 10) / 10, what = edgeMode.v === 'fillet' ? 'Il raggio' : 'Lo smusso';
+      return toast(mx >= 0.1 ? `${what} di ${fmt(size)} mm è più largo del lato vicino: al massimo ${fmt(mx)} mm` : 'Il lato vicino è troppo stretto per arrotondare questo spigolo', 4000);
+    }
     if (tr) {
       const n = edgeSel.length;
       clearEdges();

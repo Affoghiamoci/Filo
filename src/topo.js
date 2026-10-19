@@ -458,6 +458,28 @@ export function filletEdges(topo, eids, mode, size, ARC = 18) {
       prm = t => a0.clone().applyAxisAngle(ax, ang * t).add(Cc);
       ts = []; for (let k = 0; k <= ARC; k++) ts.push(k / ARC);
     }
+    // il raccordo (o lo smusso) tocca ciascuna delle due facce a una certa distanza dallo spigolo: se una faccia è più stretta,
+    // il raccordo uscirebbe dal pezzo (una "pinna" sottile). Si misura quanto è larga ogni faccia vista dallo spigolo e si dice il massimo.
+    const reach = mode === 'chamfer' ? size : size / Math.tan(th / 2), k = mode === 'chamfer' ? 1 : Math.tan(th / 2);
+    const len = A.distanceTo(B);
+    const width = (f, u) => {                      // da alcuni punti dello spigolo si va dentro la faccia (lungo u) fino al suo bordo
+      let w = Infinity;
+      for (const fr of [0.15, 0.5, 0.85]) {
+        const S = A.clone().addScaledVector(dir, len * fr);
+        let best = Infinity;
+        for (const L of topo.faces[f].loops) for (let i = 0; i < L.verts.length; i++) {
+          const P = pos(L.verts[i]).sub(S), Q = pos(L.verts[(i + 1) % L.verts.length]).sub(S);
+          const px = P.dot(u), py = P.dot(dir), qx = Q.dot(u), qy = Q.dot(dir);
+          if ((py > 1e-7) === (qy > 1e-7) || Math.abs(qy - py) < 1e-9) continue;
+          const x = px + (qx - px) * (-py) / (qy - py);
+          if (x > 1e-4 && x < best) best = x;
+        }
+        w = Math.min(w, best);
+      }
+      return w;
+    };
+    const wmin = Math.min(width(f1, u1), width(f2, u2));
+    if (reach > wmin + 1e-3) return { err: 'big', max: Math.max(0, wmin * k - 0.01) };
     E.push({ e, path, a, b, A, B, dir, f1, f2, n1, n2, u1, u2, cv, prm, ts, Cc });
   }
   // estremi: liberi (un solo spigolo scelto, anche dove si incontrano più facce, es. le falde di un tetto) o angoli a pallina (tre spigoli scelti)
