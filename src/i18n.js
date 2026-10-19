@@ -188,6 +188,7 @@ const EN = {
   'Righe e pareti': 'Ribs and walls',
   'Righe in rilievo': 'Raised ribs',
   'Svuota': 'Hollow',
+  'Anteprima di Righe e Svuota con spigoli e Raggi X: con Raggi X acceso si vede la cavità prima di applicare': 'Ribs and Hollow preview with edges and X-ray: with X-ray on you see the cavity before applying',
   'Espandi': 'Expand',
   'Espandi (tasto destro): un pezzo parametrico diventa una forma fissa': 'Expand (right click): a parametric piece becomes a fixed shape',
   'Raggi X su tutte le forme: le parti coperte si vedono in trasparenza': 'X-ray on every shape: hidden parts show through',
