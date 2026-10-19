@@ -5876,7 +5876,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '1.1.1';
+const APP_VERSION = '1.2.0';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
