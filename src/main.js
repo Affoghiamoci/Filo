@@ -844,14 +844,13 @@ let rvShape = 'round';
 function syncRevPanel(m) {
   const u = m.userData, own = u.kind === 'rev' || u.kind === 'sec', rb = own ? (u.p.ribs || {}) : {}, sh = own ? (u.p.shell || {}) : {};
   if ($('#p-rev').dataset.id !== String(u.id)) {                  // pezzo nuovo nel pannello: i suoi valori, o quelli di partenza
+    showRevErr({}, 'ribs');                                          // e spariscono gli errori del pezzo di prima
     const hasR = rb.n > 0 && rb.depth > 0, hasS = sh.t > 0;
     $('#rv-n').value = fmt(hasR ? rb.n : 60); $('#rv-depth').value = fmt(hasR ? rb.depth : 0.8); $('#rv-twist').value = fmt(hasR ? rb.twist ?? 0 : 0); $('#rv-margin').value = fmt(hasR ? rb.margin ?? 0 : 0);
     $('#rv-wall').value = fmt(hasS ? sh.t : 1.6); $('#rv-bottom').value = fmt(hasS ? sh.b ?? 2 : 2); rvShape = hasR ? rb.shape || 'round' : 'round';
   }
   $('#p-rev').dataset.id = String(u.id);
   document.querySelectorAll('#rv-shape button').forEach(b => b.classList.toggle('on', b.dataset.v === rvShape));
-  if (!revPrev) $('#sh-info').textContent = '';
-  if (!revPrev) $('#rv-info').textContent = '';                    // il pannello parla solo quando c'è un problema
 }
 // Calcola il pezzo nuovo senza toccare quello vero: serve sia all'anteprima sia ad Applica. Restituisce { kind, np, pos } oppure { err }.
 const revBaseCache = new WeakMap();                   // geometria → profilo già riconosciuto (l'anteprima non rifà l'analisi a ogni tasto)
@@ -871,12 +870,12 @@ function computeRev(m, which = 'ribs') {
     if (hit && hit.key === key) { kind = hit.kind; base = hit.base; }
     else {
       const P = worldPositions(m);
-      if (P.length / 9 > 400000) return { err: 'Pezzo troppo pesante per ricostruirlo' };
+      if (P.length / 9 > 400000) return { err: 'Pezzo troppo pesante per ricostruirlo', both: true };
       const r = ['box', 'prism'].includes(u.kind) ? { err: 1 } : revolutionProfile(P);
       if (!r.err) base = { prof: r.polys, w0: 2 * r.rmax, h0: r.h, w: 2 * r.rmax, d: 2 * r.rmax, h: r.h, pos: [r.cx, r.cy, r.z0] };
       else {
         const s = sectionProfile(P);
-        if (s.err) return { err: 'Righe e Svuota funzionano sui pezzi a rotazione (cilindri, coni, vasi) e su quelli che salgono dritti (scatole, prismi): questo pezzo non lo è' };
+        if (s.err) return { err: 'Righe e Svuota funzionano sui pezzi a rotazione (cilindri, coni, vasi) e su quelli che salgono dritti (scatole, prismi): questo pezzo non lo è', both: true };
         kind = 'sec';
         base = { polys: s.polys, k: s.k, w0: s.w0, d0: s.d0, h0: s.h, w: s.w0, d: s.d0, h: s.h, pos: [s.cx, s.cy, s.z0] };
       }
@@ -905,9 +904,9 @@ function revPreviewNow() {
   const m = single();
   hideRevPreview();
   if (!m || m.userData.hole || $('#p-rev').classList.contains('hidden')) return;
-  const r = computeRev(m, revWhich), info = $(revWhich === 'shell' ? '#sh-info' : '#rv-info');
-  $('#rv-info').textContent = $('#sh-info').textContent = '';
-  if (r.err) { info.textContent = tr(r.err); return; }
+  const r = computeRev(m, revWhich);
+  showRevErr(r, revWhich);
+  if (r.err) return;
   const g = buildGeometry(r.kind, r.np), mesh = new THREE.Mesh(g, matFor(m));
   if (r.pos) mesh.position.set(...r.pos); else { mesh.position.copy(m.position); mesh.quaternion.copy(m.quaternion); mesh.scale.copy(m.scale); }
   mesh.castShadow = mesh.receiveShadow = true; mesh.raycast = () => {};
@@ -921,11 +920,20 @@ function revPreviewNow() {
   scene.add(mesh); revPrev = { mesh, obj: m }; dirty = true;
 }
 function revPreview(which) { if (which === 'ribs' || which === 'shell') revWhich = which; clearTimeout(revPrevTimer); revPrevTimer = setTimeout(revPreviewNow, 180); }
+// Errori di Righe e Svuota: in rosso sotto i campi (in tutte e due le sezioni se il pezzo non va bene per nessuna), e nei Messaggi della Cronologia
+function showRevErr(r, which) {
+  for (const id of ['#rv-info', '#sh-info']) { const el = $(id); el.textContent = ''; el.classList.remove('err'); }
+  if (!r.err) return;
+  const ids = r.both ? ['#rv-info', '#sh-info'] : [which === 'shell' ? '#sh-info' : '#rv-info'];
+  for (const id of ids) { const el = $(id); el.textContent = tr(r.err); el.classList.add('err'); }
+  logMsg(r.err, true);
+}
 function applyRev(which = 'ribs') {
   const m = single(); if (!m || m.userData.hole) return;
   hideRevPreview();
   const u = m.userData, r = computeRev(m, which);
-  if (r.err) return toast(r.err);
+  showRevErr(r, which);
+  if (r.err) return;
   const { kind, np, ribs, shell } = r;
   if (heavyGuard([m])) return;
   u.kind = kind; u.base = null; u.geo = null;
@@ -3511,7 +3519,16 @@ $('#exp-form').addEventListener('submit', e => {
   expFmt === '3mf' ? export3MF(n) : exportSTL(n);
 });
 let toastT;
+// Messaggi: tutto quello che Filo dice (avvisi in alto ed errori nei pannelli) resta consultabile nella Cronologia, scheda Messaggi
+const msgLog = [];
+function logMsg(msg, err = false) {
+  const last = msgLog[msgLog.length - 1];
+  if (last && last.msg === msg && Date.now() - last.at < 4000) return;     // lo stesso avviso ripetuto a ogni tasto si scrive una volta
+  msgLog.push({ at: Date.now(), msg, err }); if (msgLog.length > 300) msgLog.shift();
+  try { scheduleHistory(); } catch (e) {}                              // all'avvio la Cronologia non c'è ancora
+}
 function toast(msg, ms = 2400) {
+  logMsg(msg);
   const t = $('#toast');
   t.textContent = msg;
   t.classList.add('show');
@@ -6385,7 +6402,7 @@ $('#ew-resume').addEventListener('click', async e => {
 });
 offerResume(); rsOn = true;
 
-window.forma = { expandSelection, get __revPrev() { return !!revPrev; }, get __revPrevMesh() { return revPrev && revPrev.mesh; }, revolutionProfile, applyRev, get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { get msgLog() { return msgLog; }, expandSelection, get __revPrev() { return !!revPrev; }, get __revPrevMesh() { return revPrev && revPrev.mesh; }, revolutionProfile, applyRev, get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */
@@ -6747,8 +6764,16 @@ const histEl = $('#history'), histList = $('#history-list');
 let histOn = false, histTimer = 0;
 try { histOn = localStorage.getItem('forma.history') === '1'; } catch (e) {}
 function scheduleHistory() { if (histOn) { clearTimeout(histTimer); histTimer = setTimeout(renderHistory, 30); } }
+let histTab = 'steps';                                     // seconda funzione della Cronologia: i Messaggi di Filo
 function renderHistory() {
   if (!histOn) return;
+  document.querySelectorAll('#hist-tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === histTab));
+  if (histTab === 'msg') {
+    const hm = t => { const d = new Date(t); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+    histList.innerHTML = msgLog.length ? msgLog.map(x => `<div class="mrow${x.err ? ' err' : ''}"><b>${hm(x.at)}</b><span>${esc(tr(x.msg))}</span></div>`).join('') : `<div class="mrow empty">${esc(tr('Nessun messaggio'))}</div>`;
+    histList.scrollTop = histList.scrollHeight;
+    return;
+  }
   histList.innerHTML = history.map((h, i) => `<div class="hrow${i === hIdx ? ' cur' : ''}${i > hIdx ? ' fut' : ''}" data-i="${i}"><b>${i + 1}</b><span class="ln">${esc(h.label || 'Modifica')}</span></div>`).join('');
   const cur = histList.querySelector('.cur');
   if (cur) cur.scrollIntoView({ block: 'nearest' });
@@ -6761,6 +6786,7 @@ function setHistory(on) {
   if (on) renderHistory();
 }
 histList.addEventListener('click', e => { const r = e.target.closest('.hrow'); if (r) jumpTo(+r.dataset.i); });
+document.querySelectorAll('#hist-tabs button').forEach(b => b.addEventListener('click', () => { histTab = b.dataset.t; renderHistory(); }));
 $('#b-history').addEventListener('click', () => setHistory(!histOn));
 $('#history-close').addEventListener('click', () => setHistory(false));
 setHistory(histOn);
