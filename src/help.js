@@ -102,6 +102,7 @@ export const HELP = {
       <ul><li><b>Seleziona</b>: clic su una riga. ${K('⇧')} + clic aggiunge, ${K('⌘')} + clic prende un intervallo.</li><li><b>Rinomina</b>: doppio clic sul nome, Invio per confermare, Esc per annullare.</li><li><b>Nascondi</b>: l'oggetto sparisce dalla scena e <b>non viene esportato</b>.</li><li><b>Blocca</b>: l'oggetto resta visibile ed esportato, ma non si può selezionare né spostare, e il clic ci passa attraverso. Utile per un pezzo che non vuoi toccare per sbaglio.</li></ul>
       <h3>Cronologia</h3>
       <p>${K('F8')} mostra ogni passaggio con una piccola anteprima: clicca un passaggio per tornarci. ${K('⌘Z')} annulla e ${K('⇧⌘Z')} ripete, anche per Blocca e Nascondi. Dopo un annulla ritrovi anche gli spigoli e i lati che avevi selezionato, così puoi ritentare con un'altra misura. Se torni indietro e fai una modifica nuova, i passaggi che stavano avanti vengono sostituiti.</p>
+      <p>In alto nella Cronologia, <b>Messaggi</b> mostra tutto quello che Filo ti ha detto, con l'ora: gli avvisi che compaiono in alto e gli errori (in rosso) dei pannelli. Utile se un avviso è sparito prima che lo leggessi.</p>
       <h3>Oggetto chiave</h3>
       <p>Con due o più oggetti selezionati, clicca quello che vuoi come <b>chiave</b>: gli altri si allineano a lui (vedi <i>Allinea e distribuisci</i>). Un altro clic sullo stesso oggetto toglie la chiave.</p>` },
     { id: 'ctx', g: 'select', t: 'Menu del tasto destro', h: `
@@ -116,7 +117,7 @@ export const HELP = {
       <div class="tip">Con un solo oggetto, Allinea lavora sul piatto. I pulsanti che non servono sono attenuati e il tooltip spiega perché.</div>` },
     { id: 'snap', g: 'transform', t: 'Scatto e calamita', h: `
       <p>In basso, <b>Scatto</b> è di quanto si sposta un oggetto: da 0,1 a 10 mm, oppure <b>Libero</b> (nessun passo fisso).</p><p>Sono due aiuti diversi che lavorano insieme: lo <b>Scatto</b> fa muovere l'oggetto a passi fissi, la <b>Calamita</b> lo aggancia a angoli e lati degli altri oggetti.</p>
-      <p>La <b>Calamita</b> (pulsante accanto) aggancia angoli e lati agli altri oggetti, sia a contatto sia a filo, anche su modelli con molti fori. Funziona anche in verticale, con ⇧ premuto (sull'asse in cui ti muovi) e con le maniglie di ridimensionamento: la faccia che trascini si aggancia ai lati degli altri oggetti. Tieni premuto ${K('⌘')} per spegnerla solo in quel trascinamento.</p>
+      <p>La <b>Calamita</b> (pulsante accanto) aggancia angoli e lati agli altri oggetti, sia a contatto sia a filo, anche su modelli con molti fori. Funziona anche in verticale, con ⇧ premuto (sull'asse in cui ti muovi) e con le maniglie di ridimensionamento: la faccia che trascini si aggancia ai lati degli altri oggetti. Aggancia anche <b>a metà</b>: il centro di un oggetto si ferma sul lato di un altro (per esempio una sfera che entra per metà in un vaso), e un oggetto si appoggia a metà altezza di un altro. Tieni premuto ${K('⌘')} per spegnerla solo in quel trascinamento.</p>
       <p><b>Forza la rotella del mouse come zoom</b> (l'icona del mouse accanto alla calamita) fa zoomare sempre la rotella. Accendilo se il tuo mouse ruota la vista invece di zoomare; con il trackpad lascialo spento.</p>
       {{img:calamita|Un oggetto trascinato si aggancia a contatto con l'altro}}
       <ul><li>${K('⌘')} + ${K('⌥')} premuti insieme mentre trascini spengono la calamita solo per quel movimento (anche in verticale, anche con le maniglie). ${K('⌘')} da solo, già al clic sull'oggetto, lo sposta in verticale (vedi <i>Sposta e duplica</i>).</li><li>${K('⇧')} blocca un asse (la calamita lavora solo su quell'asse).</li><li>La calamita agisce anche sul trascinamento degli spigoli (vedi Spigolo).</li></ul>` },
@@ -130,7 +131,7 @@ export const HELP = {
       <ul><li>${K('⇧')} + clic aggiunge altri lati.</li><li>Un lato a filo con altri dello stesso gruppo si muove insieme.</li><li>Sui cilindri il lato curvo è un pezzo unico.</li></ul>
       <h3>Allunga o estrudi</h3>
       <p>Nel pannello <b>Modo</b> scegli cosa succede: <i>Allunga</i> allunga il pezzo da quella parte seguendo le sue linee (i lati vicini proseguono con la loro inclinazione; se convergono, oltre una certa misura il lato sparirebbe e Filo ti dice il massimo); <i>Estrudi</i> fa uscire dal lato un blocco dritto con la stessa sagoma (con un valore negativo scava) e i lati vicini restano com'erano. Sulla faccia di un cubo i due danno lo stesso risultato; su un esagono o su un tronco di piramide no.</p>
-      <p>Con <i>Estrudi</i> compare anche <b>Cima</b>: 100 è un prisma dritto, 50 restringe la cima a metà mentre sale, 150 la allarga. Così da un cubo escono pomelli e ganci in un solo passaggio. <b>Scala il lato</b> ridimensiona il contorno del lato scelto e inclina i lati vicini.</p>` },
+      <p>Con <i>Estrudi</i> compare anche <b>Cima</b>: 100 è un prisma dritto, 50 restringe la cima a metà mentre sale, 150 la allarga. Così da un cubo escono pomelli e ganci in un solo passaggio. <b>Scala il lato</b> ridimensiona il contorno del lato scelto e inclina i lati vicini: mentre scrivi la percentuale vedi già il pezzo come sarà.</p>` },
     { id: 'edge', g: 'model', t: 'Spigolo', h: `
       <p>${K('E')}: clicca uno spigolo (con ${K('⇧')} ne scegli altri) e decidi cosa farne. Il pannello a destra mostra solo ciò che vale per lo spigolo scelto: arrotondare o smussare, spostarlo, oppure ridimensionare un anello.</p>
       <h3>Arrotonda o smussa</h3>
@@ -151,7 +152,7 @@ export const HELP = {
       <ul><li>Trascina il piano con il mouse, oppure clicca sull'oggetto per metterlo lì.</li><li>Allungando, il pezzo viene tagliato sul piano, la parte oltre il piano si sposta e lo spazio si riempie con la stessa sezione: i fori e le pareti inclinate restano come sono.</li><li>Accorciando, viene tolta la fetta che sta subito prima del piano, spessa quanto il numero che hai scritto, e la parte oltre il piano scivola indietro. Non puoi accorciare più della distanza tra il piano e l'inizio del pezzo: Filo ti dice il massimo.</li><li>Se il piano non attraversa il pezzo non cambia nulla.</li></ul>` },
     { id: 'cut', g: 'model', t: 'Taglia', h: `
       {{img:taglia|Il piano di taglio si trascina con il mouse}}
-      <p>${K('K')}: scegli un asse e la posizione del piano, poi premi Taglia. Ottieni due oggetti separati.</p>
+      <p>${K('K')}: scegli un asse e la posizione del piano, poi premi Taglia (o ${K('Invio')}). Ottieni due oggetti separati. ${K('Invio')} applica anche Allunga, la seconda funzione dello strumento.</p>
       {{img:taglia-fine|Le due metà dopo il taglio}}
       <ul><li>Trascina il piano, scrivi la posizione o clicca sull'oggetto.</li><li>Sui modelli grandi compare una barra di avanzamento.</li></ul>` },
     { id: 'solids', g: 'solids', t: 'Fori, Combina, Interseca e Stampo', h: `
@@ -324,6 +325,7 @@ export const HELP = {
       <ul><li><b>Select</b>: click a row. ${K('⇧')} + click adds, ${K('⌘')} + click picks a range.</li><li><b>Rename</b>: double-click the name, Enter to confirm, Esc to cancel.</li><li><b>Hide</b>: the object disappears from the scene and is <b>not exported</b>.</li><li><b>Lock</b>: the object stays visible and exported, but it cannot be selected or moved, and clicks pass through it. Handy for a piece you do not want to touch by mistake.</li></ul>
       <h3>History</h3>
       <p>${K('F8')} shows every step with a small preview: click a step to go back to it. ${K('⌘Z')} undoes and ${K('⇧⌘Z')} redoes, also for Lock and Hide. After an undo the edges and faces you had selected are selected again, so you can retry with another value. If you go back and make a new change, the steps that were ahead are replaced.</p>
+      <p>At the top of History, <b>Messages</b> lists everything Filo told you, with the time: the notices that pop up at the top and the errors (in red) from the panels. Handy if a notice disappeared before you read it.</p>
       <h3>Key object</h3>
       <p>With two or more objects selected, click the one you want as the <b>key</b>: the others align to it (see <i>Align and distribute</i>). Another click on the same object removes the key.</p>` },
     { id: 'ctx', g: 'select', t: 'Right-click menu', h: `
@@ -338,7 +340,7 @@ export const HELP = {
       <div class="tip">With a single object, Align works on the bed. Buttons that do not apply are dimmed and the tooltip says why.</div>` },
     { id: 'snap', g: 'transform', t: 'Step and magnet', h: `
       <p>At the bottom, <b>Step</b> is how far an object moves: from 0.1 to 10 mm, or <b>Free</b> (no fixed step).</p><p>They are two different helpers that work together: <b>Step</b> makes the object move in fixed jumps, the <b>Magnet</b> snaps it to corners and sides of other objects.</p>
-      <p>The <b>Magnet</b> (button next to it) snaps corners and sides to other objects, touching or flush, even on models with many holes. It works vertically too.</p>
+      <p>The <b>Magnet</b> (button next to it) snaps corners and sides to other objects, touching or flush, even on models with many holes. It works vertically too. It also snaps <b>halfway</b>: an object's center stops on another object's side (for example a sphere sinking halfway into a vase), and an object can rest at half the height of another.</p>
       <p><b>Force the mouse wheel as zoom</b> (the mouse icon next to the magnet) makes the wheel always zoom. Turn it on if your mouse rotates the view instead of zooming; with a trackpad leave it off.</p>
       {{img:calamita|A dragged object snaps into contact with the other}}
       <ul><li>${K('⌘')} held while dragging switches the magnet off for that move only. If you hold it already when you click the object, you move it vertically instead (see <i>Move and duplicate</i>).</li><li>${K('⇧')} locks an axis and switches off the magnet.</li><li>The magnet also acts when dragging edges (see Edge).</li></ul>` },
@@ -352,7 +354,7 @@ export const HELP = {
       <ul><li>${K('⇧')} + click adds more faces.</li><li>A face flush with others in the same group moves together.</li><li>On cylinders the curved side is a single piece.</li></ul>
       <h3>Stretch or extrude</h3>
       <p>In the panel <b>Mode</b> picks what happens: <i>Stretch</i> grows the piece on that side following its lines (the neighbouring faces keep their slope; if they converge, past a certain length the face would vanish and Filo tells you the maximum); <i>Extrude</i> grows a straight block with the same outline as the face (a negative value digs) and leaves the neighbouring faces alone. On the face of a cube the two give the same result; on a hexagon or a truncated pyramid they don't.</p>
-      <p>With <i>Extrude</i> a <b>Top</b> field appears too: 100 is a straight prism, 50 narrows the top to half as it rises, 150 widens it. That makes knobs and hooks from a cube in one step. <b>Scale the face</b> resizes the outline of the chosen face and tilts the neighbouring faces.</p>` },
+      <p>With <i>Extrude</i> a <b>Top</b> field appears too: 100 is a straight prism, 50 narrows the top to half as it rises, 150 widens it. That makes knobs and hooks from a cube in one step. <b>Scale the face</b> resizes the outline of the chosen face and tilts the neighbouring faces: while you type the percentage you already see the piece as it will be.</p>` },
     { id: 'edge', g: 'model', t: 'Edge', h: `
       <p>${K('E')}: click an edge (hold ${K('⇧')} to pick more) and decide what to do with it. The right panel only shows what applies to the chosen edge: rounding or chamfering, moving it, or resizing a ring.</p>
       <h3>Round or chamfer</h3>
@@ -373,7 +375,7 @@ export const HELP = {
       <ul><li>Drag the plane with the mouse, or click on the object to put it there.</li><li>When stretching, the piece is cut on the plane, the part beyond the plane moves and the gap is filled with the same section: holes and slanted walls stay as they are.</li><li>When shortening, the slice just before the plane, as thick as the number you typed, is removed and the part beyond the plane slides back. You cannot shorten more than the distance between the plane and the start of the piece: Filo tells you the maximum.</li><li>If the plane does not cross the piece, nothing changes.</li></ul>` },
     { id: 'cut', g: 'model', t: 'Cut', h: `
       {{img:taglia|The cutting plane can be dragged with the mouse}}
-      <p>${K('K')}: pick an axis and the plane position, then press Cut. You get two separate objects.</p>
+      <p>${K('K')}: pick an axis and the plane position, then press Cut (or ${K('Enter')}). You get two separate objects. ${K('Enter')} also applies Stretch, the tool's second function.</p>
       {{img:taglia-fine|The two halves after the cut}}
       <ul><li>Drag the plane, type the position or click on the object.</li><li>On large models a progress bar appears.</li></ul>` },
     { id: 'solids', g: 'solids', t: 'Holes, Combine and Intersect', h: `

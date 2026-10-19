@@ -882,13 +882,22 @@ function computeRev(m, which = 'ribs') {
       revBaseCache.set(m.geometry, { key, kind, base });
     }
   }
-  if (kind === 'rev' && shell.t > 0) {
-    const kz = base.h / base.h0, s = shellProfile(base.prof.map(L => L.map(([r, z]) => [r, z * kz])), shell.t, shell.b);
-    if (s.err) return { err: s.err };
-  }
   const np = kind === 'rev' ? { w: base.w, d: base.d, h: base.h, w0: base.w0, h0: base.h0, prof: base.prof, ribs, shell }
     : { w: base.w, d: base.d, h: base.h, w0: base.w0, d0: base.d0, h0: base.h0, polys: base.polys, k: base.k, ribs, shell };
-  if (kind === 'sec' && shell.t > 0) { if (!manifoldMod()) return { err: 'Un attimo: il motore si sta ancora caricando' }; const c = secGeometry(np, true); if (c.err) return { err: c.err }; c.g.dispose(); }
+  if (shell.t > 0) {
+    if (kind === 'sec' && !manifoldMod()) return { err: 'Un attimo: il motore si sta ancora caricando' };
+    const fits = (t, b) => {                                             // con questa parete e questo fondo resta una cavità?
+      if (kind === 'rev') { const kz = base.h / base.h0; return !shellProfile(base.prof.map(L => L.map(([r, z]) => [r, z * kz])), t, b).err; }
+      const c = secGeometry({ ...np, ribs: null, shell: { t, b } }, true); if (c.err) return false; c.g.dispose(); return true;
+    };
+    if (shell.b >= base.h - 0.2) return { err: `Il fondo da ${fmt(shell.b)} mm è alto quanto il pezzo (${fmt(base.h)} mm): scrivi meno di ${fmt(Math.max(0, base.h - 0.3))} mm` };
+    if (!fits(shell.t, shell.b)) {                                       // il valore più grande che funziona, così si sa cosa scrivere
+      let lo = 0, hi = shell.t;
+      for (let i = 0; i < 12; i++) { const mid = (lo + hi) / 2; if (fits(mid, Math.min(shell.b, 0.5))) lo = mid; else hi = mid; }
+      const mx = Math.floor(lo * 10) / 10;
+      return { err: mx >= 0.1 ? `Con pareti da ${fmt(shell.t)} mm dentro non resta spazio: al massimo ${fmt(mx)} mm` : 'Questo pezzo è troppo sottile per svuotarlo' };
+    }
+  }
   return { kind, np, pos: base.pos, ribs, shell };
 }
 // Anteprima: mentre cambi i campi il pezzo si mostra già con righe e pareti (il pezzo vero resta com'era finché non premi Applica; Esc la toglie)
@@ -2012,7 +2021,7 @@ canvas.addEventListener('pointerup', e => {
     if (d.fd.fs.full && ['cylinder', 'cone'].includes(d.fd.fs.obj.userData.kind)) { d.fd.fs.obj.scale.set(1, 1, 1); selMeshes.forEach(m => { m.visible = true; }); }
     if (d.moved && Math.abs(dist) > 1e-4) applyPush(dist);
     else {
-      selMeshes.forEach(m => m.position.set(0, 0, 0)); updateFaceHandle();
+      selMeshes.forEach(m => { m.position.set(0, 0, 0); m.scale.setScalar(1); }); updateFaceHandle();
       if (handleDouble('face')) openValuePopup({ chip: 'Lato', color: '#ff6a00', label: faceMode.v === 'extrude' ? 'estrudi di' : 'allunga di', unit: 'mm', step: state.snap || 0.1, at: faceHandle.position, extra: faceMode.v === 'extrude' ? { label: 'cima', unit: '%', value: String($('#f-taper').value || '100') } : null, apply: (v, v2) => { if (Number.isFinite(v2)) $('#f-taper').value = String(v2); applyPush(v); } });
       else TF.push.focus();
     }
@@ -2137,10 +2146,21 @@ function ensureSnap(d, key, map) {
   if (d[key]) return d[key];
   const mov = [], stat = [];
   for (const m of objects) { if (!m.visible) continue; (map.has(m) ? mov : stat).push(...worldPlanes(m)); }
+  // calamita a metà: piani immaginari al centro di ogni oggetto (es. una sfera che entra per metà in un vaso, un pezzo appoggiato a metà altezza di un altro)
+  const midPlanes = (m, list) => {
+    const b = worldBox(m), c = b.getCenter(new THREE.Vector3());
+    for (const ax of ['x', 'y', 'z']) for (const sg of [1, -1]) {
+      const n = new THREE.Vector3(); n[ax] = sg;
+      const min = b.min.clone(), max = b.max.clone(); min[ax] = max[ax] = c[ax];
+      list.push({ n, d: sg * c[ax], min, max, area: 0, mid: true });
+    }
+  };
+  const midM = [], midS = [];
+  for (const m of objects) { if (!m.visible || m.userData.hole && !map.has(m)) continue; midPlanes(m, map.has(m) ? midM : midS); }
   const movC = [], statC = [];
   for (const m of objects) { if (!m.visible) continue; (map.has(m) ? movC : statC).push(...worldCorners(m)); }
   stat.sort((a, b) => b.area - a.area);            // i lati più grandi per primi: con tanti oggetti non si perdono quelli importanti
-  return (d[key] = { mov: mov.slice(0, 120), stat: stat.slice(0, 600), movC: movC.slice(0, 400), statC: statC.slice(0, 20000) });
+  return (d[key] = { mov: mov.slice(0, 120).concat(midM.slice(0, 60)), stat: stat.slice(0, 600).concat(midS.slice(0, 300)), movC: movC.slice(0, 400), statC: statC.slice(0, 20000) });
 }
 // s = spostamento dall'inizio; mode 'xy' per i lati verticali, 'z' per quelli orizzontali. Restituisce la correzione.
 function snapFaces(info, s, mode, lock) {
@@ -2150,6 +2170,7 @@ function snapFaces(info, s, mode, lock) {
     const dn = M.n.dot(S.n);
     if (dn > -0.998 && dn < 0.998) continue;                  // lati opposti = contatto; lati con la stessa direzione = a filo
     const flush = dn > 0;
+    if ((M.mid || S.mid) && (flush || (M.mid && S.mid))) continue;   // i piani a metà valgono solo a contatto con un lato vero
     const mask = mode === 'z' ? S.n.z * S.n.z : S.n.x * S.n.x + S.n.y * S.n.y;
     if (mask < 0.6 || (mode === 'z' && Math.abs(S.n.z) < 0.8)) continue;
     if (lock && Math.abs(S.n[lock]) < 0.98) continue;        // movimento bloccato su un asse: contano solo i lati perpendicolari a quell'asse
@@ -2182,7 +2203,7 @@ function showSnap(sn, s, e) {
   guide.visible = true;
   dragRead.style.display = 'block';
   dragRead.style.left = e.clientX + 18 + 'px'; dragRead.style.top = e.clientY - 12 + 'px';
-  dragRead.textContent = tr('a contatto');
+  dragRead.textContent = tr(sn.M.mid || sn.S.mid ? 'a metà' : 'a contatto');
   dirty = true;
 }
 /* calamita tra angoli (apici): un vertice del pezzo si aggancia a un vertice di un altro */
@@ -3883,6 +3904,7 @@ let faceSel = null, faceSet = [], selMeshes = [], hoverMesh = null, hoverFs = nu
 function dropMesh(m) { if (m) { scene.remove(m); m.geometry.dispose(); m.material.dispose(); } }
 function clearFace(sync = true) {
   stashCtx();
+  hideScalePrev();
   selMeshes.forEach(dropMesh); selMeshes = []; faceSel = null; faceSet = [];
   updateFaceHandle();
   if (sync) syncPanel();
@@ -3925,7 +3947,7 @@ function coplanarInGroup(m, fs) {
   return out;
 }
 function selectFaceFromHit(hit, add = false) {
-  pendCtx = null;
+  pendCtx = null; hideScalePrev();
   const m = hit.object;
   const grp = withGroups([m]);
   if (selection.length !== grp.length || !grp.every(g => selection.includes(g))) setSelection(grp);
@@ -4065,6 +4087,15 @@ function ringParams(fs) {
   return { ...c, zA, zB, full: gap < 25 * D2R };
 }
 // Estrusione per CSG: prisma sotto/sopra il lato, unito o sottratto. Non deforma i lati vicini (niente spuntoni).
+// centro del contorno di un lato (media dei vertici del bordo): è il punto attorno a cui la Cima stringe o allarga
+function faceCentroid(f) {
+  if (f._cen) return f._cen;
+  const w = f.world, q = x => Math.round(x * 2000), key = i => q(w[i]) + ',' + q(w[i + 1]) + ',' + q(w[i + 2]), E = new Set(), vs = new Map();
+  for (let t = 0; t < w.length / 9; t++) for (let j = 0; j < 3; j++) E.add(key(t * 9 + j * 3) + '>' + key(t * 9 + ((j + 1) % 3) * 3));
+  for (let t = 0; t < w.length / 9; t++) for (let j = 0; j < 3; j++) { const a = t * 9 + j * 3, b = t * 9 + ((j + 1) % 3) * 3; if (!E.has(key(b) + '>' + key(a))) vs.set(key(a), a); }
+  const c = new THREE.Vector3(); for (const i of vs.values()) c.x += w[i], c.y += w[i + 1], c.z += w[i + 2];
+  return (f._cen = c.multiplyScalar(1 / Math.max(vs.size, 1)));
+}
 function prismGeometry(f, dist, taper = 1) {
   const w = f.world, k = w.length / 9, q = x => Math.round(x * 2000);
   const key = (i) => q(w[i]) + ',' + q(w[i + 1]) + ',' + q(w[i + 2]);
@@ -4558,7 +4589,7 @@ function handleMagnet(h, dir, base, delta, e) {
   for (const c of h.planes) if (Math.abs(c - pos) < tol && (best === null || Math.abs(c - pos) < Math.abs(best - pos))) best = c;
   if (best === null) { if (dragRead.style.display !== 'none') { dragRead.style.display = 'none'; dirty = true; } return null; }
   dragRead.style.display = 'block'; dragRead.style.left = e.clientX + 18 + 'px'; dragRead.style.top = e.clientY - 12 + 'px';
-  dragRead.textContent = tr('a contatto'); dirty = true;
+  dragRead.textContent = tr(sn.M.mid || sn.S.mid ? 'a metà' : 'a contatto'); dirty = true;
   return best - base;
 }
 /* maniglia del lato: trascina lungo la normale, con calamita sui piani vicini */
@@ -4647,6 +4678,7 @@ function startFaceDrag(e) {
 }
 /* anteprima dal vivo del Lato: in trasparenza il pezzo come verrà (Allunga) o il blocco che esce (Estrudi); rossa se Allunga va oltre il massimo */
 const facePrev = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshStandardMaterial({ color: ACCENT_HEX, transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide, roughness: 0.6 }));
+facePrev.material.polygonOffset = true; facePrev.material.polygonOffsetFactor = -2; facePrev.material.polygonOffsetUnits = -2;   // l'anteprima coincide con il pezzo sulle pareti che non cambiano: un po' in avanti, così non sfarfalla a scalini
 facePrev.visible = false; facePrev.renderOrder = 5; facePrev.raycast = () => {}; scene.add(facePrev);
 let facePrevT = 0, facePrevPending = null;
 function hideFacePrev() { facePrev.visible = false; facePrevPending = null; selMeshes.forEach(s => { s.visible = true; }); dirty = true; }
@@ -4698,7 +4730,14 @@ function moveFaceDrag(e, fd) {
   if (par) {                                                              // lato intero di un cilindro: anteprima del cilindro che si allarga o si stringe
     const R = fs.obj.userData.p.w / 2, k = (R + dist) / R;
     fs.obj.scale.set(k, k, 1); selMeshes.forEach(m => { m.visible = false; });
-  } else faceSet.forEach((f, i) => selMeshes[i] && selMeshes[i].position.copy(f.n).multiplyScalar(dist));
+  } else {                                                                // il lato arancione segue la cima: in Estrudi con la Cima si stringe o si allarga come l'anteprima
+    const raw = String($('#f-taper').value).trim(), tp = faceMode.v === 'extrude' ? (raw === '' ? 1 : parseFloat(raw) / 100) : 1, k = tp > 0 ? tp : 1;
+    faceSet.forEach((f, i) => {
+      const sm = selMeshes[i]; if (!sm) return;
+      const c = faceCentroid(f);
+      sm.scale.setScalar(k); sm.position.copy(f.n).multiplyScalar(dist).addScaledVector(c, 1 - k);
+    });
+  }
   guide.visible = snapped;
   if (snapped) {
     const B = fd.bounds, mg = 4, gw = B.u1 - B.u0 + mg * 2, gh = B.v1 - B.v0 + mg * 2;
@@ -4737,6 +4776,7 @@ function faceLoop(f) {
 }
 function applyFaceScale(pctArg) {
   const pct = typeof pctArg === 'number' ? pctArg : fieldNum($('#f-scale'));
+  hideScalePrev();
   if (!faceSel) return;
   if (!(pct >= 1 && pct <= 1000)) return toast('Scrivi una scala in % (da 1 a 1000)');
   if (faceSet.length !== 1 || faceSel.curved) return toast('La scala funziona su un lato piatto alla volta');
@@ -4763,6 +4803,36 @@ document.querySelectorAll('#f-mode button').forEach(b => b.addEventListener('cli
 $('#f-push-go').addEventListener('click', () => applyPush());
 $('#f-scale-go').addEventListener('click', () => applyFaceScale());
 $('#f-scale').addEventListener('keydown', e => { if (e.key === 'Enter') applyFaceScale(); });
+// anteprima di Scala il lato: mentre scrivi la % il pezzo si vede già con il lato ridimensionato (arancione come l'anteprima di Spingi)
+function faceScalePreview() {
+  const pct = fieldNum($('#f-scale'));
+  if (!faceSel || faceSet.length !== 1 || faceSel.curved || !(pct >= 1 && pct <= 1000) || Math.abs(pct - 100) < 1e-6) { hideScalePrev(); return; }
+  const loop = faceLoop(faceSel), obj = faceSel.obj;
+  if (!loop || obj.geometry.attributes.position.count > 120000) { hideScalePrev(); return; }
+  const c = new THREE.Vector3(); loop.forEach(p => c.add(p)); c.divideScalar(loop.length);
+  const nrm = new THREE.Vector3(); for (let i = 0; i < loop.length; i++) { const a = loop[i].clone().sub(c), b = loop[(i + 1) % loop.length].clone().sub(c); nrm.add(a.cross(b)); }
+  if (nrm.lengthSq() < 1e-9) { hideScalePrev(); return; }
+  nrm.normalize();
+  const pos = scaledLoopPositions(obj, loop, c, nrm, pct / 100);
+  hideScalePrev();
+  const mesh = new THREE.Mesh(geometryFromPositions(pos), matFor(obj));            // il pezzo come sarà, al posto di quello vero (che resta selezionato ma non si vede)
+  mesh.castShadow = mesh.receiveShadow = true; mesh.raycast = () => {};
+  mesh.userData = { kind: 'merged', p: {}, hole: false }; refreshEdges(mesh); mesh.material = matFor(obj);
+  mesh.userData.edges.material.color.setHex(EDGE.sel); mesh.userData.edges.material.opacity = 1;
+  obj.traverse(o => o.layers.set(2)); scene.add(mesh); scalePrev = { mesh, obj };
+  selMeshes.forEach(sm => { sm.visible = false; }); faceHandle.visible = false; dirty = true;
+}
+var scalePrev = null;
+function hideScalePrev() {
+  if (!scalePrev) return;
+  scene.remove(scalePrev.mesh); scalePrev.mesh.geometry.dispose();
+  for (const k of ['edges', 'xray']) { const c = scalePrev.mesh.userData[k]; if (c) { c.geometry.dispose(); c.material.dispose(); } }
+  scalePrev.obj.traverse(o => o.layers.set(0));
+  scalePrev = null; selMeshes.forEach(sm => { sm.visible = true; }); if (faceSel) updateFaceHandle(); dirty = true;
+}
+$('#f-scale').addEventListener('input', faceScalePreview);
+$('#f-scale').addEventListener('change', faceScalePreview);
+$('#f-scale').addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== $('#f-scale')) hideScalePrev(); }, 120));
 TF.push.addEventListener('keydown', e => { if (e.key === 'Enter') applyPush(); });
 
 /* ------------------------------------------------------------ importa 3MF / STL */
@@ -5363,6 +5433,18 @@ function updateEdgePanel() {
 }
 document.querySelectorAll('#e-type button').forEach(b => b.addEventListener('click', () => { edgeMode.v = b.dataset.v; updateEdgePanel(); }));
 // ridimensiona un anello chiuso (es. il bordo superiore di un cilindro): i vertici si spostano radialmente, il pezzo diventa un tronco di cono
+// posizioni del pezzo con l'anello P ridimensionato di f attorno al suo centro (serve ad Applica e all'anteprima di Scala il lato)
+function scaledLoopPositions(obj, P, c, nrm, f) {
+  const arr = worldPositions(obj), key = (x, y, z) => Math.round(x * 2000) + ',' + Math.round(y * 2000) + ',' + Math.round(z * 2000);
+  const set = new Set(P.map(p => key(p.x, p.y, p.z))), d = new THREE.Vector3();
+  for (let i = 0; i < arr.length; i += 3) {
+    if (!set.has(key(arr[i], arr[i + 1], arr[i + 2]))) continue;
+    d.set(arr[i] - c.x, arr[i + 1] - c.y, arr[i + 2] - c.z);
+    d.addScaledVector(nrm, -d.dot(nrm)).multiplyScalar(f - 1);
+    arr[i] += d.x; arr[i + 1] += d.y; arr[i + 2] += d.z;
+  }
+  return arr;
+}
 function scaleEdge(obj, chain, f) {
   const P = chain.pts, c = new THREE.Vector3();
   P.forEach(p => c.add(p)); c.divideScalar(P.length);
@@ -5385,14 +5467,7 @@ function scaleEdge(obj, chain, f) {
       if (q >= 1 && q <= 300 && w >= 0.2) { u.p.w = w; u.p.d = w; u.p[kk] = q; return rebuild(); }
     }
   }
-  const arr = worldPositions(obj), key = (x, y, z) => Math.round(x * 2000) + ',' + Math.round(y * 2000) + ',' + Math.round(z * 2000);
-  const set = new Set(P.map(p => key(p.x, p.y, p.z))), d = new THREE.Vector3();
-  for (let i = 0; i < arr.length; i += 3) {
-    if (!set.has(key(arr[i], arr[i + 1], arr[i + 2]))) continue;
-    d.set(arr[i] - c.x, arr[i + 1] - c.y, arr[i + 2] - c.z);
-    d.addScaledVector(nrm, -d.dot(nrm)).multiplyScalar(f - 1);
-    arr[i] += d.x; arr[i + 1] += d.y; arr[i + 2] += d.z;
-  }
+  const arr = scaledLoopPositions(obj, P, c, nrm, f);
   const g = geometryFromPositions(arr), tmp = new THREE.Mesh(g);
   const baked = bakeResult(tmp, obj.userData.name);
   if (!baked) return { err: 'Il risultato è vuoto' };
@@ -6098,6 +6173,14 @@ function stretchNow() {
   toast(delta > 0 ? `Allungato di ${fmt(delta)} mm` : `Accorciato di ${fmt(-delta)} mm`);
 }
 $('#cut-go').addEventListener('click', () => { if (state.tool === 'stretch') stretchSel(); else planeCut(); canvas.focus(); });
+// Taglia e Allunga: con lo strumento attivo, Invio applica (come il pulsante), senza dover tornare nel pannello
+window.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || e.isComposing || !planeTool() || !selection.length) return;
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.tagName === 'BUTTON' || t.isContentEditable)) return;
+  if (document.querySelector('dialog[open]') || (typeof ctxOpen === 'function' && ctxOpen()) || $('#cut-card').classList.contains('hidden')) return;
+  e.preventDefault(); $('#cut-go').click();
+});
 /* sfumatura ai bordi dei pannelli che scorrono */
 function scrollFade(el) {
   const upd = () => { el.classList.toggle('fade-t', el.scrollTop > 4); el.classList.toggle('fade-b', el.scrollTop + el.clientHeight < el.scrollHeight - 4); };
@@ -6402,7 +6485,7 @@ $('#ew-resume').addEventListener('click', async e => {
 });
 offerResume(); rsOn = true;
 
-window.forma = { get msgLog() { return msgLog; }, expandSelection, get __revPrev() { return !!revPrev; }, get __revPrevMesh() { return revPrev && revPrev.mesh; }, revolutionProfile, applyRev, get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { get __selMeshScale() { return selMeshes[0] ? selMeshes[0].scale.x : null; }, get __scalePrev() { return !!scalePrev; }, get msgLog() { return msgLog; }, expandSelection, get __revPrev() { return !!revPrev; }, get __revPrevMesh() { return revPrev && revPrev.mesh; }, revolutionProfile, applyRev, get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */

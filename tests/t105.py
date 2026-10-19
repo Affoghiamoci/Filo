@@ -55,6 +55,6 @@ with sync_playwright() as p:
     pg.evaluate("forma.setSelection(forma.objects);forma.combine('union')");pg.wait_for_function("forma.objects.length===1",timeout=60000);pg.wait_for_timeout(300)
     pg.evaluate("forma.setSelection([forma.objects[0]])"); pg.wait_for_timeout(200)
     pg.click('#rv-go'); pg.wait_for_timeout(1000)
-    check("pezzo non a rotazione: avviso (%s), resta com'era"%pg.evaluate(TOAST),'non lo è' in pg.evaluate(TOAST) and pg.evaluate("forma.objects[0].userData.kind")=='merged')
+    check("pezzo non a rotazione: avviso (%s), resta com'era"%pg.inner_text('#rv-info'),'non lo è' in pg.inner_text('#rv-info') and pg.evaluate("forma.objects[0].userData.kind")=='merged')
     check('nessun errore',not errs); print('errs',errs); b.close()
 print('TUTTO OK' if ok else 'ERRORI'); raise SystemExit(0 if ok else 1)

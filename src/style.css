@@ -880,7 +880,7 @@ dialog[open],dialog[open]::backdrop{animation:fade-in .16s ease}
 #p-scroll h4.ph .u{margin-left:.6em}
 #ew-resume .ew-go{min-width:0}
 
-#p-key:empty,#rv-info:empty,#sh-info:empty,#e-hint:empty{display:none}
+#p-key:empty,#e-hint:empty{display:none}
 
 /* piè della barra laterale: lingua, tema e info a distanza uguale tra loro (spazio ripartito sull'intera larghezza) */
 #side:not(.mini) #foot{justify-content:space-between;gap:0}

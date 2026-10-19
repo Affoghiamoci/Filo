@@ -54,9 +54,9 @@ with sync_playwright() as p:
     pg.evaluate("forma.undo();forma.undo()"); pg.wait_for_timeout(1200)
     check('⌘Z (due volte: Svuota e Righe sono due passi) torna alle righe',pg.evaluate("forma.objects[0].userData.p.ribs.n")==40 and closed())
     fill(0,1,'round',0,0,20,2); go()
-    check('pareti troppo spesse: avviso (%s)'%pg.evaluate(TOAST),'troppo spesse' in pg.evaluate(TOAST))
+    check('pareti troppo spesse: avviso con il massimo (%s)'%pg.inner_text('#sh-info'),'al massimo' in pg.inner_text('#sh-info'))
     fill(0,1,'round',0,0,2,60); go()
-    check('fondo troppo spesso: avviso (%s)'%pg.evaluate(TOAST),'troppo spesso' in pg.evaluate(TOAST))
+    check('fondo troppo spesso: avviso (%s)'%pg.inner_text('#sh-info'),'alto quanto il pezzo' in pg.inner_text('#sh-info'))
     # 2. esagono rastremato (Cima 70 %) con torsione e margine
     start(); mk('prism',[('w',40),('d',40),('h',60),('t',70)])
     fill(36,1.2,'round',60,4,2,3); go(3000)
@@ -91,6 +91,6 @@ with sync_playwright() as p:
     check('ripreso dopo il riavvio: sec, chiuso, stessi vertici',pg.evaluate(KIND)=='sec' and closed() and pg.evaluate("forma.objects[0].geometry.attributes.position.count")==n0)
     # 7. pezzi non dritti: rifiuto
     start(); mk('box',[('w',20),('d',20),('h',20)]); mk('box',[('w',5),('d',5),('h',5),('x',12)]); union()
-    go(); check('pezzo a gradino: avviso (%s)'%pg.evaluate(TOAST),'non lo è' in pg.evaluate(TOAST) and pg.evaluate(KIND)=='merged')
+    go(); check('pezzo a gradino: avviso (%s)'%pg.inner_text('#rv-info'),'non lo è' in pg.inner_text('#rv-info') and pg.evaluate(KIND)=='merged')
     check('nessun errore',not errs); print('errs',errs); b.close()
 print('TUTTO OK' if ok else 'ERRORI'); raise SystemExit(0 if ok else 1)

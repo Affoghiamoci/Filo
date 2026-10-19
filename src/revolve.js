@@ -128,6 +128,18 @@ const SHAPES = {
   square: s => 0.5 + 0.5 * Math.tanh(5 * Math.cos(TAU * s)) / Math.tanh(5),
 };
 // normale verso l'esterno di un vertice del profilo (contorni antiorari: l'esterno sta a destra del verso di percorrenza)
+// come vNormals, ma negli angoli vivi (oltre 30°) prende la normale del tratto più "parete" (più verticale): così il bordo di una cima
+// piatta segue le righe della parete invece di sollevarsi a stella sul coperchio
+function ribNormals(L) {
+  return L.map((p, i) => {
+    const a = L[(i + L.length - 1) % L.length], b = L[(i + 1) % L.length];
+    let n1 = [p[1] - a[1], -(p[0] - a[0])], n2 = [b[1] - p[1], -(b[0] - p[0])];
+    const l1 = Math.hypot(...n1) || 1, l2 = Math.hypot(...n2) || 1; n1 = [n1[0] / l1, n1[1] / l1]; n2 = [n2[0] / l2, n2[1] / l2];
+    if (n1[0] * n2[0] + n1[1] * n2[1] < Math.cos(Math.PI / 6)) return Math.abs(n1[0]) >= Math.abs(n2[0]) ? n1 : n2;
+    const n = [n1[0] + n2[0], n1[1] + n2[1]], l = Math.hypot(...n) || 1;
+    return [n[0] / l, n[1] / l];
+  });
+}
 function vNormals(L) {
   return L.map((p, i) => {
     const a = L[(i + L.length - 1) % L.length], b = L[(i + 1) % L.length];
@@ -217,8 +229,11 @@ export function revolve(polys, ribs) {
         }
       }
     }
-    const nrm = vNormals(L);
-    const wt = nrm.map((n, i) => (L[i][0] > 1e-6 ? smooth(0.3, 0.7, n[0]) : 0));
+    const nrm = ribNormals(L);
+    // dove le righe stanno: sulle pareti quasi dritte. Si spengono dove la parete si piega verso l'alto o il basso (sfere, cupole) e dove il pezzo
+    // si stringe molto: lì le righe si accalcherebbero tutte nello stesso punto (l'effetto "lampada cinese")
+    const rRef = Math.max(1e-6, ...L.filter((p, i) => nrm[i][0] > 0.3).map(p => p[0]));
+    const wt = nrm.map((n, i) => (L[i][0] > 1e-6 ? smooth(0.45, 0.8, n[0]) * smooth(0, 0.55 * rRef, L[i][0]) : 0));
     const tz = L.filter((p, i) => wt[i] > 0).map(p => p[1]), zA = tz.length ? Math.min(...tz) : 0, zB = tz.length ? Math.max(...tz) : 1, HT = Math.max(zB - zA, 1e-6);
     const S = R ? (SHAPES[R.shape] || SHAPES.round) : null, tw = R ? (R.twist || 0) * Math.PI / 180 : 0, mg = R ? Math.max(0, R.margin || 0) : 0;
     const P = (i, j) => {
