@@ -743,6 +743,55 @@ export function sweepFillets(topo, eids, mode, size, ARC = 24) {
 export const filletEdge = (topo, eid, mode, size, ARC = 18) => filletEdges(topo, [eid], mode, size, ARC);
 
 // lo spigolo della topologia che corrisponde a una catena di Filo (stessi estremi)
+// Quanto spazio c'è attorno a una catena di spigoli (anche chiusa, anche curva) per un raccordo o uno smusso: massimo possibile, o Infinity se non si sa.
+// Ogni tratto della catena è un lato di due facce piane: si misura quanto sono larghe viste dal tratto (come in filletEdges) e si prende il minimo.
+export function edgeRoom(topo, pts, mode, closed) {
+  const V = topo.V, C = 0.01, cell = (x, y, z) => Math.floor(x / C) + ',' + Math.floor(y / C) + ',' + Math.floor(z / C);
+  const grid = new Map(); for (let i = 0; i < V.length / 3; i++) { const k = cell(V[i * 3], V[i * 3 + 1], V[i * 3 + 2]); (grid.get(k) || grid.set(k, []).get(k)).push(i); }
+  const find = p => {                              // vertice del solido nello stesso punto (tolleranza 0,001 mm)
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) {
+      const l = grid.get(cell(p.x + dx * C, p.y + dy * C, p.z + dz * C)); if (!l) continue;
+      for (const i of l) if (Math.abs(V[i * 3] - p.x) < 1e-3 && Math.abs(V[i * 3 + 1] - p.y) < 1e-3 && Math.abs(V[i * 3 + 2] - p.z) < 1e-3) return i;
+    }
+    return undefined;
+  };
+  const eOf = new Map(); for (const e of topo.edges) for (const [a, b] of e.segs) eOf.set(a < b ? a + '_' + b : b + '_' + a, e);
+  const pos = v => vec(V, v), n = pts.length;
+  let lim = Infinity;
+  for (let i = 0; i < (closed ? n : n - 1); i++) {
+    const a = find(pts[i]), b = find(pts[(i + 1) % n]);
+    if (a === undefined || b === undefined) continue;
+    const e = eOf.get(a < b ? a + '_' + b : b + '_' + a);
+    if (!e || !e.sharp || e.mixed || e.faces.length !== 2) continue;
+    const A = pos(a), B = pos(b), len = A.distanceTo(B); if (len < 1e-6) continue;
+    const dir = B.clone().sub(A).normalize(), [f1, f2] = e.faces, n1 = topo.faces[f1].n, n2 = topo.faces[f2].n, cv = e.convex;
+    const u1 = new THREE.Vector3().crossVectors(n1, dir).normalize(); if (cv ? u1.dot(n2) > 0 : u1.dot(n2) < 0) u1.negate();
+    const u2 = new THREE.Vector3().crossVectors(n2, dir).normalize(); if (cv ? u2.dot(n1) > 0 : u2.dot(n1) < 0) u2.negate();
+    const th = Math.acos(Math.max(-1, Math.min(1, u1.dot(u2))));
+    if (!(th > 0.3 && th < 3.0)) continue;
+    const k = mode === 'chamfer' ? 1 : Math.tan(th / 2);
+    const width = (f, u) => {
+      let w = Infinity;
+      for (const fr of [0.2, 0.5, 0.8]) {
+        const S = A.clone().addScaledVector(dir, len * fr);
+        let best = Infinity;
+        for (const L of topo.faces[f].loops) for (let j = 0; j < L.verts.length; j++) {
+          const P = pos(L.verts[j]).sub(S), Q = pos(L.verts[(j + 1) % L.verts.length]).sub(S);
+          const px = P.dot(u), py = P.dot(dir), qx = Q.dot(u), qy = Q.dot(dir);
+          if ((py > 1e-7) === (qy > 1e-7) || Math.abs(qy - py) < 1e-9) continue;
+          const x = px + (qx - px) * (-py) / (qy - py);
+          if (x > 1e-4 && x < best) best = x;
+        }
+        w = Math.min(w, best);
+      }
+      return w;
+    };
+    const wmin = Math.min(width(f1, u1), width(f2, u2));
+    if (isFinite(wmin)) lim = Math.min(lim, Math.max(0, wmin * k - 0.01));
+  }
+  return lim;
+}
+
 export function topoEdgeFor(topo, pts) {
   if (!pts || pts.length < 2) return -1;
   const A = pts[0], B = pts[pts.length - 1];

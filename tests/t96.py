@@ -44,7 +44,7 @@ with sync_playwright() as p:
     check('spigoli che si toccano (%d): ripiego %s, un solo pezzo'%(n,pg.evaluate("window.__topoLog")),n==2 and pg.evaluate("window.__topoLog")==[] and pg.evaluate("forma.objects.length")==1 and pg.evaluate(VOL)<16000)
     # misura troppo grande per la faccia: ripiego (che decide da sé)
     L(pg); edge(pg,[(0,0,10)],'fillet',25)
-    check('misura enorme: niente strada nuova (%s)'%pg.evaluate("window.__topoLog"),pg.evaluate("window.__topoLog")==[])
+    check('misura enorme: ridotta al massimo, un solo pezzo valido (%s)'%pg.evaluate("document.querySelector('#toast').textContent"),'ridotto a' in pg.evaluate("document.querySelector('#toast').textContent") and pg.evaluate("forma.objects.length")==1)
     # tronco di piramide: spigolo inclinato, facce di testa (sopra e sotto) non perpendicolari allo spigolo
     pg.reload();pg.wait_for_function("window.forma");pg.wait_for_timeout(700)
     mk(pg,{'w':30,'d':30,'h':30,'x':0,'y':0,'z':0}); pg.evaluate("forma.setTool('face')");pg.wait_for_timeout(200)
