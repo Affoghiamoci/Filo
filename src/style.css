@@ -945,3 +945,13 @@ body.mob #empty-hint .ew{max-width:100%}
   body.mob #cut-card,body.mob #ruler-card{right:auto;width:min(330px,60vw)}
 }
 body.mob #layers .lfoot{display:none}
+
+/* ugello: impostazioni consigliate nell'esportazione */
+.exp-nz{display:flex;flex-direction:column;gap:8px;margin-top:4px;padding-top:10px;border-top:1px solid var(--line)}
+.exp-nz .exp-lbl{margin:0}
+.exp-rec{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;margin:0;font-size:12px}
+.exp-rec dt{color:var(--muted);font:500 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;align-self:center}
+.exp-rec dd{margin:0;color:var(--text);font-variant-numeric:tabular-nums}
+.exp-nz-a{display:flex;gap:14px;flex-wrap:wrap}
+.exp-nz .hint{margin:0}
+#exp-nzs{grid-template-columns:repeat(4,1fr);margin-top:0}

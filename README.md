@@ -9,7 +9,7 @@ Shortcuts that feel like the Adobe suite. Free, right in your browser.
 
 [**Open Filo → filo.affogo.fyi**](https://filo.affogo.fyi)
 
-![version](https://img.shields.io/badge/version-1.2.4-ff6a00?style=flat-square)
+![version](https://img.shields.io/badge/version-1.3.1-ff6a00?style=flat-square)
 ![free](https://img.shields.io/badge/free-1a1a1a?style=flat-square)
 ![license](https://img.shields.io/badge/license-PolyForm_Noncommercial-1a1a1a?style=flat-square)
 ![formats](https://img.shields.io/badge/3MF_·_STL_·_SVG-1a1a1a?style=flat-square)
