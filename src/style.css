@@ -307,8 +307,8 @@ kbd.kflash{animation:kflash .7s ease-out}
 #p-text textarea{resize:vertical;min-height:44px}
 #p-text textarea:focus,#p-text select:focus{outline:none;border-color:var(--accent)}
 
-#dlg-exp,#dlg-forget,#dlg-split,#dlg-box{border:1px solid var(--line);border-radius:2px;padding:0;background:var(--panel);color:var(--text);width:min(380px,calc(100vw - 32px));box-shadow:0 12px 0 rgba(0,0,0,.08);margin:auto}
-#dlg-exp::backdrop,#dlg-forget::backdrop,#dlg-split::backdrop,#dlg-box::backdrop{background:rgba(10,10,12,.28);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#dlg-exp,#dlg-forget,#dlg-open,#dlg-split,#dlg-box{border:1px solid var(--line);border-radius:2px;padding:0;background:var(--panel);color:var(--text);width:min(380px,calc(100vw - 32px));box-shadow:0 12px 0 rgba(0,0,0,.08);margin:auto}
+#dlg-exp::backdrop,#dlg-forget::backdrop,#dlg-open::backdrop,#dlg-split::backdrop,#dlg-box::backdrop{background:rgba(10,10,12,.28);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .exp-card{padding:20px 20px 20px;display:flex;flex-direction:column;gap:10px}
 .exp-title{font:600 12px var(--mono);letter-spacing:.1em;text-transform:uppercase}
 .exp-lbl{font:500 10.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
@@ -947,3 +947,5 @@ body.mob #empty-hint .ew{max-width:100%}
 body.mob #layers .lfoot{display:none}
 
 /* ugello: impostazioni consigliate nell'esportazione */
+
+.chk-exp{color:var(--muted)}

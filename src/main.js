@@ -1124,6 +1124,35 @@ function openEdgeCount(g) {                                                    /
   for (let t = 0; t < tris.length; t += 3) for (let k = 0; k < 3; k++) { const e = key(tris[t + k], tris[t + (k + 1) % 3]); use.set(e, (use.get(e) || 0) + 1); }
   let c = 0; for (const u of use.values()) if (u === 1) c++; return c;
 }
+function geoVolume(g) {                                                      // volume con segno (mm³) dalla somma dei tetraedri
+  const P = g.attributes.position, I = g.index, n = I ? I.count : P.count; let v = 0;
+  for (let t = 0; t < n; t += 3) {
+    const a = I ? I.getX(t) : t, b = I ? I.getX(t + 1) : t + 1, c = I ? I.getX(t + 2) : t + 2;
+    const ax = P.getX(a), ay = P.getY(a), az = P.getZ(a), bx = P.getX(b), by = P.getY(b), bz = P.getZ(b), cx = P.getX(c), cy = P.getY(c), cz = P.getZ(c);
+    v += (ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx)) / 6;
+  }
+  return v;
+}
+/* Riparazione sperimentale di un pezzo non chiuso: salda i vertici vicini a catena con tolleranze via via più larghe (fino a 0,1 mm), collega le giunzioni a T e controlla con Manifold
+   che il risultato sia chiuso e di volume quasi uguale (entro l'1 %). Restituisce { geo, tol, before, after, closed } oppure null se non migliora. Non tocca mai l'originale. */
+function repairSolid(g) {
+  const nT = (g.index ? g.index.count : g.attributes.position.count) / 3;
+  if (nT > 400000) return null;
+  const before = openEdgeCount(g), v0 = Math.abs(geoVolume(g));
+  if (!before) return null;
+  let best = null;
+  for (const tol of [1e-3, 3e-3, 1e-2, 3e-2, 1e-1]) {
+    const { P, ids } = weldPoints(g.attributes.position.array, tol), tris = triList(g, ids), fixed = fixTJunctions(P, tris);
+    const out = new Float32Array(fixed.length * 3);
+    for (let i = 0; i < fixed.length; i++) { out[i * 3] = P[fixed[i] * 3]; out[i * 3 + 1] = P[fixed[i] * 3 + 1]; out[i * 3 + 2] = P[fixed[i] * 3 + 2]; }
+    const h = geometryFromPositions(out), open = openEdgeCount(h), v1 = Math.abs(geoVolume(h));
+    if (v0 > 0 && Math.abs(v1 - v0) > 0.01 * v0) { h.dispose(); continue; }              // la saldatura ha mangiato troppa forma: scarta
+    const closed = open === 0 && !!geoIsClosed(h);
+    if (closed) { if (best) best.geo.dispose(); return { geo: h, tol, before, after: 0, closed: true }; }
+    if (open < before && (!best || open < best.after)) { if (best) best.geo.dispose(); best = { geo: h, tol, before, after: open, closed: false }; } else h.dispose();
+  }
+  return best;
+}
 /* difetti di chiusura: lati senza il "gemello" opposto o usati più di una volta (0 = la mesh è chiusa, coordinate identiche tra triangoli vicini) */
 function edgeDefects(I) {
   const use = new Map(); let bad = 0;
@@ -1207,7 +1236,47 @@ async function busyRun(label, fn) {                    // mostra la barra di lav
   try { return await fn(); } finally { if (--busyN <= 0) { busyN = 0; el.classList.add('hidden'); } }
 }
 const trisOf = list => list.reduce((a, m) => a + triCount(m.geometry), 0);
+/* Pezzi non chiusi: prima di Combina si avvisa e si propone la riparazione sperimentale (anche da Controlla stampa) */
+const unclosedOf = list => list.filter(m => { try { return triCount(m.geometry) <= 400000 && openEdgeCount(m.geometry) > 0; } catch (e) { return false; } });
+function askUnclosed(names, canSkip) {
+  return new Promise(res => {
+    const d = $('#dlg-open'); let done = false;
+    const fin = v => { if (done) return; done = true; if (d.open) d.close(); res(v); };
+    $('#open-d').innerHTML = `<b>${names.map(esc).join(', ')}</b>: ${tr(names.length === 1 ? 'ha crepe o facce sovrapposte.' : 'hanno crepe o facce sovrapposte.')} ${tr(canSkip ? 'Combinare pezzi non chiusi può dare risultati sbagliati.' : 'Lo slicer potrebbe sbagliare.')}`;
+    $('#open-skip').classList.toggle('hidden', !canSkip);
+    $('#open-fix').onclick = () => fin('fix'); $('#open-skip').onclick = () => fin('skip'); $('#open-cancel').onclick = () => fin('cancel');
+    d.addEventListener('cancel', () => fin('cancel'), { once: true });
+    d.showModal();
+  });
+}
+function repairMeshes(list) {                        // riparazione sperimentale: sostituisce ogni pezzo con la versione saldata (l'originale resta nella Cronologia)
+  const pieces = [], res = { fixed: 0, partial: 0, failed: 0 };
+  for (const m of list) {
+    m.updateMatrixWorld(true);
+    const r = repairSolid(m.geometry);
+    const baked = r && bakeResult({ updateMatrixWorld() {}, matrixWorld: m.matrixWorld, geometry: r.geo }, m.userData.name);
+    if (r) r.geo.dispose();
+    if (!baked) { res.failed++; pieces.push(m); continue; }
+    replaceWithMerged(m, baked, true); pieces.push(...lastPieces);
+    if (r.closed) res.fixed++; else res.partial++;
+  }
+  return { pieces, ...res };
+}
+function repairToast(r) {
+  toast(r.failed && !r.fixed && !r.partial ? tr('Non sono riuscito a ripararlo: rifai l\'ultima operazione o ricostruisci il pezzo')
+    : r.partial || r.failed ? `${tr('Riparato in parte: restano alcune crepe')} (${r.fixed} ${tr('chiusi')}, ${r.partial + r.failed} ${tr('ancora aperti')})`
+    : tr(r.fixed === 1 ? 'Pezzo riparato e chiuso' : 'Pezzi riparati e chiusi'));
+}
 async function combine(mode = 'union') {
+  const bad = unclosedOf(selection);
+  if (bad.length) {
+    const c = await askUnclosed(bad.map(m => m.userData.name), true);
+    if (c === 'cancel') return;
+    if (c === 'fix') {
+      const keep = selection.filter(m => !bad.includes(m)), r = await busyRun('Riparo i pezzi…', () => repairMeshes(bad));
+      setSelection([...keep, ...r.pieces]); repairToast(r);
+    }
+  }
   const heavy = selection.length > 12 || trisOf(selection) > 20000;
   const run = () => combineNow(mode);
   return heavy ? busyRun(mode === 'intersect' ? 'Interseco gli oggetti…' : 'Combino gli oggetti…', run) : run();
@@ -6045,7 +6114,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '1.3.1';
+const APP_VERSION = '1.3.2';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
@@ -6529,6 +6598,15 @@ function chkShow() {
   const row = (cls, title, text) => { const li = document.createElement('li'); li.className = cls; li.innerHTML = `<i></i><div><b>${tr(title)}</b><span>${text}</span></div>`; L.appendChild(li); };
   const bad = R.open.length;
   if (bad) row('b', 'Solido non chiuso', `${R.open.map(esc).join(', ')}: ${tr('ha crepe o facce sovrapposte, lo slicer potrebbe sbagliare. Rifai l\'ultima operazione o ricostruisci il pezzo.')}`);
+  if (bad) {
+    const sp = L.lastChild.querySelector('span');
+    sp.insertAdjacentHTML('beforeend', `<br><button type="button" class="lnk" id="chk-fix">${tr('Ripara (sperimentale)')}</button> <span class="chk-exp">${tr('Salda i punti vicini e chiude le crepe piccole: controlla il risultato, ⌘Z annulla.')}</span>`);
+    $('#chk-fix').addEventListener('click', async () => {
+      const list = unclosedOf(objects.filter(o => !o.userData.hole)); if (!list.length) return chkRun();
+      const r = await busyRun('Riparo i pezzi…', () => repairMeshes(list));
+      setSelection(r.pieces); touch(); commit(); repairToast(r); chkRun();
+    });
+  }
   else row('', 'Solido chiuso', tr('Nessuna crepa: lo slicer lo legge come un oggetto pieno.'));
   if (R.U) {
     if (R.floating.length) row('b', 'Pezzo sospeso', `${R.floating.length} ${tr(R.floating.length === 1 ? 'parte non tocca il piatto' : 'parti non toccano il piatto')} (${tr('più in basso')}: ${R.floating[0].z.toFixed(1).replace('.', ',')} mm). ${tr('Senza supporti non si stampa.')}`);
@@ -6762,7 +6840,7 @@ $('#ew-resume').addEventListener('click', async e => {
 });
 offerResume(); rsOn = true;
 
-window.forma = { cutCandidates, cutMagnet, ringAtPoint, get __touch() { return { n: tPts.size, pinch: !!pinch, drag: drag && drag.mode }; }, MOB, applyMob, get __selMeshScale() { return selMeshes[0] ? selMeshes[0].scale.x : null; }, get __scalePrev() { return !!scalePrev; }, get msgLog() { return msgLog; }, expandSelection, get __revPrev() { return !!revPrev; }, get __revPrevMesh() { return revPrev && revPrev.mesh; }, revolutionProfile, applyRev, get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { repairSolid, geoVolume, cutCandidates, cutMagnet, ringAtPoint, get __touch() { return { n: tPts.size, pinch: !!pinch, drag: drag && drag.mode }; }, MOB, applyMob, get __selMeshScale() { return selMeshes[0] ? selMeshes[0].scale.x : null; }, get __scalePrev() { return !!scalePrev; }, get msgLog() { return msgLog; }, expandSelection, get __revPrev() { return !!revPrev; }, get __revPrevMesh() { return revPrev && revPrev.mesh; }, revolutionProfile, applyRev, get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */
