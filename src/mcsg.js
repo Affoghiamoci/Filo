@@ -12,6 +12,68 @@ export const initManifold = () => {
   return Module({ wasmBinary: bin }).then(m => { m.setup(); M = m; return m; }).catch(e => { console.warn('Manifold KO ' + JSON.stringify(Object.getOwnPropertyNames(e || {})) + ' ' + (e && e.message) + ' ' + (e && e.code) + ' ' + String(e && e.stack).slice(0, 400)); });
 };
 
+/* Anelli "pizzicati": due superfici che si toccano lungo uno spigolo (4 triangoli su un lato). Saldando i vertici per posizione Manifold non sa quali triangoli appartengano allo stesso lato
+   e può accettare la mesh con la topologia sbagliata (il volume non torna: si perde materiale). Qui si rifà la connessione: attorno a ogni spigolo i triangoli si ordinano per angolo e
+   si accoppiano quelli che racchiudono davvero un settore pieno; poi ogni vertice si divide per "ventaglio". Restituisce triVerts/vertProperties indicizzati, o null se la mesh non torna. */
+export function depinch(vp, tv) {
+  const nT = tv.length / 3, wid = new Int32Array(vp.length / 3), kmap = new Map(), pts = [];
+  for (let i = 0; i < wid.length; i++) {
+    const k = Math.round(vp[i * 3] * 1e4) + ',' + Math.round(vp[i * 3 + 1] * 1e4) + ',' + Math.round(vp[i * 3 + 2] * 1e4);
+    let w = kmap.get(k); if (w === undefined) { w = pts.length; kmap.set(k, w); pts.push(i); } wid[i] = w;
+  }
+  const W = new Int32Array(tv.length); for (let i = 0; i < tv.length; i++) W[i] = wid[tv[i]];
+  const edges = new Map();                                          // chiave spigolo -> [triangolo*3+lato]
+  for (let t = 0; t < nT; t++) {
+    if (W[t * 3] === W[t * 3 + 1] || W[t * 3 + 1] === W[t * 3 + 2] || W[t * 3] === W[t * 3 + 2]) continue;   // degenere
+    for (let k = 0; k < 3; k++) {
+      const a = W[t * 3 + k], b = W[t * 3 + (k + 1) % 3], key = a < b ? a * 4194304 + b : b * 4194304 + a;
+      let l = edges.get(key); if (!l) edges.set(key, l = []); l.push(t * 3 + k);
+    }
+  }
+  const par = new Int32Array(tv.length); for (let i = 0; i < par.length; i++) par[i] = i;
+  const find = x => { while (par[x] !== x) { par[x] = par[par[x]]; x = par[x]; } return x; };
+  const uni = (x, y) => { x = find(x); y = find(y); if (x !== y) par[x] = y; };
+  const P = i => [vp[pts[i] * 3], vp[pts[i] * 3 + 1], vp[pts[i] * 3 + 2]];
+  const pair = (e1, e2) => {                                        // due lati di triangoli diversi sullo stesso spigolo: si saldano i due vertici
+    const t1 = (e1 / 3) | 0, k1 = e1 % 3, t2 = (e2 / 3) | 0, k2 = e2 % 3;
+    const a1 = W[t1 * 3 + k1], b1 = W[t1 * 3 + (k1 + 1) % 3];
+    for (const [c1, v1] of [[t1 * 3 + k1, a1], [t1 * 3 + (k1 + 1) % 3, b1]]) {
+      const c2 = W[t2 * 3 + k2] === v1 ? t2 * 3 + k2 : t2 * 3 + (k2 + 1) % 3;
+      uni(c1, c2);
+    }
+  };
+  for (const [, l] of edges) {
+    if (l.length === 1) continue;
+    if (l.length === 2) { pair(l[0], l[1]); continue; }
+    if (l.length % 2) return null;
+    const e0 = l[0], ta = (e0 / 3) | 0, ka = e0 % 3, a = W[ta * 3 + ka], b = W[ta * 3 + (ka + 1) % 3];
+    const A = P(a), B = P(b), ex = B[0] - A[0], ey = B[1] - A[1], ez = B[2] - A[2], el = Math.hypot(ex, ey, ez);
+    const e = [ex / el, ey / el, ez / el];
+    const h = Math.abs(e[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+    let u = [e[1] * h[2] - e[2] * h[1], e[2] * h[0] - e[0] * h[2], e[0] * h[1] - e[1] * h[0]]; const ul = Math.hypot(...u); u = u.map(x => x / ul);
+    const v = [e[1] * u[2] - e[2] * u[1], e[2] * u[0] - e[0] * u[2], e[0] * u[1] - e[1] * u[0]];
+    const items = l.map(x => {
+      const t = (x / 3) | 0, k = x % 3, c = W[t * 3 + (k + 2) % 3], C = P(c), w = [C[0] - A[0], C[1] - A[1], C[2] - A[2]];
+      const d = w[0] * e[0] + w[1] * e[1] + w[2] * e[2], pw = [w[0] - d * e[0], w[1] - d * e[1], w[2] - d * e[2]];
+      return { x, th: Math.atan2(pw[0] * v[0] + pw[1] * v[1] + pw[2] * v[2], pw[0] * u[0] + pw[1] * u[1] + pw[2] * u[2]), fwd: W[t * 3 + k] === a };
+    }).sort((p, q) => Math.abs(p.th - q.th) < 1e-5 ? (q.fwd - p.fwd) : p.th - q.th);   // a pari angolo (facce sovrapposte) prima "avanti": si accoppiano i settori veri, non quelli di spessore zero
+    const n = items.length;
+    for (let i = 0; i < n; i++) {                                   // un lato "indietro" seguito (in angolo) da uno "avanti" racchiude un settore pieno
+      const p = items[i], q = items[(i + 1) % n];
+      if (!p.fwd && q.fwd) pair(p.x, q.x);
+      else if (p.fwd === q.fwd) return null;                        // orientamenti incoerenti
+    }
+  }
+  const rep = new Map(), nv = [], nt = new Uint32Array(tv.length);
+  for (let i = 0; i < tv.length; i++) {
+    const r = find(i); let id = rep.get(r);
+    if (id === undefined) { id = nv.length / 3; rep.set(r, id); const q = tv[(i / 3 | 0) * 3 + i % 3]; nv.push(vp[q * 3], vp[q * 3 + 1], vp[q * 3 + 2]); }
+    nt[i] = id;
+  }
+  return { vp: Float32Array.from(nv), tv: nt };
+}
+const soupVol = (vp, tv) => { let s = 0; for (let t = 0; t < tv.length; t += 3) { const a = tv[t] * 3, b = tv[t + 1] * 3, c = tv[t + 2] * 3; s += vp[a] * (vp[b + 1] * vp[c + 2] - vp[b + 2] * vp[c + 1]) - vp[a + 1] * (vp[b] * vp[c + 2] - vp[b + 2] * vp[c]) + vp[a + 2] * (vp[b] * vp[c + 1] - vp[b + 1] * vp[c]); } return s / 6; };
+
 export function toManifold(brush) {
   brush.updateMatrixWorld(true);
   const g = brush.geometry, pos = g.attributes.position, idx = g.index, n = idx ? idx.count : pos.count;
@@ -21,13 +83,26 @@ export function toManifold(brush) {
   for (let i = 0; i < n; i++) tv[i] = idx ? idx.getX(i) : i;
   const flip = brush.matrixWorld.determinant() < 0;
   if (flip) for (let i = 0; i < n; i += 3) { const t = tv[i + 1]; tv[i + 1] = tv[i + 2]; tv[i + 2] = t; }
+  let m = null;
   try {
     const mesh = new M.Mesh({ numProp: 3, vertProperties: vp, triVerts: tv });
     mesh.merge();                                                  // salda i vertici coincidenti (normali e UV duplicati)
-    const m = new M.Manifold(mesh);
-    if (m.status() !== 'NoError') { m.delete(); return null; }
-    return m;
-  } catch (e) { return null; }                                     // non è un solido chiuso
+    m = new M.Manifold(mesh);
+    if (m.status() !== 'NoError') { m.delete(); m = null; }
+  } catch (e) { m = null; }                                        // non è un solido chiuso
+  // controllo: il volume di Manifold deve coincidere con quello dei triangoli (non dipende dalla connessione). Se non torna, ci sono anelli "pizzicati": si rifà la connessione
+  const sv = soupVol(vp, tv);
+  if (!m || Math.abs(m.volume() - sv) > Math.max(0.2, Math.abs(sv) * 2e-4)) {
+    try {
+      const d = depinch(vp, tv);
+      if (d) {
+        const m2 = new M.Manifold(new M.Mesh({ numProp: 3, vertProperties: d.vp, triVerts: d.tv }));
+        if (m2.status() === 'NoError' && Math.abs(m2.volume() - sv) <= Math.max(0.2, Math.abs(sv) * 2e-4)) { if (m) m.delete(); return m2; }
+        m2.delete();
+      }
+    } catch (e) { /* si tiene il risultato di prima */ }
+  }
+  return m;
 }
 
 // vero se Manifold accetta la mesh come solido chiuso (null se il motore non è pronto). P: posizioni xyz, I: indici dei triangoli (o null se la mesh non è indicizzata)
