@@ -6478,40 +6478,19 @@ function cfgNum(key) {                              // valore numerico dal 3MF d
   try { const d = JSON.parse(printCfg.cfg), v = Array.isArray(d[key]) ? d[key][0] : d[key]; const n = parseFloat(v); return isFinite(n) ? n : null; } catch (e) { return null; }
 }
 try { const s = parseFloat(localStorage.getItem('filo.nozzle')); if (NOZZLES[s]) NZ.v = s; else if (printCfg && NOZZLES[cfgNum('nozzle_diameter')]) NZ.v = cfgNum('nozzle_diameter'); } catch (e) {}
-function nzRec(v = NZ.v) {
-  const N = nozzleOf(v), a = N.layers[0], b = N.layers[N.layers.length - 1];
-  return [
-    ['Strato', `${a.toFixed(2).replace('.', ',')}–${b.toFixed(2).replace('.', ',')} mm · ${tr('ideale')} ${N.best.toFixed(2).replace('.', ',')}`],
-    ['Larghezza linea', `${N.lw.toFixed(2).replace('.', ',')} mm`],
-    ['Pareti', `${N.walls} (${nzF(N.walls * N.lw)} mm)`],
-    ['Gusci', `${tr('sopra')} ${N.top} · ${tr('sotto')} ${N.bottom}`],
-    ['Riempimento', `${N.infill} %`],
-    ['Dettaglio minimo', `${N.lw.toFixed(2).replace('.', ',')} mm`]
-  ];
-}
 function syncNozzleUI() {
   const v = NZ.v, N = nozzleOf(v);
-  for (const id of ['#chk-nz', '#exp-nzs']) { const g = $(id); g.dataset.v = String(v); g.querySelectorAll('button').forEach(b => b.classList.toggle('on', +b.dataset.v === v)); }
+  for (const id of ['#chk-nz']) { const g = $(id); g.dataset.v = String(v); g.querySelectorAll('button').forEach(b => b.classList.toggle('on', +b.dataset.v === v)); }
   const lh = $('#chk-lh');
   lh.innerHTML = N.layers.map(x => `<button type="button" data-v="${x}"${x === N.best ? ' class="on"' : ''}>${(x).toFixed(2).replace('.', ',')}</button>`).join(''); lh.dataset.v = String(N.best);
   const mw = $('#chk-mw'), ws = [1, 2, 3].map(k => +(v * k).toFixed(2)); mw.innerHTML = ws.map((x, i) => `<button type="button" data-v="${x}"${i === 1 ? ' class="on"' : ''}>${nzF(x)}</button>`).join(''); mw.dataset.v = String(ws[1]);
-  $('#exp-nz-d').innerHTML = nzRec(v).map(([k, x]) => `<dt>${tr(k)}</dt><dd>${x}</dd>`).join('');
-  const have = printCfg ? cfgNum('nozzle_diameter') : null;
-  $('#exp-nz-n').textContent = have && Math.abs(have - v) > 0.001
-    ? `${tr('Il 3MF importato usa un ugello da')} ${nzF(have)} mm: ${tr('le sue impostazioni restano com\'erano.')} ${tr('Questi sono solo consigli.')}`
-    : tr('Sono consigli per il PLA: Filo non cambia le impostazioni dentro il file, le imposti tu nello slicer.');
 }
 function setNozzle(v) {
   if (!NOZZLES[v] || v === NZ.v) return;
   NZ.v = v; try { localStorage.setItem('filo.nozzle', String(v)); } catch (e) {}
   syncNozzleUI(); if (dlgChk.open) chkRun();
 }
-for (const id of ['#chk-nz', '#exp-nzs']) $(id).addEventListener('click', e => { const b = e.target.closest('button'); if (b) setNozzle(+b.dataset.v); });
-$('#exp-nz-copy').addEventListener('click', async () => {
-  const txt = `${tr('Ugello')} ${nzF(NZ.v)} mm (PLA)\n` + nzRec().map(([k, x]) => `${tr(k)}: ${x}`).join('\n');
-  try { await navigator.clipboard.writeText(txt); toast(tr('Impostazioni copiate')); } catch (e) { toast(tr('Non riesco a copiare: selezionale a mano')); }
-});
-$('#exp-nz-chk').addEventListener('click', () => { dlgExp.close(); openCheck(); });
+for (const id of ['#chk-nz']) $(id).addEventListener('click', e => { const b = e.target.closest('button'); if (b) setNozzle(+b.dataset.v); });
 
 /* ---------------------------------------------------------- controlla stampa */
 const chk = { R: null, ov: null, plane: null, timer: 0, busy: false, again: false };
