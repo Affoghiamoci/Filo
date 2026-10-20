@@ -43,6 +43,7 @@ const EN = {
   'Riparato in parte: restano alcune crepe': 'Partly repaired: some cracks remain', 'chiusi': 'closed', 'ancora aperti': 'still open',
   'Pezzo riparato e chiuso': 'Piece repaired and closed', 'Pezzi riparati e chiusi': 'Pieces repaired and closed',
   'Combina e Controlla: avviso sui pezzi non chiusi, con riparazione sperimentale': 'Combine and Check: warning about unclosed pieces, with experimental repair',
+  'Combina non rovina più i pezzi con superfici che si toccano': 'Combine no longer damages pieces with touching surfaces', 'Controlla: pulsante Ripara più visibile; la cronologia scrive «Riparato»': 'Check: more visible Repair button; History now says “Repaired”', 'Avvisi e barra di lavoro non si sovrappongono più': 'Notices and the progress bar no longer overlap',
   'Taglia e Allunga non lasciano più microcrepe sui pezzi con righe e superfici coniche': 'Cut and Stretch no longer leave micro-cracks on pieces with ribs and conical surfaces',
   'Esporta più semplice: tolti i consigli di stampa': 'Simpler Export: print suggestions removed',
   'Dimenticare le impostazioni di stampa?': 'Forget the print settings?', 'Cosa fa.': 'What it does.', 'Cosa non cambia.': 'What stays the same.', 'Dopo.': 'Afterwards.',
