@@ -11,7 +11,7 @@ import { unzipSync, zipSync, strToU8 } from 'three/addons/libs/fflate.module.js'
 import { Brush, Evaluator, ADDITION, SUBTRACTION, INTERSECTION } from 'three-bvh-csg';
 import { revolutionProfile, shellProfile, revolve } from './revolve.js';
 import { sectionProfile, sectionSolid } from './section.js';
-import { buildTopo, triangulateTopo, soupVolume, moveFace, extrudeFace, topoFaceFor, filletEdge, filletEdges, sweepFillets, topoEdgeFor } from './topo.js';
+import { buildTopo, triangulateTopo, soupVolume, moveFace, extrudeFace, topoFaceFor, filletEdge, filletEdges, sweepFillets, topoEdgeFor, edgeRoom } from './topo.js';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
 import { initManifold, manifoldEvaluate, manifoldCombine, manifoldStretch, manifoldHalf, manifoldMod, simplifyGeo, geoIsClosed } from './mcsg.js';
 import { ConvexHull } from 'three/addons/math/ConvexHull.js';
@@ -5897,6 +5897,14 @@ function applyEdges() {
       return toastE(`${edgeMode.v === 'fillet' ? 'Arrotondamento' : 'Smusso'} di ${fmt(size)} mm su ${n} ${n === 1 ? 'spigolo' : 'spigoli'}`);
     }
   }
+  {   // metodo di prima (anelli, spigoli curvi): non ha un limite suo, lo si misura sulle facce vicine, altrimenti il pezzo si deforma
+    let lim = Infinity;
+    try {
+      const P = worldPositions(obj);
+      if (P.length / 9 <= 60000) { const tp = buildTopo(P); if (tp.stats.closed && !tp.stats.pinched) for (const x of edgeSel) lim = Math.min(lim, edgeRoom(tp, x.chain.pts, edgeMode.v, x.chain.closed)); }
+    } catch (e) { lim = Infinity; }
+    if (size > lim && !clampTo(lim)) return toast('Qui non c\'è spazio: il lato vicino è troppo stretto o è già occupato da un altro raccordo. Riduci o togli quel raccordo e riprova', 4000);
+  }
   const cutters = edgeSel.map(x => cutter(x.chain, edgeMode.v, size));
   if (cutters.some(g => !g)) return toastE('Questo spigolo è troppo particolare per arrotondarlo');
   obj.updateMatrixWorld(true);
@@ -5914,7 +5922,7 @@ function applyEdges() {
   clearEdges();
   const nm = replaceWithMerged(obj, baked);
   nm.userData.color = obj.userData.color ?? null;
-  toast(`${edgeMode.v === 'fillet' ? 'Arrotondamento' : 'Smusso'} di ${fmt(size)} mm su ${n} ${n === 1 ? 'spigolo' : 'spigoli'}`);
+  toastE(`${edgeMode.v === 'fillet' ? 'Arrotondamento' : 'Smusso'} di ${fmt(size)} mm su ${n} ${n === 1 ? 'spigolo' : 'spigoli'}`);
 }
 EF.go.addEventListener('click', applyEdges);
 EF.size.addEventListener('keydown', e => { if (e.key === 'Enter') applyEdges(); });
@@ -5927,7 +5935,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '1.2.3';
+const APP_VERSION = '1.2.4';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
