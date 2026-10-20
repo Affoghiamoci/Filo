@@ -1080,17 +1080,23 @@ const evaluator = {
 };
 
 // ripara le "crepe" lasciate dalla CSG: vertici che cadono in mezzo a un lato vicino (giunzioni a T) vengono collegati ai triangoli accanto
-function weldPoints(src, tol) {                                              // unisce i punti più vicini di tol (controlla anche le celle accanto, senza spigoli di griglia)
-  const n = src.length / 3, ids = new Int32Array(n), P = [], grid = new Map(), c = v => Math.floor(v / tol);
+function weldPoints(src, tol) {                                              // unisce i punti più vicini di tol: a catena (A vicino a B e B vicino a C unisce tutti e tre), così nessuno spigolo resta scoperto
+  const n = src.length / 3, grid = new Map(), c = v => Math.floor(v / tol), par = new Int32Array(n);
+  for (let i = 0; i < n; i++) par[i] = i;
+  const find = i => { while (par[i] !== i) { par[i] = par[par[i]]; i = par[i]; } return i; };
   for (let i = 0; i < n; i++) {
     const x = src[i * 3], y = src[i * 3 + 1], z = src[i * 3 + 2], cx = c(x), cy = c(y), cz = c(z);
-    let found = -1;
-    for (let dx = -1; dx <= 1 && found < 0; dx++) for (let dy = -1; dy <= 1 && found < 0; dy++) for (let dz = -1; dz <= 1 && found < 0; dz++) {
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) {
       const l = grid.get((cx + dx) + ',' + (cy + dy) + ',' + (cz + dz));
-      if (l) for (const v of l) if (Math.abs(P[v * 3] - x) < tol && Math.abs(P[v * 3 + 1] - y) < tol && Math.abs(P[v * 3 + 2] - z) < tol) { found = v; break; }
+      if (l) for (const v of l) if (Math.abs(src[v * 3] - x) < tol && Math.abs(src[v * 3 + 1] - y) < tol && Math.abs(src[v * 3 + 2] - z) < tol) { const ra = find(v), rb = find(i); if (ra !== rb) par[rb] = ra; }
     }
-    if (found < 0) { found = P.length / 3; P.push(x, y, z); const k = cx + ',' + cy + ',' + cz; (grid.get(k) || grid.set(k, []).get(k)).push(found); }
-    ids[i] = found;
+    const k = cx + ',' + cy + ',' + cz; (grid.get(k) || grid.set(k, []).get(k)).push(i);
+  }
+  const ids = new Int32Array(n), P = [], root = new Map();
+  for (let i = 0; i < n; i++) {
+    const r = find(i); let id = root.get(r);
+    if (id === undefined) { id = P.length / 3; root.set(r, id); P.push(src[r * 3], src[r * 3 + 1], src[r * 3 + 2]); }
+    ids[i] = id;
   }
   return { P: Float32Array.from(P), ids };
 }
