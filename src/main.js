@@ -1907,6 +1907,7 @@ let drag = null;
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 canvas.addEventListener('pointerdown', e => {
   canvas.focus();
+  if (layOnMode && e.button === 0) { e.preventDefault(); layOnClick(e); return; }
   canvas.setPointerCapture(e.pointerId);
   drag = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: false, mode: 'orbit', shift: e.shiftKey, btn: e.button };
   if (e.button === 1 || state.space || state.tool === 'hand') drag.mode = 'pan';
@@ -1990,6 +1991,7 @@ canvas.addEventListener('pointerdown', e => {
 });
 canvas.addEventListener('pointermove', e => {
   if (!drag) {
+    if (layOnMode) { layOnMove(e); return; }
     if (state.tool === 'edge' && !state.space) { updateEdgeHover(e); if (moveHandle.visible) { setRay(e); if (raycaster.intersectObject(moveHandle, false)[0]) canvas.style.cursor = 'pointer'; } if (edgeHandle.visible) { setRay(e); if (raycaster.intersectObject(edgeHandle, false)[0]) canvas.style.cursor = 'pointer'; } }
     else if (state.tool === 'face' && !state.space) { updateHover(e); if (faceHandle.visible) { setRay(e); canvas.style.cursor = raycaster.intersectObject(faceHandle, false)[0] ? 'pointer' : 'crosshair'; } } else hideHover();
     if (HANDLES[0].visible && state.tool === 'move' && !state.space) canvas.style.cursor = pickHandle(e) ? 'pointer' : 'default';
@@ -2644,6 +2646,7 @@ document.querySelectorAll('#p-rm button').forEach(b => b.addEventListener('click
   toast(sizeLock ? 'Proporzioni bloccate: le misure cambiano insieme' : 'Proporzioni libere');
 }));
 syncLock();
+['#p-layon', '#g-layon'].forEach(id => $(id).addEventListener('click', () => layOnStart()));
 ['#p-ground', '#g-ground'].forEach(id => $(id).addEventListener('click', () => { layOnPlate(); canvas.focus(); }));
 $('#p-name').addEventListener('input', e => { const m = single(); if (m) { m.userData.name = e.target.value; scheduleLayers(); } });
 $('#p-name').addEventListener('change', commit);
@@ -3224,6 +3227,69 @@ async function layOnPlate() {
   if (!selection.length) return;
   return trisOf(selection) > 60000 ? busyRun('Cerco il lato su cui appoggiare…', layOnPlateNow) : layOnPlateNow();
 }
+/* Appoggia su…: si clicca una faccia di un altro pezzo; la selezione ruota col suo lato piatto più vicino contro quella faccia e ci si appoggia (contatto esatto, punto cliccato). */
+let layOnMode = false, layOnMark = null;
+function layOnEnd() {
+  if (!layOnMode) return;
+  layOnMode = false; if (layOnMark) layOnMark.visible = false; dirty = true; updateCursor(false);
+}
+function layOnStart() {
+  if (!selection.length) return toast('Seleziona prima il pezzo da appoggiare');
+  if (!objects.some(o => o.visible && !selection.includes(o))) return toast('Serve un altro pezzo su cui appoggiare');
+  if (!layOnMark) {
+    layOnMark = new THREE.Mesh(new THREE.CircleGeometry(4, 40), new THREE.MeshBasicMaterial({ color: 0xff6a00, transparent: true, opacity: 0.55, depthTest: false, side: THREE.DoubleSide }));
+    layOnMark.renderOrder = 999; layOnMark.visible = false; scene.add(layOnMark);
+  }
+  layOnMode = true; canvas.style.cursor = 'crosshair'; canvas.focus();
+  toast('Clicca la faccia su cui appoggiare · Esc annulla');
+}
+function layOnHit(e) {
+  setRay(e);
+  const h = raycaster.intersectObjects(objects.filter(o => o.visible && !selection.includes(o)), false)[0];
+  if (!h || !h.face) return null;
+  const n = h.face.normal.clone().transformDirection(h.object.matrixWorld).normalize();
+  return { point: h.point.clone(), n };
+}
+function layOnMove(e) {
+  const h = layOnHit(e);
+  canvas.style.cursor = 'crosshair';
+  if (!h) { if (layOnMark.visible) { layOnMark.visible = false; dirty = true; } return; }
+  layOnMark.position.copy(h.point).addScaledVector(h.n, 0.05);
+  layOnMark.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), h.n);
+  layOnMark.visible = true; dirty = true;
+}
+function layOnNow(h) {
+  const info = plateCandidates(selection);
+  const into = h.n.clone().negate();                      // la faccia del pezzo deve guardare contro la faccia bersaglio
+  let rot = 0, fc = null;
+  if (info) {
+    const big = Math.max(...info.cl.map(q => q.area));
+    const ok = info.cl.filter(q => q.area >= 1 && q.area >= big * 0.02);
+    ok.sort((p, r) => r.n.dot(into) - p.n.dot(into));       // la faccia che chiede meno rotazione
+    const best = ok[0];
+    if (best) {
+      const R = new THREE.Quaternion().setFromUnitVectors(best.n, into), ctr = selBox().getCenter(new THREE.Vector3());
+      fc = best.pts.reduce((s, q) => s.add(q), new THREE.Vector3()).divideScalar(best.pts.length).sub(ctr).applyQuaternion(R).add(ctr);
+      rot = Math.acos(Math.min(1, best.n.dot(into))) / D2R;
+      if (rot > 0.01) selection.forEach(m => { m.position.sub(ctr).applyQuaternion(R).add(ctr); m.quaternion.premultiply(R); m.updateMatrixWorld(true); });
+    }
+  }
+  let d;
+  if (!fc) {                                               // niente lati piatti (forme tonde): il punto più basso verso la faccia ne tocca il piano
+    const box = selBox(), c = box.getCenter(new THREE.Vector3()); let sup = 0;
+    for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) sup = Math.max(sup, c.clone().sub(new THREE.Vector3(x, y, z)).dot(h.n));
+    d = h.point.clone().addScaledVector(h.n, sup).sub(c); rot = -1;
+  } else d = h.point.clone().sub(fc);
+  selection.forEach(m => { m.position.add(d); m.updateMatrixWorld(true); });
+  touch(); syncPanel(); updateHandles(); commit();
+  toast(rot > 0.01 ? `Ruotato di ${(rot < 10 ? Math.round(rot * 10) / 10 : Math.round(rot)).toString().replace('.', ',')}° e appoggiato sulla faccia` : rot < 0 ? 'Nessun lato piatto: ho solo spostato il pezzo sul punto cliccato' : 'Appoggiato sulla faccia');
+}
+function layOnClick(e) {
+  const h = layOnHit(e);
+  if (!h) return toast('Clicca la faccia di un altro pezzo');
+  layOnEnd();
+  return trisOf(selection) > 60000 ? busyRun('Cerco il lato su cui appoggiare…', () => layOnNow(h)) : layOnNow(h);
+}
 function flagSelection(key) {                        // blocca o nasconde la selezione (come i pulsanti dei Livelli: non entra nella cronologia)
   const list = selection.slice();
   if (!list.length) return;
@@ -3269,7 +3335,7 @@ function ctxObjectItems() {
   if (grouped) items.push({ t: 'Separa gruppo', k: '⇧⌘G', f: ungroupSelection });
   else if (multi) items.push({ t: 'Raggruppa', k: '⌘G', f: groupSelection });
   if (S.some(isParam)) items.push({ t: 'Espandi', f: expandSelection });
-  items.push('sep', { t: 'Appoggia sul piatto', f: () => layOnPlate() }, { t: 'Blocca', f: () => flagSelection('locked') }, { t: 'Nascondi', f: () => flagSelection('hidden') },
+  items.push('sep', { t: 'Appoggia sul piatto', f: () => layOnPlate() }, { t: 'Appoggia su…', f: layOnStart }, { t: 'Blocca', f: () => flagSelection('locked') }, { t: 'Nascondi', f: () => flagSelection('hidden') },
     'sep', { t: 'Elimina', k: '⌫', f: deleteSelection });
   return items;
 }
@@ -3325,7 +3391,7 @@ function setTool(t) {
   noStash = true; try { setToolInner(t); } finally { noStash = false; }
 }
 function setToolInner(t) {
-  state.tool = t;
+  state.tool = t; layOnEnd();
   if (repPrevG) hideRepeatPreview();
   if (revPrev) hideRevPreview();
   updateRotGizmo();
@@ -3657,6 +3723,7 @@ function closeOpenMenus() {
 window.addEventListener('keydown', e => {
   if (e.key !== 'Escape' || e.isComposing) return;
   const t = e.target;
+  if (layOnMode) { layOnEnd(); e.preventDefault(); e.stopPropagation(); return; }
   if (repPrevG && !(t.closest && t.closest('#p-repeat'))) { hideRepeatPreview(); e.preventDefault(); e.stopPropagation(); return; }
   if (revPrev) { hideRevPreview(); if (single()) syncRevPanel(single()); e.preventDefault(); e.stopPropagation(); if (t.blur) t.blur(); return; }   // Esc: via l'anteprima di Righe e pareti   // Esc fuori dai campi: prima l'anteprima di Ripeti
   if (t.tagName === 'INPUT' && (t.hasAttribute('data-num') || t.id === 'p-name') && !t.closest('dialog, #hpop') && fieldStart.has(t)) {
@@ -6844,7 +6911,7 @@ $('#ew-resume').addEventListener('click', async e => {
 });
 offerResume(); rsOn = true;
 
-window.forma = { repairSolid, geoVolume, cutCandidates, cutMagnet, ringAtPoint, get __touch() { return { n: tPts.size, pinch: !!pinch, drag: drag && drag.mode }; }, MOB, applyMob, get __selMeshScale() { return selMeshes[0] ? selMeshes[0].scale.x : null; }, get __scalePrev() { return !!scalePrev; }, get msgLog() { return msgLog; }, expandSelection, get __revPrev() { return !!revPrev; }, get __revPrevMesh() { return revPrev && revPrev.mesh; }, revolutionProfile, applyRev, get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { repairSolid, geoVolume, cutCandidates, cutMagnet, ringAtPoint, get __touch() { return { n: tPts.size, pinch: !!pinch, drag: drag && drag.mode }; }, MOB, applyMob, get __selMeshScale() { return selMeshes[0] ? selMeshes[0].scale.x : null; }, get __scalePrev() { return !!scalePrev; }, get msgLog() { return msgLog; }, expandSelection, get __revPrev() { return !!revPrev; }, get __revPrevMesh() { return revPrev && revPrev.mesh; }, revolutionProfile, applyRev, get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection, layOnStart, layOnNow, get layOnMode() { return layOnMode; } };
 
 
 /* ------------------------------------------------------------------ livelli */
