@@ -20,7 +20,7 @@ import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { analyze, nearestEdge, chainOf, cutter } from './edges.js';
 import ClipperLib from 'clipper-lib';
-import { buildCheck, thinAt } from './print.js';
+import { buildCheck, thinAt, NOZZLES, nozzleOf } from './print.js';
 import { FONTS, fontById, addUserFont, textPositions, svgItems } from './textgen.js';
 
 THREE.Object3D.DEFAULT_UP.set(0, 0, 1); // Z verso l'alto, come nei programmi di stampa 3D
@@ -3528,7 +3528,7 @@ function setExpFmt(f) { expFmt = f; syncPrintRow(); document.querySelectorAll('#
 function askExport(fmt = '3mf') {
   const list = exportList();
   if (!list.length) return toast('Niente da esportare: aggiungi almeno un solido');
-  setExpFmt(fmt);
+  setExpFmt(fmt); syncNozzleUI();
   const sel = selection.length === 1 ? selection[0].userData.name : '';
   expName.value = exportName(list);
   if (!dlgExp.open) dlgExp.showModal();
@@ -5935,7 +5935,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '1.2.4';
+const APP_VERSION = '1.3.0';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
@@ -6348,9 +6348,52 @@ moreCue($('#p-scroll'), $('#p-more'), $('#props'));
 moreCue($('#tools'), $('#t-more'), $('#side'));
 
 
+/* ---------------------------------------------------------- ugello e impostazioni consigliate */
+const NZ = { v: 0.4 };
+const nzF = n => String(+(+n).toFixed(2)).replace('.', ',');
+function cfgNum(key) {                              // valore numerico dal 3MF di Bambu Studio importato (se c'è)
+  try { const d = JSON.parse(printCfg.cfg), v = Array.isArray(d[key]) ? d[key][0] : d[key]; const n = parseFloat(v); return isFinite(n) ? n : null; } catch (e) { return null; }
+}
+try { const s = parseFloat(localStorage.getItem('filo.nozzle')); if (NOZZLES[s]) NZ.v = s; else if (printCfg && NOZZLES[cfgNum('nozzle_diameter')]) NZ.v = cfgNum('nozzle_diameter'); } catch (e) {}
+function nzRec(v = NZ.v) {
+  const N = nozzleOf(v), a = N.layers[0], b = N.layers[N.layers.length - 1];
+  return [
+    ['Strato', `${a.toFixed(2).replace('.', ',')}–${b.toFixed(2).replace('.', ',')} mm · ${tr('ideale')} ${N.best.toFixed(2).replace('.', ',')}`],
+    ['Larghezza linea', `${N.lw.toFixed(2).replace('.', ',')} mm`],
+    ['Pareti', `${N.walls} (${nzF(N.walls * N.lw)} mm)`],
+    ['Gusci', `${tr('sopra')} ${N.top} · ${tr('sotto')} ${N.bottom}`],
+    ['Riempimento', `${N.infill} %`],
+    ['Dettaglio minimo', `${N.lw.toFixed(2).replace('.', ',')} mm`]
+  ];
+}
+function syncNozzleUI() {
+  const v = NZ.v, N = nozzleOf(v);
+  for (const id of ['#chk-nz', '#exp-nzs']) { const g = $(id); g.dataset.v = String(v); g.querySelectorAll('button').forEach(b => b.classList.toggle('on', +b.dataset.v === v)); }
+  const lh = $('#chk-lh');
+  lh.innerHTML = N.layers.map(x => `<button type="button" data-v="${x}"${x === N.best ? ' class="on"' : ''}>${(x).toFixed(2).replace('.', ',')}</button>`).join(''); lh.dataset.v = String(N.best);
+  const mw = $('#chk-mw'), ws = [1, 2, 3].map(k => +(v * k).toFixed(2)); mw.innerHTML = ws.map((x, i) => `<button type="button" data-v="${x}"${i === 1 ? ' class="on"' : ''}>${nzF(x)}</button>`).join(''); mw.dataset.v = String(ws[1]);
+  $('#exp-nz-d').innerHTML = nzRec(v).map(([k, x]) => `<dt>${tr(k)}</dt><dd>${x}</dd>`).join('');
+  const have = printCfg ? cfgNum('nozzle_diameter') : null;
+  $('#exp-nz-n').textContent = have && Math.abs(have - v) > 0.001
+    ? `${tr('Il 3MF importato usa un ugello da')} ${nzF(have)} mm: ${tr('le sue impostazioni restano com\'erano.')} ${tr('Questi sono solo consigli.')}`
+    : tr('Sono consigli per il PLA: Filo non cambia le impostazioni dentro il file, le imposti tu nello slicer.');
+}
+function setNozzle(v) {
+  if (!NOZZLES[v] || v === NZ.v) return;
+  NZ.v = v; try { localStorage.setItem('filo.nozzle', String(v)); } catch (e) {}
+  syncNozzleUI(); if (dlgChk.open) chkRun();
+}
+for (const id of ['#chk-nz', '#exp-nzs']) $(id).addEventListener('click', e => { const b = e.target.closest('button'); if (b) setNozzle(+b.dataset.v); });
+$('#exp-nz-copy').addEventListener('click', async () => {
+  const txt = `${tr('Ugello')} ${nzF(NZ.v)} mm (PLA)\n` + nzRec().map(([k, x]) => `${tr(k)}: ${x}`).join('\n');
+  try { await navigator.clipboard.writeText(txt); toast(tr('Impostazioni copiate')); } catch (e) { toast(tr('Non riesco a copiare: selezionale a mano')); }
+});
+$('#exp-nz-chk').addEventListener('click', () => { dlgExp.close(); openCheck(); });
+
 /* ---------------------------------------------------------- controlla stampa */
 const chk = { R: null, ov: null, plane: null, timer: 0, busy: false, again: false };
 const dlgChk = $('#dlg-check');
+syncNozzleUI();
 const fmtMin = m => m < 60 ? `${Math.max(1, Math.round(m))} min` : `${Math.floor(m / 60)} h ${String(Math.round(m % 60)).padStart(2, '0')} min`;
 function chkClear() {
   if (chk.R && chk.R.dispose) chk.R.dispose();
@@ -6368,7 +6411,9 @@ function chkDraw(i) {
   ctx.fillStyle = 'rgba(255,106,0,.28)'; ctx.strokeStyle = '#ff6a00'; ctx.lineWidth = 2;
   path(t.polys); ctx.fill('evenodd'); ctx.stroke();
   if (t.thin.length) { ctx.fillStyle = 'rgba(229,72,77,.85)'; ctx.strokeStyle = '#e5484d'; ctx.lineWidth = 3; path(t.thin); ctx.fill('nonzero'); ctx.stroke(); }
-  $('#chk-rd').textContent = `Strato ${i + 1} / ${R.layers} · ${(t.z).toFixed(2).replace('.', ',')} mm${t.thin.length ? ' · ' + tr('parete sottile') : ''}`;
+  if (t.thin1 && t.thin1.length) { ctx.fillStyle = 'rgba(140,10,20,.95)'; ctx.strokeStyle = '#8c0a14'; ctx.lineWidth = 3; path(t.thin1); ctx.fill('nonzero'); ctx.stroke(); }
+  if (t.gaps && t.gaps.length) { ctx.fillStyle = 'rgba(48,130,246,.8)'; ctx.strokeStyle = '#3082f6'; ctx.lineWidth = 3; path(t.gaps); ctx.fill('nonzero'); ctx.stroke(); }
+  $('#chk-rd').textContent = `Strato ${i + 1} / ${R.layers} · ${(t.z).toFixed(2).replace('.', ',')} mm${t.thin.length ? ' · ' + tr('parete sottile') : ''}${t.gaps && t.gaps.length ? ' · ' + tr('fessura stretta') : ''}`;
   if (chk.plane) { chk.plane.position.z = t.z; dirty = true; }
 }
 function chkShow() {
@@ -6381,13 +6426,18 @@ function chkShow() {
     if (R.floating.length) row('b', 'Pezzo sospeso', `${R.floating.length} ${tr(R.floating.length === 1 ? 'parte non tocca il piatto' : 'parti non toccano il piatto')} (${tr('più in basso')}: ${R.floating[0].z.toFixed(1).replace('.', ',')} mm). ${tr('Senza supporti non si stampa.')}`);
     else row('', R.parts > 1 ? 'Parti separate ma tutte sul piatto' : 'Poggia sul piatto', `${tr('Base a contatto')}: ${Math.round(R.first)} mm².`);
     if (R.first < 20 && !R.floating.length) row('w', 'Base molto piccola', tr('Poca superficie a contatto: il pezzo potrebbe staccarsi. Valuta un brim o un appoggio più largo.'));
+    const f1 = n => n.toFixed(1).replace('.', ',');
+    if (R.fit && R.fit.over) row('b', 'Più grande del piatto', `${R.size.map(f1).join(' × ')} mm ${tr('contro un piatto da')} ${R.fit.bed[0]} × ${R.fit.bed[1]}${R.fit.bed[2] ? ' × ' + R.fit.bed[2] : ''} mm. ${tr('Riduci il pezzo o dividilo in parti.')}`);
+    if (R.thin.unprint) row('b', 'Parti più sottili di una linea', `${tr('In')} ${R.thin.unprint} ${tr('strati controllati ci sono parti sotto')} ${nzF(R.lw)} mm (${tr('ugello')} ${nzF(R.nozzle)}): ${tr('lo slicer non le stampa o le lascia a metà. Scorri lo strato: sono in rosso scuro.')}`);
+    if (R.gap && R.gap.layers) row('w', 'Fessure e fori troppo stretti', `${tr('In')} ${R.gap.layers} ${tr('strati ci sono fessure o fori sotto')} ${nzF(R.lw)} mm (${tr('prima a')} ${f1(R.gap.first)} mm): ${tr('si richiudono in stampa. Scorri lo strato: sono in blu.')}`);
     if (R.thin.layers) row('w', 'Pareti sottili', `${tr('In')} ${R.thin.layers} ${tr('strati controllati su')} ${R.thin.scanned} ${tr('ci sono parti sotto')} ${String(R.minWall).replace('.', ',')} mm (${tr('prima a')} ${R.thin.first.toFixed(1).replace('.', ',')} mm). ${tr('Scorri lo strato: sono in rosso.')}`);
     else row('', 'Pareti abbastanza spesse', `${tr('Niente sotto')} ${String(R.minWall).replace('.', ',')} mm.`);
     const pc = R.over.area / Math.max(R.over.total, 1) * 100;
     if (R.over.area > 8) row(pc > 8 ? 'w' : '', 'Sbalzi oltre 45°', `${Math.round(R.over.area)} mm² (${pc.toFixed(1).replace('.', ',')} %): ${tr(pc > 8 ? 'servono probabilmente i supporti, o ruota il pezzo.' : 'pochi, di solito si stampano bene.')}`);
     else row('', 'Nessuno sbalzo critico', tr('Niente facce che sporgono troppo.'));
+    if (R.bridge && R.bridge.span >= 10) row('w', 'Ponti lunghi', `${tr('Zona sospesa larga almeno')} ${R.bridge.span} ${tr('mm, senza appoggio sotto')} (${tr('quota')} ${f1(R.bridge.z)} mm). ${tr('Sopra i 10 mm possono cedere: ruota il pezzo o usa i supporti.')}`);
+    if (R.slender > 8 && R.size[2] > 40) row('w', 'Pezzo alto e stretto', `${f1(R.size[2])} mm ${tr('di altezza su')} ${f1(Math.min(R.size[0], R.size[1]))} mm ${tr('di base: può oscillare o staccarsi. Valuta un brim o un appoggio più largo.')}`);
     const b = R.bb;
-    const f1 = n => n.toFixed(1).replace('.', ',');
     $('#chk-est').innerHTML = `<span><em>${tr('Strati')}</em>${R.layers}</span><span><em>${tr('Altezza')}</em>${f1(b.max[2])} mm</span><span><em>${tr('Peso')}</em>${R.grams.toFixed(R.grams < 10 ? 1 : 0).replace('.', ',')} g</span><span><em>${tr('Tempo')}</em>${fmtMin(R.minutes)}</span>`;
   } else $('#chk-est').innerHTML = '';
 }
@@ -6402,7 +6452,7 @@ async function chkRun() {
   if (!list.length) { toast('Niente da controllare: aggiungi almeno un solido'); chk.busy = false; dlgChk.close(); return; }
   const hooks = { progress: f => { $('#chk-wait').textContent = tr('Sto analizzando…') + ' ' + Math.round(f * 100) + ' %'; }, cancelled: () => chk.again || !dlgChk.open };
   let res;
-  try { res = await buildCheck(list, { layer: parseFloat($('#chk-lh').dataset.v), minWall: parseFloat($('#chk-mw').dataset.v) }, hooks); } catch (e) { console.warn(e); res = { err: 'Non sono riuscito ad analizzare il pezzo', open: [] }; }
+  try { res = await buildCheck(list, { layer: parseFloat($('#chk-lh').dataset.v), minWall: parseFloat($('#chk-mw').dataset.v), nozzle: NZ.v, bed: [BEDX, BEDY, (printCfg && cfgNum('printable_height')) || null] }, hooks); } catch (e) { console.warn(e); res = { err: 'Non sono riuscito ad analizzare il pezzo', open: [] }; }
   if (!res) { chk.busy = false; if (chk.again && dlgChk.open) { chk.again = false; chkRun(); } return; }   // fermato: o il lavoro è cambiato o la finestra si è chiusa
   chk.R = res;
   const R = chk.R;
