@@ -607,7 +607,7 @@ label.f.has-stp{position:relative;padding-right:4px}
 #cut-card .hint{margin:0;font-size:11px;line-height:1.4}
 
 /* indicatore di lavoro in corso: la barra si muove con una trasformazione, quindi continua anche quando il calcolo occupa la pagina */
-#busy{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:80;padding:12px 16px 14px;border-radius:2px;min-width:260px;pointer-events:none}
+#busy{position:fixed;top:16px;left:calc(var(--sw,292px) + (100vw - var(--sw,292px)) / 2);transform:translateX(-50%);z-index:80;padding:12px 16px 14px;border-radius:2px;min-width:260px;pointer-events:none}
 #busy.hidden{display:none}
 #busy .b-t{font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px}
 #busy .b-bar{position:relative;height:3px;background:var(--line);overflow:hidden}
@@ -928,6 +928,7 @@ body.mob #props.sheet-low{max-height:22px}
 body.mob #props.sheet-low #p-scroll,body.mob #props.sheet-low>*:not(.sheet-tab){display:none}
 body.mob #layers,body.mob #history{left:8px;right:8px;top:calc(108px + env(safe-area-inset-top));bottom:auto;width:auto;max-height:40vh}
 body.mob #cut-card,body.mob #ruler-card{left:8px;right:8px;top:auto;bottom:calc(76px + env(safe-area-inset-bottom));max-width:none;width:auto}
+body.mob #busy{left:50%}
 body.mob #perf-note{top:calc(108px + env(safe-area-inset-top));left:50%;max-width:calc(100vw - 16px)}
 body.mob #flyout{width:min(256px,calc(100vw - 16px))}
 body.mob #empty-hint{left:50%;top:44%;width:calc(100vw - 24px)}
@@ -948,4 +949,7 @@ body.mob #layers .lfoot{display:none}
 
 /* ugello: impostazioni consigliate nell'esportazione */
 
-.chk-exp{color:var(--muted)}
+#chk-list li .chk-fixbox{margin-top:8px;padding:10px;background:var(--field);border-radius:2px;display:flex;flex-direction:column;gap:8px}
+.cf-top{display:flex;align-items:center;gap:10px}
+.cf-tag{font:500 9.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);padding:2px 6px;border-radius:2px}
+.chk-fixbox p{margin:0;font:12px/1.45 var(--font);color:var(--muted)}

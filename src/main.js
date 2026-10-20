@@ -982,7 +982,7 @@ function describeChange(prev, cur) {
   if (!prev) return 'Inizio';
   const P = new Map(prev.list.map(d => [d.id, d])), C = new Map(cur.list.map(d => [d.id, d]));
   const added = cur.list.filter(d => !P.has(d.id)), removed = prev.list.filter(d => !C.has(d.id));
-  if (added.length && removed.length) return opHint === 'Stampo' ? 'Stampo ricavato' : removed.length > 1 ? `${opHint || 'Combinati'} ${removed.length} oggetti` : 'Lato modificato';
+  if (added.length && removed.length) return opHint === 'Stampo' ? 'Stampo ricavato' : opHint === 'Riparato' ? (removed.length > 1 ? `Riparati ${removed.length} pezzi` : 'Riparato') : removed.length > 1 ? `${opHint || 'Combinati'} ${removed.length} oggetti` : 'Lato modificato';
   if (added.length) return added.length === 1 ? `Aggiunto: ${added[0].name}` : `Aggiunti ${added.length} oggetti`;
   if (removed.length) return removed.length === 1 ? `Eliminato: ${removed[0].name}` : `Eliminati ${removed.length} oggetti`;
   const near = (a, b) => a.length === b.length && a.every((v, i) => Math.abs(v - b[i]) < 1e-6);
@@ -1232,8 +1232,9 @@ const nextPaint = () => new Promise(r => requestAnimationFrame(() => setTimeout(
 let busyN = 0;
 async function busyRun(label, fn) {                    // mostra la barra di lavoro, la fa dipingere, poi esegue il calcolo pesante
   const el = $('#busy'); $('#busy .b-t').textContent = tr(label); el.classList.remove('hidden'); busyN++;
+  $('#toast').classList.remove('show');
   await nextPaint(); await nextPaint();
-  try { return await fn(); } finally { if (--busyN <= 0) { busyN = 0; el.classList.add('hidden'); } }
+  try { return await fn(); } finally { if (--busyN <= 0) { busyN = 0; el.classList.add('hidden'); if (toastWait) { const [m, ms] = toastWait; toastWait = null; toastAfter(m, ms); } } }
 }
 const trisOf = list => list.reduce((a, m) => a + triCount(m.geometry), 0);
 /* Pezzi non chiusi: prima di Combina si avvisa e si propone la riparazione sperimentale (anche da Controlla stampa) */
@@ -3630,8 +3631,11 @@ function logMsg(msg, err = false) {
   msgLog.push({ at: Date.now(), msg, err }); if (msgLog.length > 300) msgLog.shift();
   try { scheduleHistory(); } catch (e) {}                              // all'avvio la Cronologia non c'è ancora
 }
+function toastAfter(msg, ms) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms); }
+let toastWait = null;                                 // un messaggio che arriva mentre la barra di lavoro è visibile aspetta che sparisca, così non si sovrappongono
 function toast(msg, ms = 2400) {
   logMsg(msg);
+  if (busyN > 0) { toastWait = [msg, ms]; return; }
   const t = $('#toast');
   t.textContent = msg;
   t.classList.add('show');
@@ -6597,17 +6601,17 @@ function chkShow() {
   const R = chk.R, L = $('#chk-list'); L.innerHTML = '';
   const row = (cls, title, text) => { const li = document.createElement('li'); li.className = cls; li.innerHTML = `<i></i><div><b>${tr(title)}</b><span>${text}</span></div>`; L.appendChild(li); };
   const bad = R.open.length;
-  if (bad) row('b', 'Solido non chiuso', `${R.open.map(esc).join(', ')}: ${tr('ha crepe o facce sovrapposte, lo slicer potrebbe sbagliare. Rifai l\'ultima operazione o ricostruisci il pezzo.')}`);
   if (bad) {
-    const sp = L.lastChild.querySelector('span');
-    sp.insertAdjacentHTML('beforeend', `<br><button type="button" class="lnk" id="chk-fix">${tr('Ripara (sperimentale)')}</button> <span class="chk-exp">${tr('Salda i punti vicini e chiude le crepe piccole: controlla il risultato, ⌘Z annulla.')}</span>`);
+    row('b', 'Solido non chiuso', `${R.open.map(esc).join(', ')}: ${tr('ha crepe o facce sovrapposte, lo slicer potrebbe sbagliare.')}`);
+    const box = document.createElement('div'); box.className = 'chk-fixbox';
+    box.innerHTML = `<div class="cf-top"><button type="button" class="btn primary" id="chk-fix">${tr('Ripara')}</button><i class="cf-tag">${tr('Sperimentale')}</i></div><p>${tr('Salda i punti vicini e chiude le crepe piccole. Controlla il risultato, ⌘Z annulla. Se non basta, rifai l\'ultima operazione o ricostruisci il pezzo.')}</p>`;
+    L.lastChild.querySelector('div').appendChild(box);
     $('#chk-fix').addEventListener('click', async () => {
       const list = unclosedOf(objects.filter(o => !o.userData.hole)); if (!list.length) return chkRun();
       const r = await busyRun('Riparo i pezzi…', () => repairMeshes(list));
-      setSelection(r.pieces); touch(); commit(); repairToast(r); chkRun();
+      setSelection(r.pieces); touch(); opHint = 'Riparato'; try { commit(); } finally { opHint = null; } repairToast(r); chkRun();
     });
-  }
-  else row('', 'Solido chiuso', tr('Nessuna crepa: lo slicer lo legge come un oggetto pieno.'));
+  } else row('', 'Solido chiuso', tr('Nessuna crepa: lo slicer lo legge come un oggetto pieno.'));
   if (R.U) {
     if (R.floating.length) row('b', 'Pezzo sospeso', `${R.floating.length} ${tr(R.floating.length === 1 ? 'parte non tocca il piatto' : 'parti non toccano il piatto')} (${tr('più in basso')}: ${R.floating[0].z.toFixed(1).replace('.', ',')} mm). ${tr('Senza supporti non si stampa.')}`);
     else row('', R.parts > 1 ? 'Parti separate ma tutte sul piatto' : 'Poggia sul piatto', `${tr('Base a contatto')}: ${Math.round(R.first)} mm².`);
