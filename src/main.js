@@ -3764,6 +3764,9 @@ function curvedTris(geo, t0) {
   // raccoglie tutti i triangoli di un gruppo partendo da un suo triangolo
   const gather = t => { const g = group[t], out = [t], s2 = new Set([t]); for (let i = 0; i < out.length; i++) for (const nt of adj[out[i]]) if (group[nt] === g && !s2.has(nt)) { s2.add(nt); out.push(nt); } return out; };
   const stack = [t0];
+  const P = geo.attributes.position, I = geo.index, cA = new THREE.Vector3(), cB = new THREE.Vector3(), cv = new THREE.Vector3();
+  const cen = (t, out) => { out.set(0, 0, 0); for (let j = 0; j < 3; j++) out.add(cv.fromBufferAttribute(P, I ? I.getX(t * 3 + j) : t * 3 + j)); return out.divideScalar(3); };
+  cen(t0, cA);
   while (stack.length) {
     const t = stack.pop();
     const tris = gather(t);
@@ -3774,11 +3777,49 @@ function curvedTris(geo, t0) {
       const d = dotn(x, nt);
       if (d < 0.906 || d > 0.99999) continue;
       if (gMin[g] >= NARROW) continue;
-      if (dotn(t0, nt) < -0.17) continue;
+      if (dotn(t0, nt) < -0.17) {                    // oltre ~100° dal punto di partenza: vale solo in una ciotola (superficie concava), dove il punto di partenza sta davanti al piano della faccetta
+        cen(nt, cB);
+        if ((cA.x - cB.x) * nrm[nt * 3] + (cA.y - cB.y) * nrm[nt * 3 + 1] + (cA.z - cB.z) * nrm[nt * 3 + 2] <= 0.05) continue;
+      }
       seen.add(g); curved = true; stack.push(nt);
     }
   }
   return curved ? all : null;
+}
+// sfera che passa meglio dai vertici di una superficie curva (minimi quadrati): centro, raggio e scarto. null se non è una sfera
+function fitSphereW(W) {
+  const n = W.length / 3, step = Math.max(1, Math.floor(n / 700)), pts = [];
+  for (let i = 0; i < n; i += step) pts.push([W[i * 3], W[i * 3 + 1], W[i * 3 + 2]]);
+  if (pts.length < 8) return null;
+  const mc = [0, 0, 0]; for (const p of pts) for (let j = 0; j < 3; j++) mc[j] += p[j] / pts.length;
+  const A = Array.from({ length: 4 }, () => new Array(5).fill(0));
+  for (const p of pts) {
+    const q = [p[0] - mc[0], p[1] - mc[1], p[2] - mc[2]], row = [2 * q[0], 2 * q[1], 2 * q[2], 1, q[0] * q[0] + q[1] * q[1] + q[2] * q[2]];
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 5; j++) A[i][j] += row[i] * row[j];
+  }
+  for (let i = 0; i < 4; i++) {                              // eliminazione di Gauss
+    let b = i; for (let r = i + 1; r < 4; r++) if (Math.abs(A[r][i]) > Math.abs(A[b][i])) b = r;
+    if (Math.abs(A[b][i]) < 1e-9) return null;
+    [A[i], A[b]] = [A[b], A[i]];
+    for (let r = 0; r < 4; r++) if (r !== i) { const f = A[r][i] / A[i][i]; for (let j = i; j < 5; j++) A[r][j] -= f * A[i][j]; }
+  }
+  const c = [0, 1, 2].map(i => A[i][4] / A[i][i]), k = A[3][4] / A[3][3], R = Math.sqrt(Math.max(k + c[0] * c[0] + c[1] * c[1] + c[2] * c[2], 0));
+  if (!(R > 0.3) || !isFinite(R)) return null;
+  let se = 0; for (const p of pts) { const q = [p[0] - mc[0] - c[0], p[1] - mc[1] - c[1], p[2] - mc[2] - c[2]]; se += (Math.hypot(...q) - R) ** 2; }
+  const rms = Math.sqrt(se / pts.length);
+  return rms < 0.02 * R + 0.02 ? { kind: 'sphere', c: new THREE.Vector3(c[0] + mc[0], c[1] + mc[1], c[2] + mc[2]), R, rms } : null;
+}
+// cerchio nello spazio (3D) per una catena di punti: piano, centro e raggio. Serve per i bordi tondi di una ciotola, di un foro, di un cilindro inclinato.
+function fitCircle3D(pts) {
+  const n = pts.length; if (n < 8) return null;
+  const c0 = new THREE.Vector3(); pts.forEach(p => c0.add(p)); c0.divideScalar(n);
+  const nr = new THREE.Vector3(); for (let i = 0; i < n; i++) { const a = pts[i], b = pts[(i + 1) % n]; nr.x += (a.y - b.y) * (a.z + b.z); nr.y += (a.z - b.z) * (a.x + b.x); nr.z += (a.x - b.x) * (a.y + b.y); }
+  if (nr.length() < 1e-9) return null; nr.normalize();
+  const u = Math.abs(nr.z) < 0.9 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0); u.addScaledVector(nr, -u.dot(nr)).normalize();
+  const v = new THREE.Vector3().crossVectors(nr, u), xy = pts.map(p => { const q = p.clone().sub(c0); return [q.dot(u), q.dot(v)]; });
+  let dz = 0; for (const p of pts) dz = Math.max(dz, Math.abs(p.clone().sub(c0).dot(nr)));
+  const c = fitRing(xy); if (!c || dz > 0.02 + 0.004 * c.R) return null;
+  return { c: c0.clone().addScaledVector(u, c.cx).addScaledVector(v, c.cy), R: c.R, n: nr };
 }
 // Un "lato" è l'insieme dei triangoli complanari e collegati (anche dopo una CSG).
 function computeFace(m, t0) {
@@ -3883,7 +3924,26 @@ function computeFace(m, t0) {
     area += Math.abs((T[o + 2] - T[o]) * (T[o + 5] - T[o + 1]) - (T[o + 4] - T[o]) * (T[o + 3] - T[o + 1])) / 2;
   }
   const W = b.umax - b.umin, H = b.vmax - b.vmin;
-  return { obj: m, n, u: uAx, v: vAx, o: org, world, vn, tri2d, b, W, H, area, curved: !!curvedList, full, rect: !curvedList && area >= W * H * 0.995, triSet: new Set(tris) };
+  // superficie curva: è concava (ciotola, foro)? e che forma ha (sfera, cilindro dritto)? Serve a misurare diametro, raggio e profondità
+  let concave = false, fit = null;
+  if (curvedList) {
+    const k0 = Math.max(0, tris.indexOf(t0)), c0 = new THREE.Vector3((world[k0 * 9] + world[k0 * 9 + 3] + world[k0 * 9 + 6]) / 3, (world[k0 * 9 + 1] + world[k0 * 9 + 4] + world[k0 * 9 + 7]) / 3, (world[k0 * 9 + 2] + world[k0 * 9 + 5] + world[k0 * 9 + 8]) / 3);
+    let sc = 0; const ct = new THREE.Vector3(), tn2 = new THREE.Vector3(), q1 = new THREE.Vector3(), q2 = new THREE.Vector3();
+    for (let k = 0; k < tris.length; k++) {
+      ct.set((world[k * 9] + world[k * 9 + 3] + world[k * 9 + 6]) / 3, (world[k * 9 + 1] + world[k * 9 + 4] + world[k * 9 + 7]) / 3, (world[k * 9 + 2] + world[k * 9 + 5] + world[k * 9 + 8]) / 3);
+      q1.set(world[k * 9 + 3] - world[k * 9], world[k * 9 + 4] - world[k * 9 + 1], world[k * 9 + 5] - world[k * 9 + 2]); q2.set(world[k * 9 + 6] - world[k * 9], world[k * 9 + 7] - world[k * 9 + 1], world[k * 9 + 8] - world[k * 9 + 2]);
+      tn2.crossVectors(q1, q2).normalize(); sc += Math.sign(c0.clone().sub(ct).dot(tn2) + 1e-9);
+    }
+    concave = sc > 0;
+    const lv = new Set(); for (let i = 2; i < world.length; i += 3) lv.add(Math.round(world[i] * 20));
+    if (lv.size === 2) {                           // vertici su due soli livelli: parete dritta (cilindro) o inclinata (cono, vasca con sformo)
+      let zA = Infinity, zB = -Infinity; for (let i = 2; i < world.length; i += 3) { zA = Math.min(zA, world[i]); zB = Math.max(zB, world[i]); }
+      const ring = z0 => { const out = [], s2 = new Set(); for (let i = 0; i < world.length; i += 3) if (Math.abs(world[i + 2] - z0) < 0.05) { const kk = Math.round(world[i] * 500) + ',' + Math.round(world[i + 1] * 500); if (!s2.has(kk)) { s2.add(kk); out.push([world[i], world[i + 1]]); } } return out.length >= 8 ? fitRing(out) : null; };
+      const lo = ring(zA), hi = ring(zB);
+      if (lo && hi) fit = Math.abs(lo.R - hi.R) < 0.02 + 0.001 * lo.R ? { kind: 'cyl', c: new THREE.Vector3(hi.cx, hi.cy, (zA + zB) / 2), R: lo.R, h: zB - zA } : { kind: 'cone', c: new THREE.Vector3(hi.cx, hi.cy, (zA + zB) / 2), R: (lo.R + hi.R) / 2, R0: lo.R, R1: hi.R, h: zB - zA };
+    } else fit = fitSphereW(world);
+  }
+  return { obj: m, n, u: uAx, v: vAx, o: org, world, vn, tri2d, b, W, H, area, curved: !!curvedList, full, concave, fit, rect: !curvedList && area >= W * H * 0.995, triSet: new Set(tris) };
 }
 function inRegion(fs, x, y) {
   const T = fs.tri2d;
@@ -4596,7 +4656,7 @@ function handleMagnet(h, dir, base, delta, e) {
   for (const c of h.planes) if (Math.abs(c - pos) < tol && (best === null || Math.abs(c - pos) < Math.abs(best - pos))) best = c;
   if (best === null) { if (dragRead.style.display !== 'none') { dragRead.style.display = 'none'; dirty = true; } return null; }
   dragRead.style.display = 'block'; dragRead.style.left = e.clientX + 18 + 'px'; dragRead.style.top = e.clientY - 12 + 'px';
-  dragRead.textContent = tr(sn.M.mid || sn.S.mid ? 'a metà' : 'a contatto'); dirty = true;
+  dragRead.textContent = tr('a contatto'); dirty = true;
   return best - base;
 }
 /* maniglia del lato: trascina lungo la normale, con calamita sui piani vicini */
@@ -4726,7 +4786,7 @@ function moveFaceDrag(e, fd) {
   let dist = t - fd.t0, snapped = false;
   const tol = worldPerPixel() * 9;
   let best = null;
-  for (const p of fd.planes) if (Math.abs(p) > 0.01 && Math.abs(p - dist) < tol && (best === null || Math.abs(p - dist) < Math.abs(best - dist))) best = p;
+  if (state.magnet && !magOff(e)) for (const p of fd.planes) if (Math.abs(p) > 0.01 && Math.abs(p - dist) < tol && (best === null || Math.abs(p - dist) < Math.abs(best - dist))) best = p;
   const par = faceMode.v !== 'extrude' && fs.full && ['cylinder', 'cone'].includes(fs.obj.userData.kind);
   if (par) { best = null; snapped = false; }
   if (best !== null) { dist = best; snapped = true; } else dist = snapV(dist);
@@ -5033,7 +5093,15 @@ function rulerPick(hit) {
     }
   }
   if (pv) { p.copy(pv); snap = 'v'; } else if (pm) { p.copy(pm); snap = 'm'; } else if (pe) { p.copy(pe); snap = 'e'; }
-  return { p, n, snap };
+  return { p, n, snap, obj, fi: hit.faceIndex };
+}
+// bordo tondo (cerchio chiuso di spigoli) vicino al puntatore: centro, raggio e diametro, anche su un piano inclinato
+function ringAtPoint(obj, point) {
+  if (obj.userData.heavy) return null;
+  const an = edgeAnalysis(obj), tol = camera.position.distanceTo(point) * 2 * Math.tan(camera.fov * D2R / 2) / window.innerHeight * 9;
+  const ed = nearestEdge(an, point, tol); if (!ed) return null;
+  const ch = chainOf(an, ed); if (!ch || !ch.closed || ch.pts.length < 8) return null;
+  const c = fitCircle3D(ch.pts); return c;
 }
 const rulerHov = document.createElement('div'); rulerHov.className = 'ruler-hov'; labelsEl.appendChild(rulerHov);
 function faceRect(fs) {                                    // rettangolo più piccolo che contiene il lato: larghezza e altezza vere anche se il lato è ruotato o inclinato
@@ -5081,7 +5149,7 @@ function setFaceCross(fs, hp, ang) {
     const o = k * 9;
     e1.set(Wd[o + 3] - Wd[o], Wd[o + 4] - Wd[o + 1], Wd[o + 5] - Wd[o + 2]); e2.set(Wd[o + 6] - Wd[o], Wd[o + 7] - Wd[o + 1], Wd[o + 8] - Wd[o + 2]);
     tn.crossVectors(e1, e2); ct.set((Wd[o] + Wd[o + 3] + Wd[o + 6]) / 3, (Wd[o + 1] + Wd[o + 4] + Wd[o + 7]) / 3, (Wd[o + 2] + Wd[o + 5] + Wd[o + 8]) / 3);
-    if (!fs.curved || tn.normalize().dot(fs.n) > -0.1) { facing[k] = 1; nFace++; }       // sul lato che gira intorno si tiene la metà dalla parte del puntatore: la misura non cambia con la vista
+    if (!fs.curved || fs.concave || tn.normalize().dot(fs.n) > -0.1) { facing[k] = 1; nFace++; }       // sul lato che gira intorno si tiene la metà dalla parte del puntatore: la misura non cambia con la vista
   }
   if (!nFace) facing.fill(1);
   // linea lungo la superficie: taglia i triangoli del lato con la retta (a variabile, b fisso) o (b variabile, a fisso)
@@ -5206,7 +5274,21 @@ function rulerHover(e) {                                  // anteprima del punto
     }
     const ch = setFaceCross(fs, hit.point, cang);        // lunghezza delle due linee che passano dal puntatore
     const lw = uAlong ? ch[0] : ch[1], lh = uAlong ? ch[1] : ch[0], mw = lw == null ? w1 : lw, mh = lh == null ? h1 : lh;
-    setAltTip(`${fs.curved ? '≈ ' : ''}${fmt(mw)} × ${fmt(mh)} mm`, tr(flat ? 'larghezza × profondità' : 'larghezza × altezza'), Math.abs(mw - w1) > 0.05 || Math.abs(mh - h1) > 0.05 ? [[tr('Lato intero'), `${fmt(w1)} × ${fmt(h1)} mm`]] : []);
+    const rows = Math.abs(mw - w1) > 0.05 || Math.abs(mh - h1) > 0.05 ? [[tr('Lato intero'), `${fmt(w1)} × ${fmt(h1)} mm`]] : [];
+    let head = `${fs.curved ? '≈ ' : ''}${fmt(mw)} × ${fmt(mh)} mm`, cap = tr(flat ? 'larghezza × profondità' : 'larghezza × altezza');
+    if (fs.curved && fs.fit) {                           // ciotola, cupola, cilindro, cono: il numero grande è il diametro vero; la misura sotto il puntatore resta tra le righe
+      const f = fs.fit, top = f.kind === 'cone' ? f.R1 : f.R;
+      rows.unshift([tr('Sotto il puntatore'), `≈ ${fmt(mw)} × ${fmt(mh)} mm`]);
+      head = `Ø ${fmt(top * 2)} mm`; cap = tr(fs.concave ? 'diametro interno' : 'diametro esterno');
+      if (f.kind === 'cone') rows.push([tr(fs.concave ? 'Ø interno in basso' : 'Ø in basso'), `${fmt(f.R0 * 2)} mm`], [tr('Altezza'), `${fmt(f.h)} mm`]);
+      else rows.push([tr('Raggio'), `${fmt(f.R)} mm`]);
+      if (f.kind === 'sphere') {
+        const W = fs.world, ax = new THREE.Vector3(); for (let i = 0; i < W.length; i += 3) ax.add(new THREE.Vector3(W[i], W[i + 1], W[i + 2]).sub(f.c));
+        ax.normalize(); let lo = Infinity, hi = -Infinity; for (let i = 0; i < W.length; i += 3) { const t = ax.dot(new THREE.Vector3(W[i], W[i + 1], W[i + 2]).sub(f.c)); lo = Math.min(lo, t); hi = Math.max(hi, t); }
+        if (fs.concave && hi - lo > 0.2) rows.push([tr('Profondità'), `${fmt(hi - lo)} mm`]);
+      }
+    }
+    setAltTip(head, cap, rows);
     faceDim.style.display = 'block';
     faceDim.style.transform = `translate(${e.clientX + 18}px, ${e.clientY + 18}px)`;
     return;
@@ -5217,23 +5299,45 @@ function rulerHover(e) {                                  // anteprima del punto
   rulerHov.className = 'ruler-hov ' + (pt.snap || 'f');
   rulerHov.style.display = 'block';
   rulerHov.style.transform = `translate(${(v.x * 0.5 + 0.5) * w}px, ${(-v.y * 0.5 + 0.5) * h}px) translate(-50%, -50%)`;
+  const ring = pt.snap ? ringAtPoint(hit.object, pt.p) : null;
+  if (ring) {
+    setAltTip(`Ø ${fmt(ring.R * 2)} mm`, tr('bordo tondo'), [[tr('Raggio'), `${fmt(ring.R)} mm`]]);
+    faceDim.style.display = 'block'; faceDim.style.transform = `translate(${e.clientX + 18}px, ${e.clientY + 18}px)`;
+  } else if (faceDim.style.display !== 'none') faceDim.style.display = 'none';
 }
 window.addEventListener('keydown', e => { if (e.key === 'Alt' && state.tool === 'ruler' && rulerLastEv && !e.repeat) rulerHover({ clientX: rulerLastEv.clientX, clientY: rulerLastEv.clientY, altKey: true }); });
 window.addEventListener('keyup', e => { if (e.key === 'Alt' && state.tool === 'ruler') { hideFaceDim(); if (rulerLastEv) rulerHover({ clientX: rulerLastEv.clientX, clientY: rulerLastEv.clientY, altKey: false }); } });
 function rulerClick(hit) {
   if (!hit) { clearRuler(); return; }
   const pt = rulerPick(hit);
-  if (!ruler.a || ruler.b) { clearRuler(); ruler.a = pt; rulerCardText([tr('Metro'), tr('Ora clicca il secondo punto o lato.')]); dirty = true; return; }
+  pt.curved = !pt.snap && !!curvedTris(hit.object.geometry, hit.faceIndex);          // su una superficie curva i lati delle faccette non sono "lati paralleli"
+  if (!ruler.a || ruler.b) {
+    clearRuler(); ruler.a = pt;
+    const ring = pt.snap ? ringAtPoint(hit.object, pt.p) : null;
+    rulerCardText(ring ? [`Ø ${fmt(ring.R * 2)} mm`, `${tr('Bordo tondo')} · ${tr('raggio')} ${fmt(ring.R)} mm. ${tr('Ora clicca il secondo punto o lato.')}`] : [tr('Metro'), tr('Ora clicca il secondo punto o lato.')]);
+    dirty = true; return;
+  }
   ruler.b = pt;
   const d = pt.p.clone().sub(ruler.a.p), a = ruler.a;
-  const parallel = a.n && pt.n && !a.snap && !pt.snap && Math.abs(a.n.dot(pt.n)) > 0.9995;
+  const parallel = a.n && pt.n && !a.snap && !pt.snap && !a.curved && !pt.curved && Math.abs(a.n.dot(pt.n)) > 0.9995;
   if (parallel) {
     const off = d.dot(a.n);
     ruler.foot = a.p.clone().addScaledVector(a.n, off);
     rulerCardText([`${fmt(Math.abs(off))} mm`, tr('Distanza tra i due lati paralleli')]);
   } else {
     ruler.foot = pt.p.clone();
-    rulerCardText([`${fmt(d.length())} mm`, `${tr('Linea retta')} · ΔX ${fmt(Math.abs(d.x))} · ΔY ${fmt(Math.abs(d.y))} · ΔZ ${fmt(Math.abs(d.z))}`]);
+    let note = '';
+    if (a.curved && pt.curved && a.obj === pt.obj) {      // due punti sulla stessa ciotola o sullo stesso cilindro: se la linea passa dal centro è il diametro
+      try {
+        const fs = computeFace(pt.obj, pt.fi);
+        if (fs && fs.fit) {
+          const mid = a.p.clone().add(pt.p).multiplyScalar(0.5), c = fs.fit.c.clone(); if (fs.fit.kind === 'cyl') c.z = mid.z;
+          if (mid.distanceTo(c) < fs.fit.R * 0.06 && Math.abs(d.length() - fs.fit.R * 2) < fs.fit.R * 0.06) note = ` · ${tr('passa dal centro: è il diametro')}`;
+          else note = ` · ${tr('raggio')} ${fmt(fs.fit.R)} mm`;
+        }
+      } catch (e) { note = ''; }
+    }
+    rulerCardText([`${fmt(d.length())} mm`, `${tr('Linea retta')} · ΔX ${fmt(Math.abs(d.x))} · ΔY ${fmt(Math.abs(d.y))} · ΔZ ${fmt(Math.abs(d.z))}${note}`]);
   }
   const arr = rulerGeo.attributes.position.array; arr.set([a.p.x, a.p.y, a.p.z, ruler.foot.x, ruler.foot.y, ruler.foot.z]); rulerGeo.attributes.position.needsUpdate = true;
   rulerGeo.computeBoundingSphere();
@@ -5935,7 +6039,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.3.1';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
@@ -6169,20 +6273,39 @@ function cutAxisParam(e, p00) {                                     // punto del
   if (den < 1e-4) return null;                                 // asse quasi verso la camera: non si può trascinare
   return (a.dot(w) - b * d.dot(w)) / den;
 }
-function startCutMove(e) { const p0 = cutPlane.position.clone(), t = cutAxisParam(e, p0); return t === null ? null : { t0: t, pos0: CUT.pos, p0 }; }   // l'origine resta quella di inizio: se seguisse il piano in movimento, il piano vibrerebbe
+// calamita per il piano di Taglia e Allunga: si aggancia ai lati dritti, ai vertici e alla metà di tutti gli oggetti lungo l'asse scelto
+function cutCandidates() {
+  const k = CUT.ax, set = new Map(), add = (v, kind) => { const key = Math.round(v * 50); if (!set.has(key)) set.set(key, { v, kind }); };
+  for (const o of objects) {
+    if (!o.visible) continue;
+    for (const g of worldPlanes(o)) if (Math.abs(g.n[k]) > 0.9999) add(g.d / g.n[k], 'lato');
+    const b = worldBox(o); add((b.min[k] + b.max[k]) / 2, 'metà');
+    if (set.size < 6000) for (const c of worldCorners(o)) add(c[k], 'vertice');
+  }
+  return [...set.values()];
+}
+function cutMagnet(cands, v, e) {
+  if (!state.magnet || (e && magOff(e)) || !cands) return null;
+  const tol = Math.min(6, worldPerPixel() * 8); let best = null, bd = tol;
+  for (const c of cands) { const d = Math.abs(c.v - v); if (d < bd) { bd = d; best = c; } }
+  return best;
+}
+function startCutMove(e) { const p0 = cutPlane.position.clone(), t = cutAxisParam(e, p0); return t === null ? null : { t0: t, pos0: CUT.pos, p0, cands: cutCandidates() }; }   // l'origine resta quella di inizio: se seguisse il piano in movimento, il piano vibrerebbe
 function moveCutMove(e, cm) {
   const t = cutAxisParam(e, cm.p0); if (t === null) return;
   const b = selBox(); let v = snapV(cm.pos0 + (t - cm.t0));
+  const mg = cutMagnet(cm.cands, cm.pos0 + (t - cm.t0), e); if (mg) v = mg.v;
   v = clamp(v, b.min[CUT.ax] - 5, b.max[CUT.ax] + 5);
-  CUT.pos = Math.round(v * 100) / 100; $('#cut-pos').value = fmt(CUT.pos); cutRefresh();
+  CUT.pos = Math.round(v * 100) / 100; if (mg) CUT.pos = Math.round(mg.v * 1000) / 1000; $('#cut-pos').value = fmt(CUT.pos); cutRefresh();
   dragRead.style.display = 'block'; dragRead.style.left = e.clientX + 18 + 'px'; dragRead.style.top = e.clientY - 12 + 'px';
-  dragRead.textContent = `${CUT.ax.toUpperCase()} ${fmt(CUT.pos)} mm`;
+  dragRead.textContent = `${CUT.ax.toUpperCase()} ${fmt(CUT.pos)} mm${mg ? ' · ' + tr(mg.kind === 'lato' ? 'a filo di un lato' : mg.kind === 'metà' ? 'a metà' : 'sul vertice') : ''}`;
 }
 function cutClick(hit) {                                       // un clic sull'oggetto mette il piano in quel punto
   if (!hit) return;
   if (!selection.includes(hit.object)) { const keep = CUT.pos; setSelection(withGroups([hit.object])); CUT.pos = keep; }
   let v = hit.point[CUT.ax]; if (state.snap) v = snapV(v);
-  CUT.pos = Math.round(v * 100) / 100; $('#cut-pos').value = fmt(CUT.pos); cutRefresh();
+  const mg = cutMagnet(cutCandidates(), hit.point[CUT.ax]); if (mg) v = mg.v;
+  CUT.pos = Math.round(v * (mg ? 1000 : 100)) / (mg ? 1000 : 100); $('#cut-pos').value = fmt(CUT.pos); cutRefresh();
 }
 document.querySelectorAll('#cut-ax button').forEach(b => b.addEventListener('click', () => {
   CUT.ax = b.dataset.v; b.parentElement.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); cutReset(); canvas.focus();
@@ -6654,7 +6777,7 @@ $('#ew-resume').addEventListener('click', async e => {
 });
 offerResume(); rsOn = true;
 
-window.forma = { get __touch() { return { n: tPts.size, pinch: !!pinch, drag: drag && drag.mode }; }, MOB, applyMob, get __selMeshScale() { return selMeshes[0] ? selMeshes[0].scale.x : null; }, get __scalePrev() { return !!scalePrev; }, get msgLog() { return msgLog; }, expandSelection, get __revPrev() { return !!revPrev; }, get __revPrevMesh() { return revPrev && revPrev.mesh; }, revolutionProfile, applyRev, get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { cutCandidates, cutMagnet, ringAtPoint, get __touch() { return { n: tPts.size, pinch: !!pinch, drag: drag && drag.mode }; }, MOB, applyMob, get __selMeshScale() { return selMeshes[0] ? selMeshes[0].scale.x : null; }, get __scalePrev() { return !!scalePrev; }, get msgLog() { return msgLog; }, expandSelection, get __revPrev() { return !!revPrev; }, get __revPrevMesh() { return revPrev && revPrev.mesh; }, revolutionProfile, applyRev, get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */
