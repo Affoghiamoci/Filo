@@ -4631,6 +4631,11 @@ function pushOne(obj, faces, dist, preview = false) {
   if (!baked) return { err: 'Il risultato è vuoto' };
   if (isFlat(baked)) return { err: FLAT_MSG };
   if (faces.some(f => f.curved) && geoIsClosed(baked.geo) === false) return { err: CURVED_MSG };
+  if (flatOne && geoIsClosed(baked.geo) === false) {                          // lo spostamento ha lasciato crepe (es. una forma in rilievo spinta fino al piano del fondo): meglio togliere o aggiungere il prisma per CSG
+    let b2 = null;
+    try { b2 = prismPush(obj, faces.slice(), dist); } catch (e) { b2 = null; }
+    if (b2 && !isFlat(b2) && geoIsClosed(b2.geo) !== false) return { mesh: replaceWithMerged(obj, b2, true), ext: true };
+  }
   return { mesh: replaceWithMerged(obj, baked, true) };
 }
 /* calamita per le maniglie di ridimensionamento: la faccia trascinata si aggancia ai lati paralleli degli altri oggetti (contatto o a filo).
@@ -6039,7 +6044,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '1.3.1';
+const APP_VERSION = '1.3.2';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
