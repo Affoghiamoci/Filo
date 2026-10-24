@@ -4049,6 +4049,7 @@ function basisMatrix(X, Y, Z, pos) {
   return new THREE.Matrix4().makeBasis(X, Y, z).setPosition(pos);
 }
 // parti staccate di una geometria (coordinate locali): [{ts}] ordinate per dimensione; i frammenti minuscoli seguono la parte più grande
+const triVolumeS = (A, ts) => { let v = 0; for (const t of ts) { const o = t * 9; v += (A[o] * (A[o + 4] * A[o + 8] - A[o + 5] * A[o + 7]) - A[o + 1] * (A[o + 3] * A[o + 8] - A[o + 5] * A[o + 6]) + A[o + 2] * (A[o + 3] * A[o + 7] - A[o + 4] * A[o + 6])) / 6; } return v; };
 const triVolume = (A, ts) => { let v = 0; for (const t of ts) { const o = t * 9; v += (A[o] * (A[o + 4] * A[o + 8] - A[o + 5] * A[o + 7]) - A[o + 1] * (A[o + 3] * A[o + 8] - A[o + 5] * A[o + 6]) + A[o + 2] * (A[o + 3] * A[o + 7] - A[o + 4] * A[o + 6])) / 6; } return Math.abs(v); };
 function pieceGroups(geo) {
   const g = geo.index ? geo.toNonIndexed() : geo, A = g.attributes.position.array, nT = A.length / 9, q = v => Math.round(v * 2000);
@@ -4085,6 +4086,9 @@ function pieceGroups(geo) {
   for (let t = 0; t < nT; t++) { const r = find(tv[t]); if (!comps.has(r)) comps.set(r, []); comps.get(r).push(t); }
   let list = [...comps.values()].sort((x, y) => y.length - x.length);
   // frammenti senza volume (resti di lame sottilissime, es. dopo aver portato a filo un testo inciso): lo slicer li rifiuta
+  // cavità chiuse (per esempio un'incisione coperta da una scatola): sono gusci con volume negativo, non pezzi. Restano dentro il pezzo che le contiene
+  const cav = list.filter(c => triVolumeS(A, c) < -0.001);
+  if (cav.length && cav.length < list.length) { list = list.filter(c => !cav.includes(c)); for (const c of cav) list[0].push(...c); }
   const solid = list.filter(c => triVolume(A, c) >= 0.01), dropped = list.length - solid.length;
   if (dropped && solid.length) list = solid; else if (dropped) return null;
   const big = list.filter(c => c.length >= 12);
