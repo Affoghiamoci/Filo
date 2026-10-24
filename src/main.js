@@ -108,8 +108,11 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(35, 1, 1, 6000);
 camera.up.set(0, 0, 1);
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0x9a9aa6, 1.5));
-const sun = new THREE.DirectionalLight(0xffffff, 2.1);
+const hemi = new THREE.HemisphereLight(0xffffff, 0x8a8a96, 1.0);
+scene.add(hemi);
+const head = new THREE.DirectionalLight(0xffffff, 1.0);   // luce che segue la camera, come in Bambu Studio: le pareti rivolte verso chi guarda sono chiare, quelle di taglio scure
+scene.add(head); scene.add(head.target);
+const sun = new THREE.DirectionalLight(0xffffff, 1.5);
 sun.position.set(90, -140, 220);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
@@ -118,8 +121,68 @@ sun.shadow.bias = -0.0004;
 sun.shadow.normalBias = 0.6;
 scene.add(sun);
 
+
+/* ombreggiatura negli incavi (come l'occlusione ambientale di Bambu Studio): una mappa delle altezze vista dall'alto, letta dai materiali.
+   Un punto più basso dei dintorni (il fondo di una scatola, la base di una parete) si scurisce un po'. Si ridisegna solo quando cambia qualcosa (vedi shadowCheck). */
+const AOH = 260, AORES = 1024;
+const aoU = { aoMap: { value: null }, aoH: { value: AOH }, aoK: { value: 0 }, aoN: { value: 6 }, aoD: { value: 12 } };
+let aoRT = null, aoCam = null, aoMatD = null;
+try {
+  if (renderer.capabilities.isWebGL2 && (renderer.extensions.get('EXT_color_buffer_float') || renderer.extensions.get('EXT_color_buffer_half_float'))) {
+    aoRT = new THREE.WebGLRenderTarget(AORES, AORES, { type: THREE.HalfFloatType, format: THREE.RGBAFormat, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: true, generateMipmaps: false });
+    aoCam = new THREE.OrthographicCamera(-AOH, AOH, AOH, -AOH, 0.1, 3000);
+    aoCam.position.set(0, 0, 1500); aoCam.up.set(0, 1, 0); aoCam.lookAt(0, 0, 0); aoCam.layers.set(1); aoCam.updateMatrixWorld(true);
+    aoMatD = new THREE.ShaderMaterial({
+      vertexShader: 'varying float vZ; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vZ = w.z; gl_Position = projectionMatrix * viewMatrix * w; }',
+      fragmentShader: 'varying float vZ; void main(){ gl_FragColor = vec4(vZ, 0.0, 0.0, 1.0); }', side: THREE.DoubleSide });
+    aoU.aoMap.value = aoRT.texture; aoU.aoK.value = 0.55;
+    try {   // grafica "a software" (senza scheda video): l'oscuramento negli incavi la rallenterebbe troppo, resta spento
+      const gl = renderer.getContext(), di = gl.getExtension('WEBGL_debug_renderer_info');
+      if (di && /swiftshader|llvmpipe|software|softpipe/i.test(String(gl.getParameter(di.UNMASKED_RENDERER_WEBGL)))) aoU.aoK.value = 0;
+    } catch (e) {}
+  }
+} catch (e) { aoRT = null; aoU.aoK.value = 0; }
+function aoUpdate() {
+  if (!aoRT) return;
+  for (const m of objects) { if (m.visible && !m.userData.hole) m.layers.enable(1); else m.layers.disable(1); }
+  const cc = renderer.getClearColor(new THREE.Color()), ca = renderer.getClearAlpha(), prev = renderer.getRenderTarget(), sm = renderer.shadowMap.autoUpdate;
+  renderer.shadowMap.autoUpdate = false;
+  scene.overrideMaterial = aoMatD; renderer.setRenderTarget(aoRT); renderer.setClearColor(0x000000, 1); renderer.clear();
+  renderer.render(scene, aoCam);
+  scene.overrideMaterial = null; renderer.setRenderTarget(prev); renderer.setClearColor(cc, ca); renderer.shadowMap.autoUpdate = sm;
+}
+function aoize(m, k = 1) {
+  m.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, aoU);
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vAOp; varying vec3 vAOn;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvAOp = (modelMatrix * vec4(transformed, 1.0)).xyz; vAOn = normalize(mat3(modelMatrix) * objectNormal);');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vAOp; varying vec3 vAOn; uniform sampler2D aoMap; uniform float aoH; uniform float aoK; uniform int aoN; uniform int aoD;')
+      .replace('#include <opaque_fragment>', `
+      if (aoK > 0.0) {
+        vec2 uv0 = vAOp.xy / (2.0 * aoH) + 0.5; float hf = vAOp.z; vec3 nn = normalize(vAOn);
+        float hz = length(nn.xy); vec2 nd = hz > 0.05 ? nn.xy / hz : vec2(0.0);
+        float occ = 0.0, wsum = 0.0; float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+        for (int ri = 0; ri < 6; ri++) {
+          if (ri >= aoN) break;
+          float r = ri == 0 ? 2.0 : ri == 1 ? 5.0 : ri == 2 ? 10.0 : ri == 3 ? 18.0 : ri == 4 ? 32.0 : 56.0;
+          for (int k = 0; k < 12; k++) {
+            if (k >= aoD) break;
+            float a = (float(k) + ign) * 6.2831853 / float(aoD); vec2 d = vec2(cos(a), sin(a));
+            float w = hz > 0.05 ? mix(1.0, max(0.0, dot(d, nd)), clamp(hz * 1.5, 0.0, 1.0)) : 1.0;
+            float hs = texture2D(aoMap, uv0 + d * r / (2.0 * aoH)).r;
+            occ += w * clamp((hs - hf - 0.15) / r, 0.0, 1.0); wsum += w;
+          }
+        }
+        float ao = 1.0 - aoK * ${k.toFixed(2)} * clamp(occ / max(wsum, 1.0) * 4.0, 0.0, 1.0);
+        outgoingLight *= ao;
+      }
+      #include <opaque_fragment>`);
+  };
+  m.customProgramCacheKey = () => 'ao1' + k;
+  return m;
+}
 let BEDX = 180, BEDY = 180; // piatto (default Bambu Lab A1 mini)
-const bedMat = new THREE.MeshStandardMaterial({ color: 0xf7f7fa, roughness: 1 });
+const bedMat = aoize(new THREE.MeshStandardMaterial({ color: 0xf7f7fa, roughness: 1, emissive: 0x2e2e32 }), 0.45);
 const bed = new THREE.Mesh(new THREE.PlaneGeometry(BEDX, BEDY), bedMat);
 bed.position.z = -0.05;
 bed.receiveShadow = true;
@@ -188,6 +251,7 @@ function applyCamera() {
     cam.target.z + D * Math.sin(el));
   camera.lookAt(cam.target);
   camera.updateMatrixWorld();
+  head.position.copy(camera.position).addScaledVector(camera.up, D * 0.35).addScaledVector(new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0), -D * 0.25); head.target.position.copy(cam.target);
   dirty = true;
   updateViewCube();
   if (typeof hpop !== 'undefined' && hpop) closeHandlePopup();
@@ -548,8 +612,8 @@ function secGeometry(p, check = false) {
 }
 /* ------------------------------------------------------------- materiali */
 const M = {
-  solid: new THREE.MeshStandardMaterial({ color: 0xd9dce3, roughness: 0.55, metalness: 0.05 }),
-  solidSel: new THREE.MeshStandardMaterial({ color: 0xcfe0f7, roughness: 0.55, metalness: 0.05, emissive: 0xff6a00, emissiveIntensity: 0.1 }),
+  solid: aoize(new THREE.MeshStandardMaterial({ color: 0xd9dce3, roughness: 0.55, metalness: 0.05 })),
+  solidSel: aoize(new THREE.MeshStandardMaterial({ color: 0xcfe0f7, roughness: 0.55, metalness: 0.05, emissive: 0xff6a00, emissiveIntensity: 0.1 })),
   hole: new THREE.MeshStandardMaterial({ color: 0xff7a45, transparent: true, opacity: 0.45, depthWrite: false, roughness: 0.7 }),
   holeSel: new THREE.MeshStandardMaterial({ color: 0xff7a45, transparent: true, opacity: 0.6, depthWrite: false, roughness: 0.7, emissive: 0xff7a45, emissiveIntensity: 0.2 }),
 };
@@ -608,7 +672,7 @@ function colMat(hex, sel) {
   const k = hex + (sel ? '*' : '');
   let m = colMats.get(k);
   if (!m) {
-    m = new THREE.MeshStandardMaterial({ color: hex, roughness: 0.55, metalness: 0.05 });
+    m = aoize(new THREE.MeshStandardMaterial({ color: hex, roughness: 0.55, metalness: 0.05 }));
     if (sel) { m.emissive = new THREE.Color(0xff6a00); m.emissiveIntensity = 0.1; }
     colMats.set(k, m);
   }
@@ -620,7 +684,7 @@ function keyMat(hex) {
   let m = keyMats.get(hex);
   if (!m) {
     const c = new THREE.Color(hex).lerp(new THREE.Color(0x15151a), 0.55);
-    m = new THREE.MeshStandardMaterial({ color: c, roughness: 0.55, metalness: 0.05, emissive: 0xff6a00, emissiveIntensity: 0.1 });
+    m = aoize(new THREE.MeshStandardMaterial({ color: c, roughness: 0.55, metalness: 0.05, emissive: 0xff6a00, emissiveIntensity: 0.1 }));
     keyMats.set(hex, m);
   }
   return m;
@@ -5475,7 +5539,7 @@ function shadowCheck() {                           // impronta di ciò che proie
     for (let i = 0, u = g.uuid; i < 8; i++) mix(u.charCodeAt(i));
     mix(m.userData.id);
   }
-  if (h !== shadowSig || shadowForce) { shadowSig = h; shadowForce = false; renderer.shadowMap.needsUpdate = true; }
+  if (h !== shadowSig || shadowForce) { shadowSig = h; shadowForce = false; aoUpdate(); renderer.shadowMap.needsUpdate = true; }
 }
 function render() {
   updateSilhouettes();
@@ -6127,7 +6191,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '1.3.4';
+const APP_VERSION = '1.3.5';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
@@ -6161,6 +6225,7 @@ function applyMob() {
   const on = isMob();
   if (on === MOB.on && document.body.classList.contains('mob') === on) return;
   MOB.on = on; document.body.classList.toggle('mob', on);
+  aoU.aoN.value = on ? 4 : 6; aoU.aoD.value = on ? 8 : 12;   // sul telefono meno campioni: l'oscuramento negli incavi pesa sulla scheda grafica
   if (on) { sideEl.classList.remove('mini'); }
   applyCamera(); resize(); dirty = true;
 }
@@ -6853,7 +6918,7 @@ $('#ew-resume').addEventListener('click', async e => {
 });
 offerResume(); rsOn = true;
 
-window.forma = { toManifold, depinch, repairSolid, geoVolume, cutCandidates, cutMagnet, ringAtPoint, get __touch() { return { n: tPts.size, pinch: !!pinch, drag: drag && drag.mode }; }, MOB, applyMob, get __selMeshScale() { return selMeshes[0] ? selMeshes[0].scale.x : null; }, get __scalePrev() { return !!scalePrev; }, get msgLog() { return msgLog; }, expandSelection, get __revPrev() { return !!revPrev; }, get __revPrevMesh() { return revPrev && revPrev.mesh; }, revolutionProfile, applyRev, get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { aoU, toManifold, depinch, repairSolid, geoVolume, cutCandidates, cutMagnet, ringAtPoint, get __touch() { return { n: tPts.size, pinch: !!pinch, drag: drag && drag.mode }; }, MOB, applyMob, get __selMeshScale() { return selMeshes[0] ? selMeshes[0].scale.x : null; }, get __scalePrev() { return !!scalePrev; }, get msgLog() { return msgLog; }, expandSelection, get __revPrev() { return !!revPrev; }, get __revPrevMesh() { return revPrev && revPrev.mesh; }, revolutionProfile, applyRev, get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */
