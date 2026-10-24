@@ -307,8 +307,8 @@ kbd.kflash{animation:kflash .7s ease-out}
 #p-text textarea{resize:vertical;min-height:44px}
 #p-text textarea:focus,#p-text select:focus{outline:none;border-color:var(--accent)}
 
-#dlg-exp,#dlg-forget,#dlg-split,#dlg-box{border:1px solid var(--line);border-radius:2px;padding:0;background:var(--panel);color:var(--text);width:min(380px,calc(100vw - 32px));box-shadow:0 12px 0 rgba(0,0,0,.08);margin:auto}
-#dlg-exp::backdrop,#dlg-forget::backdrop,#dlg-split::backdrop,#dlg-box::backdrop{background:rgba(10,10,12,.28);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#dlg-exp,#dlg-forget,#dlg-open,#dlg-split,#dlg-box{border:1px solid var(--line);border-radius:2px;padding:0;background:var(--panel);color:var(--text);width:min(380px,calc(100vw - 32px));box-shadow:0 12px 0 rgba(0,0,0,.08);margin:auto}
+#dlg-exp::backdrop,#dlg-forget::backdrop,#dlg-open::backdrop,#dlg-split::backdrop,#dlg-box::backdrop{background:rgba(10,10,12,.28);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .exp-card{padding:20px 20px 20px;display:flex;flex-direction:column;gap:10px}
 .exp-title{font:600 12px var(--mono);letter-spacing:.1em;text-transform:uppercase}
 .exp-lbl{font:500 10.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
@@ -607,7 +607,7 @@ label.f.has-stp{position:relative;padding-right:4px}
 #cut-card .hint{margin:0;font-size:11px;line-height:1.4}
 
 /* indicatore di lavoro in corso: la barra si muove con una trasformazione, quindi continua anche quando il calcolo occupa la pagina */
-#busy{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:80;padding:12px 16px 14px;border-radius:2px;min-width:260px;pointer-events:none}
+#busy{position:fixed;top:16px;left:calc(var(--sw,292px) + (100vw - var(--sw,292px)) / 2);transform:translateX(-50%);z-index:80;padding:12px 16px 14px;border-radius:2px;min-width:260px;pointer-events:none}
 #busy.hidden{display:none}
 #busy .b-t{font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px}
 #busy .b-bar{position:relative;height:3px;background:var(--line);overflow:hidden}
@@ -928,6 +928,7 @@ body.mob #props.sheet-low{max-height:22px}
 body.mob #props.sheet-low #p-scroll,body.mob #props.sheet-low>*:not(.sheet-tab){display:none}
 body.mob #layers,body.mob #history{left:8px;right:8px;top:calc(108px + env(safe-area-inset-top));bottom:auto;width:auto;max-height:40vh}
 body.mob #cut-card,body.mob #ruler-card{left:8px;right:8px;top:auto;bottom:calc(76px + env(safe-area-inset-bottom));max-width:none;width:auto}
+body.mob #busy{left:50%}
 body.mob #perf-note{top:calc(108px + env(safe-area-inset-top));left:50%;max-width:calc(100vw - 16px)}
 body.mob #flyout{width:min(256px,calc(100vw - 16px))}
 body.mob #empty-hint{left:50%;top:44%;width:calc(100vw - 24px)}
@@ -947,11 +948,8 @@ body.mob #empty-hint .ew{max-width:100%}
 body.mob #layers .lfoot{display:none}
 
 /* ugello: impostazioni consigliate nell'esportazione */
-.exp-nz{display:flex;flex-direction:column;gap:8px;margin-top:4px;padding-top:10px;border-top:1px solid var(--line)}
-.exp-nz .exp-lbl{margin:0}
-.exp-rec{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;margin:0;font-size:12px}
-.exp-rec dt{color:var(--muted);font:500 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;align-self:center}
-.exp-rec dd{margin:0;color:var(--text);font-variant-numeric:tabular-nums}
-.exp-nz-a{display:flex;gap:14px;flex-wrap:wrap}
-.exp-nz .hint{margin:0}
-#exp-nzs{grid-template-columns:repeat(4,1fr);margin-top:0}
+
+#chk-list li .chk-fixbox{margin-top:8px;padding:10px;background:var(--field);border-radius:2px;display:flex;flex-direction:column;gap:8px}
+.cf-top{display:flex;align-items:center;gap:10px}
+.cf-tag{font:500 9.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);padding:2px 6px;border-radius:2px}
+.chk-fixbox p{margin:0;font:12px/1.45 var(--font);color:var(--muted)}

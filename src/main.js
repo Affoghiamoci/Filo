@@ -13,7 +13,7 @@ import { revolutionProfile, shellProfile, revolve } from './revolve.js';
 import { sectionProfile, sectionSolid } from './section.js';
 import { buildTopo, triangulateTopo, soupVolume, moveFace, extrudeFace, topoFaceFor, filletEdge, filletEdges, sweepFillets, topoEdgeFor, edgeRoom } from './topo.js';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
-import { initManifold, manifoldEvaluate, manifoldCombine, manifoldStretch, manifoldHalf, manifoldMod, simplifyGeo, geoIsClosed } from './mcsg.js';
+import { initManifold, manifoldEvaluate, manifoldCombine, manifoldStretch, manifoldHalf, manifoldMod, simplifyGeo, geoIsClosed, toManifold, depinch } from './mcsg.js';
 import { ConvexHull } from 'three/addons/math/ConvexHull.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
@@ -982,7 +982,7 @@ function describeChange(prev, cur) {
   if (!prev) return 'Inizio';
   const P = new Map(prev.list.map(d => [d.id, d])), C = new Map(cur.list.map(d => [d.id, d]));
   const added = cur.list.filter(d => !P.has(d.id)), removed = prev.list.filter(d => !C.has(d.id));
-  if (added.length && removed.length) return opHint === 'Stampo' ? 'Stampo ricavato' : removed.length > 1 ? `${opHint || 'Combinati'} ${removed.length} oggetti` : 'Lato modificato';
+  if (added.length && removed.length) return opHint === 'Stampo' ? 'Stampo ricavato' : opHint === 'Riparato' ? (removed.length > 1 ? `Riparati ${removed.length} pezzi` : 'Riparato') : removed.length > 1 ? `${opHint || 'Combinati'} ${removed.length} oggetti` : 'Lato modificato';
   if (added.length) return added.length === 1 ? `Aggiunto: ${added[0].name}` : `Aggiunti ${added.length} oggetti`;
   if (removed.length) return removed.length === 1 ? `Eliminato: ${removed[0].name}` : `Eliminati ${removed.length} oggetti`;
   const near = (a, b) => a.length === b.length && a.every((v, i) => Math.abs(v - b[i]) < 1e-6);
@@ -1080,17 +1080,23 @@ const evaluator = {
 };
 
 // ripara le "crepe" lasciate dalla CSG: vertici che cadono in mezzo a un lato vicino (giunzioni a T) vengono collegati ai triangoli accanto
-function weldPoints(src, tol) {                                              // unisce i punti più vicini di tol (controlla anche le celle accanto, senza spigoli di griglia)
-  const n = src.length / 3, ids = new Int32Array(n), P = [], grid = new Map(), c = v => Math.floor(v / tol);
+function weldPoints(src, tol) {                                              // unisce i punti più vicini di tol: a catena (A vicino a B e B vicino a C unisce tutti e tre), così nessuno spigolo resta scoperto
+  const n = src.length / 3, grid = new Map(), c = v => Math.floor(v / tol), par = new Int32Array(n);
+  for (let i = 0; i < n; i++) par[i] = i;
+  const find = i => { while (par[i] !== i) { par[i] = par[par[i]]; i = par[i]; } return i; };
   for (let i = 0; i < n; i++) {
     const x = src[i * 3], y = src[i * 3 + 1], z = src[i * 3 + 2], cx = c(x), cy = c(y), cz = c(z);
-    let found = -1;
-    for (let dx = -1; dx <= 1 && found < 0; dx++) for (let dy = -1; dy <= 1 && found < 0; dy++) for (let dz = -1; dz <= 1 && found < 0; dz++) {
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) {
       const l = grid.get((cx + dx) + ',' + (cy + dy) + ',' + (cz + dz));
-      if (l) for (const v of l) if (Math.abs(P[v * 3] - x) < tol && Math.abs(P[v * 3 + 1] - y) < tol && Math.abs(P[v * 3 + 2] - z) < tol) { found = v; break; }
+      if (l) for (const v of l) if (Math.abs(src[v * 3] - x) < tol && Math.abs(src[v * 3 + 1] - y) < tol && Math.abs(src[v * 3 + 2] - z) < tol) { const ra = find(v), rb = find(i); if (ra !== rb) par[rb] = ra; }
     }
-    if (found < 0) { found = P.length / 3; P.push(x, y, z); const k = cx + ',' + cy + ',' + cz; (grid.get(k) || grid.set(k, []).get(k)).push(found); }
-    ids[i] = found;
+    const k = cx + ',' + cy + ',' + cz; (grid.get(k) || grid.set(k, []).get(k)).push(i);
+  }
+  const ids = new Int32Array(n), P = [], root = new Map();
+  for (let i = 0; i < n; i++) {
+    const r = find(i); let id = root.get(r);
+    if (id === undefined) { id = P.length / 3; root.set(r, id); P.push(src[r * 3], src[r * 3 + 1], src[r * 3 + 2]); }
+    ids[i] = id;
   }
   return { P: Float32Array.from(P), ids };
 }
@@ -1117,6 +1123,35 @@ function openEdgeCount(g) {                                                    /
   const { ids } = weldPoints(g.attributes.position.array, 1e-3), tris = triList(g, ids), key = (a, b) => a < b ? a * 4294967296 + b : b * 4294967296 + a, use = new Map();
   for (let t = 0; t < tris.length; t += 3) for (let k = 0; k < 3; k++) { const e = key(tris[t + k], tris[t + (k + 1) % 3]); use.set(e, (use.get(e) || 0) + 1); }
   let c = 0; for (const u of use.values()) if (u === 1) c++; return c;
+}
+function geoVolume(g) {                                                      // volume con segno (mm³) dalla somma dei tetraedri
+  const P = g.attributes.position, I = g.index, n = I ? I.count : P.count; let v = 0;
+  for (let t = 0; t < n; t += 3) {
+    const a = I ? I.getX(t) : t, b = I ? I.getX(t + 1) : t + 1, c = I ? I.getX(t + 2) : t + 2;
+    const ax = P.getX(a), ay = P.getY(a), az = P.getZ(a), bx = P.getX(b), by = P.getY(b), bz = P.getZ(b), cx = P.getX(c), cy = P.getY(c), cz = P.getZ(c);
+    v += (ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx)) / 6;
+  }
+  return v;
+}
+/* Riparazione sperimentale di un pezzo non chiuso: salda i vertici vicini a catena con tolleranze via via più larghe (fino a 0,1 mm), collega le giunzioni a T e controlla con Manifold
+   che il risultato sia chiuso e di volume quasi uguale (entro l'1 %). Restituisce { geo, tol, before, after, closed } oppure null se non migliora. Non tocca mai l'originale. */
+function repairSolid(g) {
+  const nT = (g.index ? g.index.count : g.attributes.position.count) / 3;
+  if (nT > 400000) return null;
+  const before = openEdgeCount(g), v0 = Math.abs(geoVolume(g));
+  if (!before) return null;
+  let best = null;
+  for (const tol of [1e-3, 3e-3, 1e-2, 3e-2, 1e-1]) {
+    const { P, ids } = weldPoints(g.attributes.position.array, tol), tris = triList(g, ids), fixed = fixTJunctions(P, tris);
+    const out = new Float32Array(fixed.length * 3);
+    for (let i = 0; i < fixed.length; i++) { out[i * 3] = P[fixed[i] * 3]; out[i * 3 + 1] = P[fixed[i] * 3 + 1]; out[i * 3 + 2] = P[fixed[i] * 3 + 2]; }
+    const h = geometryFromPositions(out), open = openEdgeCount(h), v1 = Math.abs(geoVolume(h));
+    if (v0 > 0 && Math.abs(v1 - v0) > 0.01 * v0) { h.dispose(); continue; }              // la saldatura ha mangiato troppa forma: scarta
+    const closed = open === 0 && !!geoIsClosed(h);
+    if (closed) { if (best) best.geo.dispose(); return { geo: h, tol, before, after: 0, closed: true }; }
+    if (open < before && (!best || open < best.after)) { if (best) best.geo.dispose(); best = { geo: h, tol, before, after: open, closed: false }; } else h.dispose();
+  }
+  return best;
 }
 /* difetti di chiusura: lati senza il "gemello" opposto o usati più di una volta (0 = la mesh è chiusa, coordinate identiche tra triangoli vicini) */
 function edgeDefects(I) {
@@ -1197,11 +1232,52 @@ const nextPaint = () => new Promise(r => requestAnimationFrame(() => setTimeout(
 let busyN = 0;
 async function busyRun(label, fn) {                    // mostra la barra di lavoro, la fa dipingere, poi esegue il calcolo pesante
   const el = $('#busy'); $('#busy .b-t').textContent = tr(label); el.classList.remove('hidden'); busyN++;
+  $('#toast').classList.remove('show');
   await nextPaint(); await nextPaint();
-  try { return await fn(); } finally { if (--busyN <= 0) { busyN = 0; el.classList.add('hidden'); } }
+  try { return await fn(); } finally { if (--busyN <= 0) { busyN = 0; el.classList.add('hidden'); if (toastWait) { const [m, ms] = toastWait; toastWait = null; toastAfter(m, ms); } } }
 }
 const trisOf = list => list.reduce((a, m) => a + triCount(m.geometry), 0);
+/* Pezzi non chiusi: prima di Combina si avvisa e si propone la riparazione sperimentale (anche da Controlla stampa) */
+const unclosedOf = list => list.filter(m => { try { return triCount(m.geometry) <= 400000 && openEdgeCount(m.geometry) > 0; } catch (e) { return false; } });
+function askUnclosed(names, canSkip) {
+  return new Promise(res => {
+    const d = $('#dlg-open'); let done = false;
+    const fin = v => { if (done) return; done = true; if (d.open) d.close(); res(v); };
+    $('#open-d').innerHTML = `<b>${names.map(esc).join(', ')}</b>: ${tr(names.length === 1 ? 'ha crepe o facce sovrapposte.' : 'hanno crepe o facce sovrapposte.')} ${tr(canSkip ? 'Combinare pezzi non chiusi può dare risultati sbagliati.' : 'Lo slicer potrebbe sbagliare.')}`;
+    $('#open-skip').classList.toggle('hidden', !canSkip);
+    $('#open-fix').onclick = () => fin('fix'); $('#open-skip').onclick = () => fin('skip'); $('#open-cancel').onclick = () => fin('cancel');
+    d.addEventListener('cancel', () => fin('cancel'), { once: true });
+    d.showModal();
+  });
+}
+function repairMeshes(list) {                        // riparazione sperimentale: sostituisce ogni pezzo con la versione saldata (l'originale resta nella Cronologia)
+  const pieces = [], res = { fixed: 0, partial: 0, failed: 0 };
+  for (const m of list) {
+    m.updateMatrixWorld(true);
+    const r = repairSolid(m.geometry);
+    const baked = r && bakeResult({ updateMatrixWorld() {}, matrixWorld: m.matrixWorld, geometry: r.geo }, m.userData.name);
+    if (r) r.geo.dispose();
+    if (!baked) { res.failed++; pieces.push(m); continue; }
+    replaceWithMerged(m, baked, true); pieces.push(...lastPieces);
+    if (r.closed) res.fixed++; else res.partial++;
+  }
+  return { pieces, ...res };
+}
+function repairToast(r) {
+  toast(r.failed && !r.fixed && !r.partial ? tr('Non sono riuscito a ripararlo: rifai l\'ultima operazione o ricostruisci il pezzo')
+    : r.partial || r.failed ? `${tr('Riparato in parte: restano alcune crepe')} (${r.fixed} ${tr('chiusi')}, ${r.partial + r.failed} ${tr('ancora aperti')})`
+    : tr(r.fixed === 1 ? 'Pezzo riparato e chiuso' : 'Pezzi riparati e chiusi'));
+}
 async function combine(mode = 'union') {
+  const bad = unclosedOf(selection);
+  if (bad.length) {
+    const c = await askUnclosed(bad.map(m => m.userData.name), true);
+    if (c === 'cancel') return;
+    if (c === 'fix') {
+      const keep = selection.filter(m => !bad.includes(m)), r = await busyRun('Riparo i pezzi…', () => repairMeshes(bad));
+      setSelection([...keep, ...r.pieces]); repairToast(r);
+    }
+  }
   const heavy = selection.length > 12 || trisOf(selection) > 20000;
   const run = () => combineNow(mode);
   return heavy ? busyRun(mode === 'intersect' ? 'Interseco gli oggetti…' : 'Combino gli oggetti…', run) : run();
@@ -3555,8 +3631,11 @@ function logMsg(msg, err = false) {
   msgLog.push({ at: Date.now(), msg, err }); if (msgLog.length > 300) msgLog.shift();
   try { scheduleHistory(); } catch (e) {}                              // all'avvio la Cronologia non c'è ancora
 }
+function toastAfter(msg, ms) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms); }
+let toastWait = null;                                 // un messaggio che arriva mentre la barra di lavoro è visibile aspetta che sparisca, così non si sovrappongono
 function toast(msg, ms = 2400) {
   logMsg(msg);
+  if (busyN > 0) { toastWait = [msg, ms]; return; }
   const t = $('#toast');
   t.textContent = msg;
   t.classList.add('show');
@@ -6048,7 +6127,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '1.3.2';
+const APP_VERSION = '1.3.4';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
@@ -6487,40 +6566,19 @@ function cfgNum(key) {                              // valore numerico dal 3MF d
   try { const d = JSON.parse(printCfg.cfg), v = Array.isArray(d[key]) ? d[key][0] : d[key]; const n = parseFloat(v); return isFinite(n) ? n : null; } catch (e) { return null; }
 }
 try { const s = parseFloat(localStorage.getItem('filo.nozzle')); if (NOZZLES[s]) NZ.v = s; else if (printCfg && NOZZLES[cfgNum('nozzle_diameter')]) NZ.v = cfgNum('nozzle_diameter'); } catch (e) {}
-function nzRec(v = NZ.v) {
-  const N = nozzleOf(v), a = N.layers[0], b = N.layers[N.layers.length - 1];
-  return [
-    ['Strato', `${a.toFixed(2).replace('.', ',')}–${b.toFixed(2).replace('.', ',')} mm · ${tr('ideale')} ${N.best.toFixed(2).replace('.', ',')}`],
-    ['Larghezza linea', `${N.lw.toFixed(2).replace('.', ',')} mm`],
-    ['Pareti', `${N.walls} (${nzF(N.walls * N.lw)} mm)`],
-    ['Gusci', `${tr('sopra')} ${N.top} · ${tr('sotto')} ${N.bottom}`],
-    ['Riempimento', `${N.infill} %`],
-    ['Dettaglio minimo', `${N.lw.toFixed(2).replace('.', ',')} mm`]
-  ];
-}
 function syncNozzleUI() {
   const v = NZ.v, N = nozzleOf(v);
-  for (const id of ['#chk-nz', '#exp-nzs']) { const g = $(id); g.dataset.v = String(v); g.querySelectorAll('button').forEach(b => b.classList.toggle('on', +b.dataset.v === v)); }
+  for (const id of ['#chk-nz']) { const g = $(id); g.dataset.v = String(v); g.querySelectorAll('button').forEach(b => b.classList.toggle('on', +b.dataset.v === v)); }
   const lh = $('#chk-lh');
   lh.innerHTML = N.layers.map(x => `<button type="button" data-v="${x}"${x === N.best ? ' class="on"' : ''}>${(x).toFixed(2).replace('.', ',')}</button>`).join(''); lh.dataset.v = String(N.best);
   const mw = $('#chk-mw'), ws = [1, 2, 3].map(k => +(v * k).toFixed(2)); mw.innerHTML = ws.map((x, i) => `<button type="button" data-v="${x}"${i === 1 ? ' class="on"' : ''}>${nzF(x)}</button>`).join(''); mw.dataset.v = String(ws[1]);
-  $('#exp-nz-d').innerHTML = nzRec(v).map(([k, x]) => `<dt>${tr(k)}</dt><dd>${x}</dd>`).join('');
-  const have = printCfg ? cfgNum('nozzle_diameter') : null;
-  $('#exp-nz-n').textContent = have && Math.abs(have - v) > 0.001
-    ? `${tr('Il 3MF importato usa un ugello da')} ${nzF(have)} mm: ${tr('le sue impostazioni restano com\'erano.')} ${tr('Questi sono solo consigli.')}`
-    : tr('Sono consigli per il PLA: Filo non cambia le impostazioni dentro il file, le imposti tu nello slicer.');
 }
 function setNozzle(v) {
   if (!NOZZLES[v] || v === NZ.v) return;
   NZ.v = v; try { localStorage.setItem('filo.nozzle', String(v)); } catch (e) {}
   syncNozzleUI(); if (dlgChk.open) chkRun();
 }
-for (const id of ['#chk-nz', '#exp-nzs']) $(id).addEventListener('click', e => { const b = e.target.closest('button'); if (b) setNozzle(+b.dataset.v); });
-$('#exp-nz-copy').addEventListener('click', async () => {
-  const txt = `${tr('Ugello')} ${nzF(NZ.v)} mm (PLA)\n` + nzRec().map(([k, x]) => `${tr(k)}: ${x}`).join('\n');
-  try { await navigator.clipboard.writeText(txt); toast(tr('Impostazioni copiate')); } catch (e) { toast(tr('Non riesco a copiare: selezionale a mano')); }
-});
-$('#exp-nz-chk').addEventListener('click', () => { dlgExp.close(); openCheck(); });
+for (const id of ['#chk-nz']) $(id).addEventListener('click', e => { const b = e.target.closest('button'); if (b) setNozzle(+b.dataset.v); });
 
 /* ---------------------------------------------------------- controlla stampa */
 const chk = { R: null, ov: null, plane: null, timer: 0, busy: false, again: false };
@@ -6552,8 +6610,17 @@ function chkShow() {
   const R = chk.R, L = $('#chk-list'); L.innerHTML = '';
   const row = (cls, title, text) => { const li = document.createElement('li'); li.className = cls; li.innerHTML = `<i></i><div><b>${tr(title)}</b><span>${text}</span></div>`; L.appendChild(li); };
   const bad = R.open.length;
-  if (bad) row('b', 'Solido non chiuso', `${R.open.map(esc).join(', ')}: ${tr('ha crepe o facce sovrapposte, lo slicer potrebbe sbagliare. Rifai l\'ultima operazione o ricostruisci il pezzo.')}`);
-  else row('', 'Solido chiuso', tr('Nessuna crepa: lo slicer lo legge come un oggetto pieno.'));
+  if (bad) {
+    row('b', 'Solido non chiuso', `${R.open.map(esc).join(', ')}: ${tr('ha crepe o facce sovrapposte, lo slicer potrebbe sbagliare.')}`);
+    const box = document.createElement('div'); box.className = 'chk-fixbox';
+    box.innerHTML = `<div class="cf-top"><button type="button" class="btn primary" id="chk-fix">${tr('Ripara')}</button><i class="cf-tag">${tr('Sperimentale')}</i></div><p>${tr('Salda i punti vicini e chiude le crepe piccole. Controlla il risultato, ⌘Z annulla. Se non basta, rifai l\'ultima operazione o ricostruisci il pezzo.')}</p>`;
+    L.lastChild.querySelector('div').appendChild(box);
+    $('#chk-fix').addEventListener('click', async () => {
+      const list = unclosedOf(objects.filter(o => !o.userData.hole)); if (!list.length) return chkRun();
+      const r = await busyRun('Riparo i pezzi…', () => repairMeshes(list));
+      setSelection(r.pieces); touch(); opHint = 'Riparato'; try { commit(); } finally { opHint = null; } repairToast(r); chkRun();
+    });
+  } else row('', 'Solido chiuso', tr('Nessuna crepa: lo slicer lo legge come un oggetto pieno.'));
   if (R.U) {
     if (R.floating.length) row('b', 'Pezzo sospeso', `${R.floating.length} ${tr(R.floating.length === 1 ? 'parte non tocca il piatto' : 'parti non toccano il piatto')} (${tr('più in basso')}: ${R.floating[0].z.toFixed(1).replace('.', ',')} mm). ${tr('Senza supporti non si stampa.')}`);
     else row('', R.parts > 1 ? 'Parti separate ma tutte sul piatto' : 'Poggia sul piatto', `${tr('Base a contatto')}: ${Math.round(R.first)} mm².`);
@@ -6786,7 +6853,7 @@ $('#ew-resume').addEventListener('click', async e => {
 });
 offerResume(); rsOn = true;
 
-window.forma = { cutCandidates, cutMagnet, ringAtPoint, get __touch() { return { n: tPts.size, pinch: !!pinch, drag: drag && drag.mode }; }, MOB, applyMob, get __selMeshScale() { return selMeshes[0] ? selMeshes[0].scale.x : null; }, get __scalePrev() { return !!scalePrev; }, get msgLog() { return msgLog; }, expandSelection, get __revPrev() { return !!revPrev; }, get __revPrevMesh() { return revPrev && revPrev.mesh; }, revolutionProfile, applyRev, get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
+window.forma = { toManifold, depinch, repairSolid, geoVolume, cutCandidates, cutMagnet, ringAtPoint, get __touch() { return { n: tPts.size, pinch: !!pinch, drag: drag && drag.mode }; }, MOB, applyMob, get __selMeshScale() { return selMeshes[0] ? selMeshes[0].scale.x : null; }, get __scalePrev() { return !!scalePrev; }, get msgLog() { return msgLog; }, expandSelection, get __revPrev() { return !!revPrev; }, get __revPrevMesh() { return revPrev && revPrev.mesh; }, revolutionProfile, applyRev, get facePrev() { return facePrev; }, buildTopo, triangulateTopo, soupVolume, topo: o => buildTopo(worldPositions(o)), worldPositions, applyFaceScale, get repeatPreviewCount() { return repPrevG ? repPrevG.children.length : 0; }, get faceCrossSegs() { return crossData ? crossLines[1].geometry.attributes.instanceStart.count : 0; }, restoreLast, saveLast, offerResume, openCheck, chk, MM: manifoldMod, evaluator, Brush, buildGeometry, combineBrushes, bakeResult, THREE, M, moveInfo, moveEdgeBy, startEdgeMove, moveEdgeMove, endEdgeMove, moveHandle, stretchNow, openEdgeCount, planeCut, CUT, ensureSnap, snapFaces, separateSelection, getPrintCfg: () => printCfg, applyEdgeScale, updateEdgeHandle, edgeHandle, edgeSel: () => edgeSel, selectEdgeAt, applyEdges, edgeMode, edgeAnalysis, chainOf, cutter, nearestEdge, askExport, importFiles, parse3MF, computeFace, applyPush, selectFaceFromHit, get faceSel() { return faceSel; }, get faceSet() { return faceSet; }, setTool, setSnap, objects, state, cam, createObject, combine, intersect, mold, openCtx, layOnPlate, setSelection, exportSTL, alignSelection, buildBoxModel, undo, redo, setDims, worldBox, sizeOf, get selection() { return selection; }, get keyObj() { return keyObj; }, set keyObj(v) { keyObj = v; }, HANDLES, camera, canvas, fitView, export3MF, build3MF, rotateSelection, setEulerDeg, startRot, groupSelection, ungroupSelection, updateFaceHandle, prismPush, replaceWithMerged, setBed, get bed() { return [BEDX, BEDY]; }, duplicateSelection, toggleHole, repeatSelection };
 
 
 /* ------------------------------------------------------------------ livelli */

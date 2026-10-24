@@ -27,7 +27,7 @@ with sync_playwright() as p:
     pg.evaluate("forma.setSelection([])")
     x,y=screen(pg,0);pg.mouse.click(x,y,button='right');pg.wait_for_timeout(250)
     check('sotto il clic si seleziona',pg.evaluate("forma.selection.length")==1 and pg.evaluate("forma.selection[0]===forma.objects[0]"))
-    check('oggetto singolo',menu(pg)==['Duplica','Copia','Trasforma in foro','Appoggia sul piatto','Blocca','Nascondi','Elimina'])
+    check('oggetto singolo',menu(pg)==['Duplica','Copia','Trasforma in foro','Espandi','Appoggia sul piatto','Blocca','Nascondi','Elimina'])
     pg.screenshot(path='/tmp/ctx_one.png',clip={'x':max(0,x-100),'y':max(0,y-100),'width':420,'height':380})
     # appoggia a terra
     pg.locator('#ctx button',has_text='Appoggia').click();pg.wait_for_timeout(200)

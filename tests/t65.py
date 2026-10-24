@@ -1,3 +1,4 @@
+NPAG=30
 # Guida: tutte le pagine IT/EN si aprono, nessun segnaposto rimasto, nessuna immagine rotta, gruppo File presente
 from playwright.sync_api import sync_playwright
 ok=True
@@ -12,7 +13,7 @@ with sync_playwright() as p:
         pg.goto('file:///tmp/forma/dist/forma.html');pg.wait_for_function("window.forma");pg.wait_for_timeout(700)
         pg.keyboard.press('?');pg.wait_for_timeout(400)
         n=pg.evaluate("document.querySelectorAll('#hp-nav button[data-id]').length")
-        check(lang+': 29 pagine',n==29)
+        check(lang+': %d pagine'%n,n==NPAG)
         bad=[]
         for i in range(n):
             pg.evaluate(f"document.querySelectorAll('#hp-nav button[data-id]')[{i}].click()");pg.wait_for_function("[...document.querySelectorAll('#hp-main img')].every(i=>i.complete)",timeout=3000)
