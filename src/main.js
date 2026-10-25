@@ -9,6 +9,7 @@ import { mergeVertices, mergeGeometries, toCreasedNormals } from 'three/addons/u
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { unzipSync, zipSync, strToU8 } from 'three/addons/libs/fflate.module.js';
 import { Brush, Evaluator, ADDITION, SUBTRACTION, INTERSECTION } from 'three-bvh-csg';
+import { mergeVerticesFast } from './fastgeo.js';
 import { revolutionProfile, shellProfile, revolve } from './revolve.js';
 import { sectionProfile, sectionSolid } from './section.js';
 import { buildTopo, seamTester, triangulateTopo, soupVolume, moveFace, extrudeFace, insetFace, topoFaceFor, filletEdge, filletEdges, sweepFillets, topoEdgeFor, edgeRoom } from './topo.js';
@@ -1151,10 +1152,10 @@ function weldPoints(src, tol) {                                              // 
   for (let i = 0; i < n; i++) {
     const x = src[i * 3], y = src[i * 3 + 1], z = src[i * 3 + 2], cx = c(x), cy = c(y), cz = c(z);
     for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) {
-      const l = grid.get((cx + dx) + ',' + (cy + dy) + ',' + (cz + dz));
+      const l = grid.get(Math.imul(cx + dx, 73856093) ^ Math.imul(cy + dy, 19349663) ^ Math.imul(cz + dz, 83492791));
       if (l) for (const v of l) if (Math.abs(src[v * 3] - x) < tol && Math.abs(src[v * 3 + 1] - y) < tol && Math.abs(src[v * 3 + 2] - z) < tol) { const ra = find(v), rb = find(i); if (ra !== rb) par[rb] = ra; }
     }
-    const k = cx + ',' + cy + ',' + cz; (grid.get(k) || grid.set(k, []).get(k)).push(i);
+    const k = Math.imul(cx, 73856093) ^ Math.imul(cy, 19349663) ^ Math.imul(cz, 83492791); (grid.get(k) || grid.set(k, []).get(k)).push(i);
   }
   const ids = new Int32Array(n), P = [], root = new Map();
   for (let i = 0; i < n; i++) {
@@ -1224,9 +1225,26 @@ function edgeDefects(I) {
   for (const [key, c] of use) { const a = Math.floor(key / 4294967296), b = key - a * 4294967296; if (c > 1 || use.get(b * 4294967296 + a) !== c) bad++; }
   return bad;
 }
+// numero identico per vertici con la stessa posizione esatta (confronto sui bit, chiave numerica)
+function exactVertexIds(p) {
+  const n = p.count, ids = new Int32Array(n), grid = new Map(), arr = p.array, ok = arr instanceof Float32Array && p.itemSize === 3 && !p.isInterleavedBufferAttribute;
+  const X = ok ? arr : null, f32 = new Float32Array(1), u32 = new Uint32Array(f32.buffer);
+  const bits = v => { f32[0] = v === 0 ? 0 : v; return u32[0]; };
+  const px = new Uint32Array(n * 3);
+  for (let i = 0; i < n; i++) { px[i * 3] = bits(ok ? X[i * 3] : p.getX(i)); px[i * 3 + 1] = bits(ok ? X[i * 3 + 1] : p.getY(i)); px[i * 3 + 2] = bits(ok ? X[i * 3 + 2] : p.getZ(i)); }
+  let next = 0;
+  for (let i = 0; i < n; i++) {
+    const a = px[i * 3], b = px[i * 3 + 1], c = px[i * 3 + 2], h = Math.imul(a, 73856093) ^ Math.imul(b, 19349663) ^ Math.imul(c, 83492791);
+    let l = grid.get(h), id = -1;
+    if (l) for (const j of l) if (px[j * 3] === a && px[j * 3 + 1] === b && px[j * 3 + 2] === c) { id = ids[j]; break; }
+    if (id < 0) { id = next++; if (l) l.push(i); else grid.set(h, [i]); }
+    ids[i] = id;
+  }
+  return ids;
+}
 function geoDefects(g) {
-  const p = g.attributes.position, idx = g.index, n = idx ? idx.count : p.count, map = new Map(), I = new Uint32Array(n);
-  for (let i = 0; i < n; i++) { const j = idx ? idx.getX(i) : i, k = p.getX(j) + ',' + p.getY(j) + ',' + p.getZ(j); let id = map.get(k); if (id === undefined) { id = map.size; map.set(k, id); } I[i] = id; }
+  const p = g.attributes.position, idx = g.index, n = idx ? idx.count : p.count, vid = exactVertexIds(p), I = new Uint32Array(n);
+  for (let i = 0; i < n; i++) I[i] = vid[idx ? idx.getX(i) : i];
   return edgeDefects(I);
 }
 function bakeResult(res, name, noSimplify = false) {
@@ -2795,7 +2813,7 @@ function exportSTL(nameArg) {
   list.forEach(m => {                                  // come il 3MF: vertici uniti e giunzioni a T riparate, così non restano crepe
     m.updateMatrixWorld(true);
     let h = m.geometry.clone(); h.deleteAttribute('normal'); h.deleteAttribute('uv');
-    h = mergeVertices(h, 1e-4);
+    h = mergeVerticesFast(h, 1e-4);
     const pos = h.attributes.position, idx = h.index, W = new Float32Array(pos.count * 3);
     for (let k = 0; k < pos.count; k++) { v.fromBufferAttribute(pos, k).applyMatrix4(m.matrixWorld); W.set([v.x, v.y, v.z], k * 3); }
     const R = repairForExport(W, idx ? Uint32Array.from(idx.array) : Uint32Array.from({ length: pos.count }, (_, k) => k));
@@ -2912,7 +2930,7 @@ function build3MF(list, opt = {}) {
     g.deleteAttribute('normal'); g.deleteAttribute('uv');
     const g0 = g;
     const prep = (tol, dig) => {                                                 // tol: saldatura dei vertici; dig: decimali delle coordinate
-      const gg = tol ? mergeVertices(g0.clone(), tol) : g0.clone();
+      const gg = tol ? mergeVerticesFast(g0, tol) : g0.clone();
       const pos = gg.attributes.position, idx = gg.index;
       const W = new Float32Array(pos.count * 3);
       for (let k = 0; k < pos.count; k++) { v.fromBufferAttribute(pos, k).applyMatrix4(m.matrixWorld); W.set([+(v.x + off[0]).toFixed(dig), +(v.y + off[1]).toFixed(dig), +v.z.toFixed(dig)], k * 3); }
@@ -5164,9 +5182,9 @@ TF.push.addEventListener('keydown', e => { if (e.key === 'Enter') applyPush(); }
 /* ------------------------------------------------------------ importa 3MF / STL */
 function geometryFromPositions(arr) {
   let g = new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(arr, 3));
-  g = mergeVertices(g, 1e-4);
+  g = mergeVerticesFast(g, 1e-4);
   g = toCreasedNormals(g, 30 * D2R);
-  return mergeVertices(clean(g), 1e-4);
+  return mergeVerticesFast(clean(g), 1e-4);
 }
 // legge vertici e triangoli di una <mesh> dal testo: percorso veloce con gli attributi nell'ordine abituale, altrimenti lettura generica
 function readMeshXml(xml) {
@@ -6298,7 +6316,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '1.4.1';
+const APP_VERSION = '1.4.2';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
@@ -6882,7 +6900,7 @@ const idbGet = k => idb().then(db => new Promise((res, rej) => { const q = db.tr
 const idbSet = (k, v) => idb().then(db => new Promise((res, rej) => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').put(v, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }));
 const idbDel = k => idb().then(db => new Promise(res => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }));
 let saveTimer = 0;
-function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveLast, 1500); }
+function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(() => { if (window.requestIdleCallback) requestIdleCallback(() => saveLast(), { timeout: 4000 }); else saveLast(); }, 1500); }   // nei momenti di calma, così non ferma il lavoro
 /* Fino a 5 lavori nel browser. Ogni sessione aggiorna sempre la sua voce (histId), senza creare doppioni; oltre i 5 lavori o oltre il
    limite di spazio (HIST_BYTES) spariscono i più vecchi. Il vecchio salvataggio unico ('last') viene letto una volta e poi sostituito. */
 const HIST_MAX = 5, HIST_BYTES = 100e6;
@@ -6945,13 +6963,18 @@ function snapThumb() {
     mats.forEach(styleObject); dirty = true;
   }
 }
+const savedGeo = new WeakMap();
 async function saveLast() {
   if (!objects.length) return;                                       // un'area vuota non cancella l'ultimo lavoro
   const thumb = snapThumb();
   try {
     const list = objects.map(m => {
       const d = entryOf(m); d.hidden = !!m.userData.hidden; d.locked = !!m.userData.locked;
-      if (d.kind === 'merged' && d.geo) { const g = d.geo; d.geo = { pos: g.attributes.position.array.slice(), nor: g.attributes.normal ? g.attributes.normal.array.slice() : null, idx: g.index ? g.index.array.slice() : null }; }
+      if (d.kind === 'merged' && d.geo) {                                     // la copia di una geometria già salvata e non cambiata si riusa (il salvataggio automatico non ricopia tutta la scena)
+        const g = d.geo, ver = g.attributes.position.version + ':' + (g.attributes.normal ? g.attributes.normal.version : 0) + ':' + g.attributes.position.count + ':' + (g.index ? g.index.count : 0);
+        let c = savedGeo.get(g); if (!c || c.ver !== ver) { c = { ver, d: { pos: g.attributes.position.array.slice(), nor: g.attributes.normal ? g.attributes.normal.array.slice() : null, idx: g.index ? g.index.array.slice() : null } }; savedGeo.set(g, c); }
+        d.geo = c.d;
+      }
       return d;
     });
     if (!histId) histId = Date.now();

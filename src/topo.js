@@ -9,6 +9,8 @@ const PLANE_TOL = 1e-3;              // ...e il piano è lo stesso (mm)
 const SMOOTH_COS = Math.cos(30 * Math.PI / 180);   // facce con meno di 30° tra loro: stessa superficie liscia
 
 // saldatura: punti più vicini di tol diventano lo stesso vertice (griglia con controllo delle celle vicine)
+// chiave numerica di cella (le collisioni sono innocue: ogni candidato viene poi controllato per distanza)
+const cellKey = (x, y, z) => (Math.imul(x, 73856093) ^ Math.imul(y, 19349663) ^ Math.imul(z, 83492791)) | 0;
 function weld(P, tol) {
   const n = P.length / 3, ids = new Int32Array(n), grid = new Map(), out = [];
   const inv = 1 / tol, t2 = tol * tol;
@@ -17,13 +19,13 @@ function weld(P, tol) {
     const gx = Math.round(x * inv), gy = Math.round(y * inv), gz = Math.round(z * inv);
     let found = -1;
     for (let dx = -1; dx <= 1 && found < 0; dx++) for (let dy = -1; dy <= 1 && found < 0; dy++) for (let dz = -1; dz <= 1 && found < 0; dz++) {
-      const cell = grid.get((gx + dx) + ',' + (gy + dy) + ',' + (gz + dz));
+      const cell = grid.get(cellKey(gx + dx, gy + dy, gz + dz));
       if (!cell) continue;
       for (const v of cell) { const ex = out[v * 3] - x, ey = out[v * 3 + 1] - y, ez = out[v * 3 + 2] - z; if (ex * ex + ey * ey + ez * ez <= t2) { found = v; break; } }
     }
     if (found < 0) {
       found = out.length / 3; out.push(x, y, z);
-      const k = gx + ',' + gy + ',' + gz; const c = grid.get(k); if (c) c.push(found); else grid.set(k, [found]);
+      const k = cellKey(gx, gy, gz); const c = grid.get(k); if (c) c.push(found); else grid.set(k, [found]);
     }
     ids[i] = found;
   }
