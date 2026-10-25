@@ -4398,6 +4398,29 @@ function prismPush(obj, faces, dist, taper = 1) {
   return bakeResult(acc, obj.userData.name);
 }
 // Sposta i vertici del lato lungo la sua normale: i lati attorno si allungano o si accorciano. Funziona su qualsiasi lato piatto.
+
+// dopo Estrudi o Lato il lato nuovo (la "cima") resta selezionato, così si può estrudere ancora di seguito
+function reselectCaps(caps) {
+  const meshes = [...new Set([...selection, ...lastPieces])].filter(m => objects.includes(m));
+  let first = true;
+  for (const cp of caps) {
+    let best = null, bd = 1e9;
+    for (const m of meshes) {
+      m.updateMatrixWorld(true);
+      const g = m.geometry, P = g.attributes.position, I = g.index, nT = (I ? I.count : P.count) / 3, mw = m.matrixWorld;
+      const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), nn = new THREE.Vector3(), ce = new THREE.Vector3();
+      for (let t = 0; t < nT; t++) {
+        const i0 = I ? I.getX(t * 3) : t * 3, i1 = I ? I.getX(t * 3 + 1) : t * 3 + 1, i2 = I ? I.getX(t * 3 + 2) : t * 3 + 2;
+        a.fromBufferAttribute(P, i0).applyMatrix4(mw); b.fromBufferAttribute(P, i1).applyMatrix4(mw); c.fromBufferAttribute(P, i2).applyMatrix4(mw);
+        nn.subVectors(b, a).cross(c.clone().sub(a)); const l = nn.length(); if (l < 1e-9) continue; nn.divideScalar(l);
+        if (nn.dot(cp.n) < 0.9999 || Math.abs(nn.dot(a) - cp.d) > 2e-3) continue;
+        ce.copy(a).add(b).add(c).divideScalar(3); const d = ce.distanceTo(cp.c);
+        if (d < bd) { bd = d; best = { m, t }; }
+      }
+    }
+    if (best) { selectFaceFromHit({ object: best.m, faceIndex: best.t }, !first); first = false; }
+  }
+}
 function applyPush(distArg) {
   const fs = faceSel, dist = typeof distArg === 'number' ? distArg : fieldNum(TF.push);
   if (!fs || !Number.isFinite(dist) || Math.abs(dist) < 1e-4) return;
@@ -4408,6 +4431,9 @@ function applyPush(distArg) {
     faceMode.taper = tp / 100;
   }
   const nFaces = faceSet.length, objs = [...new Set(faceSet.map(f => f.obj))], out = [];
+  // dove finirà ogni lato dopo la spinta: servirà per tenerlo selezionato (come in Blender, per estrudere di seguito)
+  const caps0 = faceSet.map(f => { const W = f.world, c = new THREE.Vector3(); let n = 0; for (let i = 0; i < W.length; i += 3) { c.x += W[i]; c.y += W[i + 1]; c.z += W[i + 2]; n++; } c.divideScalar(n || 1);
+    return { n: f.n.clone(), c: c.addScaledVector(f.n, dist), d: f.n.x * W[0] + f.n.y * W[1] + f.n.z * W[2] + dist }; });
   let fail = null, ext = false;
   for (const obj of objs) {
     const r = pushOne(obj, faceSet.filter(f => f.obj === obj), dist);
@@ -4419,6 +4445,7 @@ function applyPush(distArg) {
     clearFace(false);
     setSelection(withGroups(out));
     touch(); commit();
+    reselectCaps(caps0);
   }
   if (fail) return toast(fail);
   if (ext && faceMode.v === 'extrude') return toast(faceMode.taper !== 1 && dist > 0 ? `Lato estruso di ${fmt(dist)} mm, con la cima al ${fmt(faceMode.taper * 100)} %` : dist > 0 ? `${nFaces > 1 ? nFaces + ' lati' : 'Lato'} estruso di ${fmt(dist)} mm` : `Scavato di ${fmt(-dist)} mm con la sagoma del lato`);
@@ -6191,10 +6218,17 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '1.3.5';
+const APP_VERSION = '1.4.0';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
+{   // banner "AGGIORNAMENTO" della schermata iniziale: si può chiudere, e torna a ogni nuova versione
+  const upd = $('#upd'); $('#upd-v').textContent = APP_VERSION;
+  let seen = null; try { seen = localStorage.getItem('forma.upd'); } catch (e) {}
+  if (seen === APP_VERSION) upd.classList.add('hidden');
+  $('#upd-x').addEventListener('click', () => { upd.classList.add('hidden'); try { localStorage.setItem('forma.upd', APP_VERSION); } catch (e) {} });
+  $('#upd-go').addEventListener('click', () => infoDlg.showModal());
+}
 {
   const bw = $('#b-wheel'), sync = () => { bw.classList.toggle('on', state.wheelZoom); bw.setAttribute('aria-pressed', String(state.wheelZoom)); };
   bw.addEventListener('click', () => {

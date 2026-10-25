@@ -953,3 +953,18 @@ body.mob #layers .lfoot{display:none}
 .cf-top{display:flex;align-items:center;gap:10px}
 .cf-tag{font:500 9.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);padding:2px 6px;border-radius:2px}
 .chk-fixbox p{margin:0;font:12px/1.45 var(--font);color:var(--muted)}
+
+/* banner AGGIORNAMENTO della schermata iniziale: largo quanto i due blocchi */
+#empty-hint #ew-wrap{display:flex;flex-direction:column;align-items:stretch;gap:12px;max-width:100%}
+#empty-hint #ew-row{display:flex;flex-direction:row;flex-wrap:wrap;align-items:stretch;justify-content:center;gap:24px}
+#upd{pointer-events:auto;display:flex;align-items:stretch;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:2px;box-shadow:var(--shadow);text-align:left}
+#upd.hidden{display:none}
+#upd-go{flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:10px 14px;background:none;border:0;color:var(--text);font:500 12.5px var(--sans,inherit);cursor:pointer;text-align:left}
+#upd-go b{font:600 11px/1 var(--mono);letter-spacing:.14em;color:var(--accent);white-space:nowrap}
+#upd-go i{font:normal 11px/1 var(--mono);color:var(--muted);white-space:nowrap}
+#upd-go span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#upd-go:hover span{text-decoration:underline}
+#upd-x{flex:none;width:36px;background:none;border:0;border-left:1px dotted var(--line);color:var(--muted);font:400 18px/1 var(--mono);cursor:pointer}
+#upd-x:hover{color:var(--text);background:var(--hover)}
+@media (max-width:760px){#upd-go span{white-space:normal}}
+#topbar #b-kofi{text-decoration:none;color:var(--text);display:inline-flex;align-items:center}

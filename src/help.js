@@ -135,7 +135,8 @@ export const HELP = {
       <ul><li>${K('⇧')} + clic aggiunge altri lati.</li><li>Un lato a filo con altri dello stesso gruppo si muove insieme.</li><li>Sui cilindri il lato curvo è un pezzo unico.</li></ul>
       <h3>Allunga o estrudi</h3>
       <p>Nel pannello <b>Modo</b> scegli cosa succede: <i>Allunga</i> allunga il pezzo da quella parte seguendo le sue linee (i lati vicini proseguono con la loro inclinazione; se convergono, oltre una certa misura il lato sparirebbe e Filo ti dice il massimo); <i>Estrudi</i> fa uscire dal lato un blocco dritto con la stessa sagoma (con un valore negativo scava) e i lati vicini restano com'erano. Sulla faccia di un cubo i due danno lo stesso risultato; su un esagono o su un tronco di piramide no.</p>
-      <p>Con <i>Estrudi</i> compare anche <b>Cima</b>: 100 è un prisma dritto, 50 restringe la cima a metà mentre sale, 150 la allarga. Così da un cubo escono pomelli e ganci in un solo passaggio. <b>Scala il lato</b> ridimensiona il contorno del lato scelto e inclina i lati vicini: mentre scrivi la percentuale vedi già il pezzo come sarà.</p>` },
+      <p>Con <i>Estrudi</i> compare anche <b>Cima</b>: 100 è un prisma dritto, 50 restringe la cima a metà mentre sale, 150 la allarga. Così da un cubo escono pomelli e ganci in un solo passaggio. <b>Scala il lato</b> ridimensiona il contorno del lato scelto e inclina i lati vicini: mentre scrivi la percentuale vedi già il pezzo come sarà.</p>
+      <p>Dopo Estrudi o Allunga <b>il lato nuovo resta selezionato</b>: scrivi un'altra misura e premi Invio per estrudere ancora di seguito, anche con valori negativi per rientrare.</p>` },
     { id: 'edge', g: 'model', t: 'Spigolo', h: `
       <p>${K('E')}: clicca uno spigolo (con ${K('⇧')} ne scegli altri) e decidi cosa farne. Il pannello a destra mostra solo ciò che vale per lo spigolo scelto: arrotondare o smussare, spostarlo, oppure ridimensionare un anello.</p>
       <h3>Arrotonda o smussa</h3>
@@ -362,7 +363,8 @@ export const HELP = {
       <ul><li>${K('⇧')} + click adds more faces.</li><li>A face flush with others in the same group moves together.</li><li>On cylinders the curved side is a single piece.</li></ul>
       <h3>Stretch or extrude</h3>
       <p>In the panel <b>Mode</b> picks what happens: <i>Stretch</i> grows the piece on that side following its lines (the neighbouring faces keep their slope; if they converge, past a certain length the face would vanish and Filo tells you the maximum); <i>Extrude</i> grows a straight block with the same outline as the face (a negative value digs) and leaves the neighbouring faces alone. On the face of a cube the two give the same result; on a hexagon or a truncated pyramid they don't.</p>
-      <p>With <i>Extrude</i> a <b>Top</b> field appears too: 100 is a straight prism, 50 narrows the top to half as it rises, 150 widens it. That makes knobs and hooks from a cube in one step. <b>Scale the face</b> resizes the outline of the chosen face and tilts the neighbouring faces: while you type the percentage you already see the piece as it will be.</p>` },
+      <p>With <i>Extrude</i> a <b>Top</b> field appears too: 100 is a straight prism, 50 narrows the top to half as it rises, 150 widens it. That makes knobs and hooks from a cube in one step. <b>Scale the face</b> resizes the outline of the chosen face and tilts the neighbouring faces: while you type the percentage you already see the piece as it will be.</p>
+      <p>After Extrude or Stretch <b>the new face stays selected</b>: type another value and press Enter to keep extruding, even with negative values to step back in.</p>` },
     { id: 'edge', g: 'model', t: 'Edge', h: `
       <p>${K('E')}: click an edge (hold ${K('⇧')} to pick more) and decide what to do with it. The right panel only shows what applies to the chosen edge: rounding or chamfering, moving it, or resizing a ring.</p>
       <h3>Round or chamfer</h3>
