@@ -4037,7 +4037,7 @@ function computeFace(m, t0) {
   const nMat = new THREE.Matrix3().getNormalMatrix(m.matrixWorld);
   const n = new THREE.Vector3(nx, ny, nz).applyNormalMatrix(nMat).normalize();
   // normali per vertice (mondo): sul lato piatto sono tutte uguali, sulla curva seguono la superficie
-  const vn = new Float32Array(tris.length * 9), accum = new Map(), kq = x => Math.round(x * 2000);
+  const vn = new Float32Array(tris.length * 9), sn = new Float32Array(tris.length * 9), accum = new Map(), kq = x => Math.round(x * 2000);
   const tn = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), avg = new THREE.Vector3();
   tris.forEach((t, k) => {
     tn.set(nrm[t * 3], nrm[t * 3 + 1], nrm[t * 3 + 2]).applyNormalMatrix(nMat).normalize();
@@ -4057,12 +4057,13 @@ function computeFace(m, t0) {
     n.set(0, 0, 0); n[ax] = Math.sign(avg[ax]) || 1;
   }
   tris.forEach((t, k) => {
-    if (curvedList) { for (let j = 0; j < 3; j++) { vn[k * 9 + j * 3] = n.x; vn[k * 9 + j * 3 + 1] = n.y; vn[k * 9 + j * 3 + 2] = n.z; } return; }
-    for (let j = 0; j < 3; j++) {
+    for (let j = 0; j < 3; j++) {                                          // sn: normale vera della superficie in ogni vertice (serve a estrudere i lati curvi)
       const key = kq(world[k * 9 + j * 3]) + ',' + kq(world[k * 9 + j * 3 + 1]) + ',' + kq(world[k * 9 + j * 3 + 2]);
       const a = accum.get(key), l = Math.hypot(a[0], a[1], a[2]) || 1;
-      vn[k * 9 + j * 3] = a[0] / l; vn[k * 9 + j * 3 + 1] = a[1] / l; vn[k * 9 + j * 3 + 2] = a[2] / l;
+      sn[k * 9 + j * 3] = a[0] / l; sn[k * 9 + j * 3 + 1] = a[1] / l; sn[k * 9 + j * 3 + 2] = a[2] / l;
     }
+    if (curvedList) { for (let j = 0; j < 3; j++) { vn[k * 9 + j * 3] = n.x; vn[k * 9 + j * 3 + 1] = n.y; vn[k * 9 + j * 3 + 2] = n.z; } return; }
+    for (let j = 0; j < 3; j++) { vn[k * 9 + j * 3] = sn[k * 9 + j * 3]; vn[k * 9 + j * 3 + 1] = sn[k * 9 + j * 3 + 1]; vn[k * 9 + j * 3 + 2] = sn[k * 9 + j * 3 + 2]; }
   });
   const org = new THREE.Vector3(world[0], world[1], world[2]);
   const vAx = Math.abs(n.z) < 0.9 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0);
@@ -4101,7 +4102,7 @@ function computeFace(m, t0) {
       if (lo && hi) fit = Math.abs(lo.R - hi.R) < 0.02 + 0.001 * lo.R ? { kind: 'cyl', c: new THREE.Vector3(hi.cx, hi.cy, (zA + zB) / 2), R: lo.R, h: zB - zA } : { kind: 'cone', c: new THREE.Vector3(hi.cx, hi.cy, (zA + zB) / 2), R: (lo.R + hi.R) / 2, R0: lo.R, R1: hi.R, h: zB - zA };
     } else fit = fitSphereW(world);
   }
-  return { obj: m, n, u: uAx, v: vAx, o: org, world, vn, tri2d, b, W, H, area, curved: !!curvedList, full, concave, fit, rect: !curvedList && area >= W * H * 0.995, triSet: new Set(tris) };
+  return { obj: m, n, u: uAx, v: vAx, o: org, world, vn, sn, tri2d, b, W, H, area, curved: !!curvedList, full, concave, fit, rect: !curvedList && area >= W * H * 0.995, triSet: new Set(tris) };
 }
 function inRegion(fs, x, y) {
   const T = fs.tri2d;
@@ -4398,6 +4399,36 @@ function prismJoints(faces, dist, taper) {
   }
   return out;
 }
+// Estrudi su una superficie curva: lo spessore segue la normale della superficie in ogni punto (come la "Solidifica" di Blender), poi si unisce o si scava
+function curvedShell(f, dist) {
+  const W = f.world, S = f.sn, nT = W.length / 9, out = [], k = x => Math.round(x * 2000);
+  const key = (a, i) => k(a[i]) + ',' + k(a[i + 1]) + ',' + k(a[i + 2]);
+  const dir = new Map(), P = new Map();
+  const top = i => [W[i] + S[i] * dist, W[i + 1] + S[i + 1] * dist, W[i + 2] + S[i + 2] * dist];
+  for (let t = 0; t < nT; t++) {
+    const v = [0, 3, 6].map(o => t * 9 + o);
+    v.forEach(i => P.set(key(W, i), i));
+    for (let j = 0; j < 3; j++) dir.set(key(W, v[j]) + '>' + key(W, v[(j + 1) % 3]), [v[j], v[(j + 1) % 3]]);
+  }
+  for (let t = 0; t < nT; t++) {
+    const [a, b, c] = [0, 3, 6].map(o => t * 9 + o);
+    out.push(...top(a), ...top(b), ...top(c));
+    out.push(W[a], W[a + 1], W[a + 2], W[c], W[c + 1], W[c + 2], W[b], W[b + 1], W[b + 2]);
+  }
+  for (const [kk, [a, b]] of dir) {
+    const [p, q] = kk.split('>'); if (dir.has(q + '>' + p)) continue;          // spigolo di bordo: niente il suo opposto
+    const A = [W[a], W[a + 1], W[a + 2]], B = [W[b], W[b + 1], W[b + 2]], A2 = top(a), B2 = top(b);
+    out.push(...A, ...B, ...B2, ...A, ...B2, ...A2);
+  }
+  if (dist < 0) for (let i = 0; i < out.length; i += 9) { for (let j = 0; j < 3; j++) { const t = out[i + 3 + j]; out[i + 3 + j] = out[i + 6 + j]; out[i + 6 + j] = t; } }
+  return geometryFromPositions(new Float32Array(out));
+}
+function curvedExtrude(obj, f, dist) {
+  obj.updateMatrixWorld(true);
+  const br = new Brush(curvedShell(f, dist), M.solid); br.updateMatrixWorld(true);
+  const acc = evaluator.evaluate(obj, br, dist > 0 ? ADDITION : SUBTRACTION);
+  return bakeResult(acc, obj.userData.name);
+}
 function prismPush(obj, faces, dist, taper = 1) {
   let acc = obj;
   obj.updateMatrixWorld(true);
@@ -4693,6 +4724,10 @@ function pushOne(obj, faces, dist, preview = false) {
     return r || { err: 'Il rientro è troppo grande per questo lato (o ha angoli troppo stretti): prova con un valore più piccolo' };
   }
   if (!preview && faces.length === 1) { const r = topoPushOne(obj, faces[0], dist); if (r) return r; }
+  if (faceMode.v === 'extrude' && faces.length === 1 && faces[0].curved && faces[0].sn && !faces[0].full && !preview) {
+    let b2 = null; try { b2 = curvedExtrude(obj, faces[0], dist); } catch (e) { b2 = null; }
+    if (b2 && !isFlat(b2) && geoIsClosed(b2.geo) !== false) return { mesh: replaceWithMerged(obj, b2, true), ext: true };
+  }
   if (faceMode.v === 'extrude' && !faces.some(f => f.curved)) {   // Estrudi (solo lati piatti; sui lati curvi vale Sposta): prisma con la sagoma del lato, aggiunto (o tolto) senza toccare i lati vicini
     let b2 = null;
     try { b2 = prismPush(obj, faces.slice(), dist, faceMode.taper); } catch (e) { b2 = null; }
@@ -6263,7 +6298,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.4.1';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());

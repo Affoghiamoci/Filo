@@ -23,8 +23,9 @@ with sync_playwright() as p:
     for kind in ['cone','cylinder']:
         v0,v1,sz,cl,n=res[kind,'extrude']; m=res[kind,'move']
         check('%s: Estrudi sul lato curvo = Sposta (allarga il raggio: %s → %s mm, chiuso)'%(kind,round(m[2]['w'],2),round(sz['w'],2)),abs(v1-m[1])<0.5 and abs(sz['w']-sz['d'])<0.01 and cl and n==1)
-    for mode in ['move','extrude']:
-        v0,v1,sz,cl,n=res['torus',mode]
-        check('toro %s: nessun pezzo rotto (chiuso %s, volume invariato %.0f → %.0f)'%(mode,cl,v0,v1),cl and abs(v1-v0)<0.5 and n==1)
+    v0,v1,sz,cl,n=res['torus','move']
+    check('toro move: nessun pezzo rotto (chiuso %s, volume invariato %.0f → %.0f)'%(cl,v0,v1),cl and abs(v1-v0)<0.5 and n==1)
+    v0,v1,sz,cl,n=res['torus','extrude']
+    check('toro extrude: spessore lungo la superficie (chiuso %s, volume %.0f → %.0f)'%(cl,v0,v1),cl and v1>v0+1 and n==1)
     check('nessun errore',not errs); print('errs',errs); b.close()
 print('TUTTO OK' if ok else 'ERRORI'); raise SystemExit(0 if ok else 1)
