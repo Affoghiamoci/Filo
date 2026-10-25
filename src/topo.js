@@ -37,7 +37,27 @@ class DSU {
 }
 
 // P: posizioni xyz di triangoli non indicizzati (coordinate mondo). Restituisce la topologia.
-export function buildTopo(P, { tol = 1e-3 } = {}) {
+// punti sul bordo di una cucitura: segmenti [x0,y0,z0,x1,y1,z1,...] tra facce complanari che devono restare separate (dopo un rientro)
+export function seamTester(V, seams, tol = 2e-3) {
+  const nS = seams ? seams.length / 6 : 0;
+  if (!nS) return null;
+  const on = (x, y, z, k) => {
+    const ax = seams[k * 6], ay = seams[k * 6 + 1], az = seams[k * 6 + 2], bx = seams[k * 6 + 3] - ax, by = seams[k * 6 + 4] - ay, bz = seams[k * 6 + 5] - az;
+    const l2 = bx * bx + by * by + bz * bz; if (l2 < 1e-12) return false;
+    const t = ((x - ax) * bx + (y - ay) * by + (z - az) * bz) / l2; if (t < -1e-6 || t > 1 + 1e-6) return false;
+    const dx = ax + t * bx - x, dy = ay + t * by - y, dz = az + t * bz - z;
+    return dx * dx + dy * dy + dz * dz < tol * tol;
+  };
+  const nV = V.length / 3, flag = new Uint8Array(nV);
+  for (let v = 0; v < nV; v++) for (let k = 0; k < nS; k++) if (on(V[v * 3], V[v * 3 + 1], V[v * 3 + 2], k)) { flag[v] = 1; break; }
+  return (a, b) => {
+    if (!flag[a] || !flag[b]) return false;
+    const mx = (V[a * 3] + V[b * 3]) / 2, my = (V[a * 3 + 1] + V[b * 3 + 1]) / 2, mz = (V[a * 3 + 2] + V[b * 3 + 2]) / 2;
+    for (let k = 0; k < nS; k++) if (on(mx, my, mz, k)) return true;
+    return false;
+  };
+}
+export function buildTopo(P, { tol = 1e-3, seams = null } = {}) {
   const { V, ids } = weld(P, tol);
   const nV = V.length / 3;
   // triangoli validi (niente triangoli con due vertici uguali o area nulla)
@@ -83,9 +103,10 @@ export function buildTopo(P, { tol = 1e-3 } = {}) {
     if (roots.size > 1) pinched.push(v);
   }
   // facce piane: triangoli vicini con la stessa normale e lo stesso piano
-  const fd = new DSU(nT);
+  const fd = new DSU(nT), onSeam = seamTester(V, seams);
   for (let h = 0; h < nH; h++) {
     const o = twin[h]; if (o < h) continue;
+    if (onSeam && onSeam(from(h), to(h))) continue;
     const t1 = (h - h % 3) / 3, t2 = (o - o % 3) / 3;
     const c = tn[t1 * 3] * tn[t2 * 3] + tn[t1 * 3 + 1] * tn[t2 * 3 + 1] + tn[t1 * 3 + 2] * tn[t2 * 3 + 2];
     if (c > PLANE_COS && Math.abs(td[t1] - td[t2]) < PLANE_TOL) fd.union(t1, t2);
@@ -319,6 +340,7 @@ export function moveFace(topo, fid, dist) {
     if (s > lo && s < hi) return null;
   }
   const out = [];
+  out.moved = { S, V1 };
   for (const F of topo.faces) {
     let ok = true;
     if (touched.has(F.id)) for (const t of F.tris) {
@@ -328,7 +350,7 @@ export function moveFace(topo, fid, dist) {
     if (ok) trisOf(topo, [F], V1, out);
     else out.push(...triangulateTopo({ ...topo, V: V1, faces: [F] }));
   }
-  return new Float32Array(out);
+  const res = new Float32Array(out); res.moved = out.moved; return res;
 }
 
 // Estrude una faccia piana verso l'esterno: pareti nuove lungo tutto il contorno (anche attorno ai buchi) e la faccia in cima,
@@ -356,6 +378,49 @@ export function extrudeFace(topo, fid, dist, taper = 1) {
     out.push(q.x, q.y, q.z);
   }
   return new Float32Array(out);
+}
+
+// Rientro ("inset"): il contorno della faccia si sposta verso l'interno di dist e nasce una cornice nello stesso piano.
+// La faccia interna resta una faccia a sé (la "cucitura" è il suo contorno). Solo facce con un contorno esterno e anche buchi; null se il rientro
+// è troppo grande per la forma (contorni che si toccano o si ribaltano) o ha angoli troppo acuti.
+export function insetFace(topo, fid, dist) {
+  const F = topo.faces[fid], V = topo.V;
+  if (!F || !(dist > 0) || F.loops.some(l => !l.closed) || F.loops.filter(l => l.outer).length !== 1) return null;
+  const n = F.n, [u, w] = planeBasis(n), dF = F.d;
+  const off = (verts) => {
+    const P = verts.map(v => { const p = vec(V, v); return [p.dot(u), p.dot(w)]; }), m = P.length, Q = [];
+    for (let i = 0; i < m; i++) {
+      const a = P[(i + m - 1) % m], b = P[i], c = P[(i + 1) % m];
+      let e1x = b[0] - a[0], e1y = b[1] - a[1], e2x = c[0] - b[0], e2y = c[1] - b[1];
+      const l1 = Math.hypot(e1x, e1y), l2 = Math.hypot(e2x, e2y); if (l1 < 1e-9 || l2 < 1e-9) return null;
+      e1x /= l1; e1y /= l1; e2x /= l2; e2y /= l2;
+      const n1x = -e1y, n1y = e1x, n2x = -e2y, n2y = e2x, k = 1 + n1x * n2x + n1y * n2y;
+      if (k < 0.15) return null;
+      const dx = (n1x + n2x) * dist / k, dy = (n1y + n2y) * dist / k;
+      if (Math.hypot(dx, dy) > 6 * dist) return null;
+      Q.push([b[0] + dx, b[1] + dy]);
+    }
+    for (let i = 0; i < m; i++) { const a = P[i], b = P[(i + 1) % m], a2 = Q[i], b2 = Q[(i + 1) % m]; if ((b2[0] - a2[0]) * (b[0] - a[0]) + (b2[1] - a2[1]) * (b[1] - a[1]) <= 1e-12) return null; }
+    return Q.map(q => u.clone().multiplyScalar(q[0]).addScaledVector(w, q[1]).addScaledVector(n, dF));
+  };
+  const outer = F.loops.find(l => l.outer), holes = F.loops.filter(l => !l.outer);
+  const io = off(outer.verts); if (!io) return null;
+  const ih = holes.map(h => off(h.verts)); if (ih.some(x => !x)) return null;
+  const orig = l => l.verts.map(v => vec(V, v));
+  if (!polysOk(n, [io, ...ih])) return null;
+  // il contorno interno deve stare dentro quello esterno, e i buchi ingranditi non devono toccarlo
+  const area2 = L => { let a = 0; for (let i = 0; i < L.length; i++) { const p = L[i], q = L[(i + 1) % L.length]; a += p.dot(u) * q.dot(w) - q.dot(u) * p.dot(w); } return a / 2; };
+  if (area2(io) <= 1e-6 || area2(io) >= outer.area) return null;
+  const out = Array.from(trisOf(topo, topo.faces.filter(f => f.id !== fid), V));
+  const n0 = out.length;
+  if (!triPolys(n, io, ih, out)) return null;
+  const pick = [(out[n0] + out[n0 + 3] + out[n0 + 6]) / 3, (out[n0 + 1] + out[n0 + 4] + out[n0 + 7]) / 3, (out[n0 + 2] + out[n0 + 5] + out[n0 + 8]) / 3];
+  if (!triPolys(n, orig(outer), [io], out)) return null;
+  holes.forEach((h, i) => { if (!triPolys(n, ih[i], [orig(h)], out)) throw new Error('inset'); });
+  const seams = [];
+  for (const L of [io, ...ih]) for (let i = 0; i < L.length; i++) { const a = L[i], b = L[(i + 1) % L.length]; seams.push(a.x, a.y, a.z, b.x, b.y, b.z); }
+  const res = new Float32Array(out); res.seams = Float64Array.from(seams); res.pick = pick;
+  return res;
 }
 
 // la faccia della topologia che corrisponde a un lato scelto in Filo (stesso piano, stessi triangoli, stessa area)

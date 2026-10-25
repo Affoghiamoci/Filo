@@ -11,7 +11,7 @@ import { unzipSync, zipSync, strToU8 } from 'three/addons/libs/fflate.module.js'
 import { Brush, Evaluator, ADDITION, SUBTRACTION, INTERSECTION } from 'three-bvh-csg';
 import { revolutionProfile, shellProfile, revolve } from './revolve.js';
 import { sectionProfile, sectionSolid } from './section.js';
-import { buildTopo, triangulateTopo, soupVolume, moveFace, extrudeFace, topoFaceFor, filletEdge, filletEdges, sweepFillets, topoEdgeFor, edgeRoom } from './topo.js';
+import { buildTopo, seamTester, triangulateTopo, soupVolume, moveFace, extrudeFace, insetFace, topoFaceFor, filletEdge, filletEdges, sweepFillets, topoEdgeFor, edgeRoom } from './topo.js';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
 import { initManifold, manifoldEvaluate, manifoldCombine, manifoldStretch, manifoldHalf, manifoldMod, simplifyGeo, geoIsClosed, toManifold, depinch } from './mcsg.js';
 import { ConvexHull } from 'three/addons/math/ConvexHull.js';
@@ -761,7 +761,7 @@ function makeMesh(d) {
   if (nt > 20000 && !geo.boundsTree) { try { geo.computeBoundsTree(); } catch (e) { console.warn(e); } }
   m.castShadow = !heavy;
   m.receiveShadow = false;
-  m.userData = { id: d.id ?? nextId++, name: d.name, kind: d.kind, p: { ...d.p }, hole: !!d.hole, base: d.base ? { ...d.base } : null, geo: d.kind === 'merged' ? geo : null, gid: d.gid ?? null, color: d.color ?? null, text: d.text ? { ...d.text } : null, hidden: !!d.hidden, locked: !!d.locked, heavy };
+  m.userData = { id: d.id ?? nextId++, name: d.name, kind: d.kind, p: { ...d.p }, hole: !!d.hole, base: d.base ? { ...d.base } : null, geo: d.kind === 'merged' ? geo : null, gid: d.gid ?? null, color: d.color ?? null, text: d.text ? { ...d.text } : null, seams: d.seams || null, hidden: !!d.hidden, locked: !!d.locked, heavy };
   m.visible = !d.hidden;
   if (d.pos) m.position.fromArray(d.pos);
   if (d.q) m.quaternion.fromArray(d.q); else m.rotation.z = (d.rot || 0) * D2R;
@@ -1035,7 +1035,7 @@ const entryOf = m => ({
   id: m.userData.id, name: m.userData.name, kind: m.userData.kind, p: { ...m.userData.p }, hole: m.userData.hole,
   base: m.userData.base ? { ...m.userData.base } : null, geo: m.userData.geo, gid: m.userData.gid ?? null,
   pos: m.position.toArray(), q: m.quaternion.toArray(), scale: m.scale.toArray(), color: m.userData.color ?? null, text: m.userData.text ? { ...m.userData.text } : null,
-  hidden: !!m.userData.hidden, locked: !!m.userData.locked,       // blocca e nascondi sono nella cronologia: Annulla li riporta com'erano
+  seams: m.userData.seams || null, hidden: !!m.userData.hidden, locked: !!m.userData.locked,       // blocca e nascondi sono nella cronologia: Annulla li riporta com'erano
 });
 function snapshot() {
   return { sel: selection.map(m => m.userData.id), list: objects.map(entryOf) };
@@ -1229,7 +1229,7 @@ function geoDefects(g) {
   for (let i = 0; i < n; i++) { const j = idx ? idx.getX(i) : i, k = p.getX(j) + ',' + p.getY(j) + ',' + p.getZ(j); let id = map.get(k); if (id === undefined) { id = map.size; map.set(k, id); } I[i] = id; }
   return edgeDefects(I);
 }
-function bakeResult(res, name) {
+function bakeResult(res, name, noSimplify = false) {
   res.updateMatrixWorld(true);
   let g = res.geometry.clone();
   if (!g.attributes.position || g.attributes.position.count === 0) return null;
@@ -1238,7 +1238,7 @@ function bakeResult(res, name) {
   if (window.__prof) console.log('PROF open prima', openEdgeCount(g), 'tri', g.attributes.position.count / 3);
   { const d0 = geoDefects(g), h = healMesh(g);                                  // la riparazione (saldatura a 1 µm) non deve mai peggiorare: se rompe un pezzo già chiuso si tiene l'originale
     if (h !== g && geoDefects(h) <= d0) g = h; }
-  if (!window.__noSimplify && (g.index ? g.index.count : g.attributes.position.count) / 3 < 150000) {   // pulizia: facce quasi complanari fuse, vertici inutili tolti (solo se il pezzo resta identico e chiuso)
+  if (!window.__noSimplify && !noSimplify && (g.index ? g.index.count : g.attributes.position.count) / 3 < 150000) {   // pulizia: facce quasi complanari fuse, vertici inutili tolti (solo se il pezzo resta identico e chiuso)
     const sm = simplifyGeo(g);
     if (sm) { const g2 = geometryFromPositions(sm.pos); if (geoDefects(g2) <= geoDefects(g)) { g.dispose(); g = g2; } else g2.dispose(); }
   }
@@ -4009,7 +4009,22 @@ function computeFace(m, t0) {
       if (side.length && ringGaps(all, c).gap < 25 * D2R) { curvedList = side; full = true; }
     }
   }
-  const tris = curvedList || cand.filter(t => find(ids[t * 3]) === root);
+  let tris = curvedList;
+  if (!tris && m.userData.seams && m.userData.seams.length) {              // facce separate da una cucitura (Rientro): si cresce solo attraverso spigoli che non sono sulla cucitura
+    const Vp = new Float64Array(nVerts * 3), P0 = geo.attributes.position, I0 = geo.index;
+    for (let t = 0; t < nTri; t++) for (let j = 0; j < 3; j++) { const i = I0 ? I0.getX(t * 3 + j) : t * 3 + j, id = ids[t * 3 + j]; Vp[id * 3] = P0.getX(i); Vp[id * 3 + 1] = P0.getY(i); Vp[id * 3 + 2] = P0.getZ(i); }
+    const isSeam = seamTester(Vp, m.userData.seams), inC = new Uint8Array(nTri), em = new Map();
+    cand.forEach(t => { inC[t] = 1; for (let j = 0; j < 3; j++) { const a = ids[t * 3 + j], b = ids[t * 3 + (j + 1) % 3], k = a < b ? a * nVerts + b : b * nVerts + a; (em.get(k) || em.set(k, []).get(k)).push(t); } });
+    const seen = new Uint8Array(nTri), stack = [t0]; seen[t0] = 1; tris = [];
+    while (stack.length) {
+      const t = stack.pop(); tris.push(t);
+      for (let j = 0; j < 3; j++) {
+        const a = ids[t * 3 + j], b = ids[t * 3 + (j + 1) % 3]; if (isSeam && isSeam(a, b)) continue;
+        for (const u of em.get(a < b ? a * nVerts + b : b * nVerts + a)) if (!seen[u] && inC[u]) { seen[u] = 1; stack.push(u); }
+      }
+    }
+  }
+  if (!tris) tris = cand.filter(t => find(ids[t * 3]) === root);
   m.updateMatrixWorld(true);
   const pos = geo.attributes.position, idx = geo.index;
   const world = new Float32Array(tris.length * 9), v = new THREE.Vector3();
@@ -4254,7 +4269,7 @@ function replaceWithMerged(old, baked, quiet = false) {
       const bk = bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(a) }, pg.parts.length > 1 ? `${baked.name} ${i + 1}` : baked.name);
       const m = addMerged(bk); m.userData.gid = old.userData.gid ?? null; return m;   // pezzi separati: ognuno ha il suo livello
     });
-  } else { pieces = [addMerged(baked)]; pieces[0].userData.gid = old.userData.gid ?? null; }
+  } else { pieces = [addMerged(baked)]; pieces[0].userData.gid = old.userData.gid ?? null; if (baked.seams && baked.seams.length) pieces[0].userData.seams = baked.seams; }
   pieces.forEach(nm => { nm.userData.hole = hole; nm.userData.color = old.userData.color ?? null; nm.userData.text = null; nm.castShadow = !hole; });
   const nm = pieces[0]; lastPieces = pieces;
   if (quiet) return nm;
@@ -4433,7 +4448,8 @@ function applyPush(distArg) {
   const nFaces = faceSet.length, objs = [...new Set(faceSet.map(f => f.obj))], out = [];
   // dove finirà ogni lato dopo la spinta: servirà per tenerlo selezionato (come in Blender, per estrudere di seguito)
   const caps0 = faceSet.map(f => { const W = f.world, c = new THREE.Vector3(); let n = 0; for (let i = 0; i < W.length; i += 3) { c.x += W[i]; c.y += W[i + 1]; c.z += W[i + 2]; n++; } c.divideScalar(n || 1);
-    return { n: f.n.clone(), c: c.addScaledVector(f.n, dist), d: f.n.x * W[0] + f.n.y * W[1] + f.n.z * W[2] + dist }; });
+    const dd = faceMode.v === 'inset' ? 0 : dist;     // il Rientro resta nello stesso piano
+    return { n: f.n.clone(), c: c.addScaledVector(f.n, dd), d: f.n.x * W[0] + f.n.y * W[1] + f.n.z * W[2] + dd }; });
   let fail = null, ext = false;
   for (const obj of objs) {
     const r = pushOne(obj, faceSet.filter(f => f.obj === obj), dist);
@@ -4448,6 +4464,7 @@ function applyPush(distArg) {
     reselectCaps(caps0);
   }
   if (fail) return toast(fail);
+  if (faceMode.v === 'inset' && !fail) return toast(`Rientro di ${fmt(dist)} mm: il lato interno è selezionato, puoi estrudere o scavare`);
   if (ext && faceMode.v === 'extrude') return toast(faceMode.taper !== 1 && dist > 0 ? `Lato estruso di ${fmt(dist)} mm, con la cima al ${fmt(faceMode.taper * 100)} %` : dist > 0 ? `${nFaces > 1 ? nFaces + ' lati' : 'Lato'} estruso di ${fmt(dist)} mm` : `Scavato di ${fmt(-dist)} mm con la sagoma del lato`);
   if (ext) return toast(`${nFaces > 1 ? nFaces + ' lati' : 'Lato'} estruso di ${fmt(Math.abs(dist))} mm (sagoma del lato, senza deformare i vicini)`);
   toast((nFaces > 1 ? `${nFaces} lati ` : 'Lato ') + (dist > 0 ? `tirato di ${fmt(dist)} mm` : `spinto di ${fmt(Math.abs(dist))} mm`));
@@ -4627,27 +4644,54 @@ function foldedTri(orig, arr, t) {
 }
 // Motore 1.0: Sposta ed Estrudi di un lato piatto lavorano direttamente sulla struttura del pezzo (facce, contorni, vicini),
 // senza booleane. Se il caso non è sicuro le funzioni restituiscono null e si usa il metodo di prima.
+function seamsWorld(obj) {
+  const L = obj.userData.seams; if (!L || !L.length) return null;
+  obj.updateMatrixWorld(true);
+  const W = new Float64Array(L.length), v = new THREE.Vector3();
+  for (let i = 0; i < L.length; i += 3) { v.set(L[i], L[i + 1], L[i + 2]).applyMatrix4(obj.matrixWorld); W[i] = v.x; W[i + 1] = v.y; W[i + 2] = v.z; }
+  return W;
+}
+// se un lato si sposta, le cuciture che stavano sui suoi vertici lo seguono
+function remapSeams(W, topo, moved) {
+  if (!W || !moved) return W;
+  const R = Float64Array.from(W), V = topo.V;
+  for (let i = 0; i < R.length; i += 3) for (const v of moved.S) {
+    if (Math.abs(V[v * 3] - R[i]) < 2e-3 && Math.abs(V[v * 3 + 1] - R[i + 1]) < 2e-3 && Math.abs(V[v * 3 + 2] - R[i + 2]) < 2e-3) { R[i] = moved.V1[v * 3]; R[i + 1] = moved.V1[v * 3 + 1]; R[i + 2] = moved.V1[v * 3 + 2]; break; }
+  }
+  return R;
+}
 function topoPushOne(obj, f, dist) {
   if (window.__noTopo || f.curved) return null;
-  const extrude = faceMode.v === 'extrude';
-  if (extrude && !(dist > 0)) return null;
+  const extrude = faceMode.v === 'extrude', inset = faceMode.v === 'inset';
+  if ((extrude || inset) && !(dist > 0)) return null;
   const P = worldPositions(obj);
   if (P.length / 9 > 60000) return null;
-  let tp; try { tp = buildTopo(P); } catch (e) { return null; }
+  const sw = seamsWorld(obj);
+  let tp; try { tp = buildTopo(P, { seams: sw }); } catch (e) { return null; }
   if (!tp.stats.closed || tp.stats.pinched) return null;
   const fid = topoFaceFor(tp, f.n, f.world);
   if (fid < 0) return null;
   let out = null;
-  try { out = extrude ? extrudeFace(tp, fid, dist, faceMode.taper) : moveFace(tp, fid, dist); } catch (e) { out = null; }
+  try { out = inset ? insetFace(tp, fid, dist) : extrude ? extrudeFace(tp, fid, dist, faceMode.taper) : moveFace(tp, fid, dist); } catch (e) { out = null; }
   if (!out || !out.length) return null;
-  const baked = bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(out) }, obj.userData.name);
+  let ns = sw;
+  if (inset) { ns = new Float64Array((sw ? sw.length : 0) + out.seams.length); if (sw) ns.set(sw); ns.set(out.seams, sw ? sw.length : 0); }
+  else if (!extrude && out.moved) ns = remapSeams(sw, tp, out.moved);
+  const baked = bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(out) }, obj.userData.name, !!(ns && ns.length));
   if (!baked || isFlat(baked)) return null;
   if (geoIsClosed(baked.geo) === false) return null;
-  if (window.__topoLog) window.__topoLog.push(extrude ? 'extrude' : 'move');
+  if (ns && ns.length) { const L = new Float32Array(ns.length); for (let i = 0; i < ns.length; i++) L[i] = ns[i] - baked.pos[i % 3]; baked.seams = L; }
+  if (window.__topoLog) window.__topoLog.push(inset ? 'inset' : extrude ? 'extrude' : 'move');
   return { mesh: replaceWithMerged(obj, baked, true), ext: extrude };
 }
 const CURVED_MSG = 'Questa superficie curva non si può spostare in modo pulito: per allargare il pezzo usa le maniglie di Sposta (V)';
 function pushOne(obj, faces, dist, preview = false) {
+  if (faceMode.v === 'inset') {
+    if (faces.length !== 1 || faces[0].curved) return { err: 'Il rientro funziona su un lato piatto alla volta' };
+    if (!(dist > 0)) return { err: 'Il rientro è positivo: scrivi quanti mm vuoi tenere di cornice' };
+    const r = topoPushOne(obj, faces[0], dist);
+    return r || { err: 'Il rientro è troppo grande per questo lato (o ha angoli troppo stretti): prova con un valore più piccolo' };
+  }
   if (!preview && faces.length === 1) { const r = topoPushOne(obj, faces[0], dist); if (r) return r; }
   if (faceMode.v === 'extrude' && !faces.some(f => f.curved)) {   // Estrudi (solo lati piatti; sui lati curvi vale Sposta): prisma con la sagoma del lato, aggiunto (o tolto) senza toccare i lati vicini
     let b2 = null;
@@ -4888,7 +4932,7 @@ function groupBounds(fs) {
   return { u0, u1, v0, v1 };
 }
 function updateFaceHandle() {
-  const on = faceSel && state.tool === 'face';
+  const on = faceSel && state.tool === 'face' && faceMode.v !== 'inset';   // il Rientro si scrive in mm, senza maniglia
   faceHandle.visible = !!on;
   if (on) faceHandle.position.copy(groupCenter());
   guide.visible = false; dragRead.style.display = 'none'; dirty = true;
@@ -5044,6 +5088,7 @@ document.querySelectorAll('#f-mode button').forEach(b => b.addEventListener('cli
   faceMode.v = b.dataset.v;
   document.querySelectorAll('#f-mode button').forEach(x => x.classList.toggle('on', x === b));
   $('#f-taper-row').classList.toggle('hidden', faceMode.v !== 'extrude');
+  updateFaceHandle();
   TF.push.focus();
 }));
 $('#f-push-go').addEventListener('click', () => applyPush());
