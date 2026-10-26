@@ -93,7 +93,7 @@ export const HELP = {
       <p>${K('Q')} Riquadro e ${K('W')} Lazo selezionano trascinando. Prendono tutto ciò che sta nell'area, anche i pezzi coperti da altri oggetti.</p>
       {{img:lazo|Lazo: disegni una linea libera attorno agli oggetti}}
       <ul><li>${K('⇧')} aggiunge alla selezione; ${K('⌘')} la toglie.</li><li>Un clic nel vuoto deseleziona.</li></ul>
-      <div class="tip">Nella barra a sinistra gli strumenti con il triangolino nell'angolo hanno una seconda funzione (Riquadro e Lazo, Taglia e Allunga, Combina, Interseca e Stampo). Per aprirla tieni premuto, fai clic destro o clicca il triangolino. Il pulsante ricorda l'ultimo strumento scelto. Le scorciatoie funzionano sempre in modo diretto.</div>` },
+      <div class="tip">Nella barra a sinistra gli strumenti con il triangolino nell'angolo hanno una seconda funzione (Riquadro e Lazo, Combina, Interseca e Stampo). Per aprirla tieni premuto, fai clic destro o clicca il triangolino. Il pulsante ricorda l'ultimo strumento scelto. Le scorciatoie funzionano sempre in modo diretto.</div>` },
     { id: 'groups', g: 'select', t: 'Gruppi, livelli e cronologia', h: `
       <h3>Gruppi</h3>
       <p>${K('⌘G')} unisce più oggetti perché si muovano, ruotino e ridimensionino insieme; ${K('⇧⌘G')} li separa. Un gruppo non cambia la forma: gli oggetti restano separati. Per fonderli in uno solo usa Combina.</p>
@@ -148,16 +148,11 @@ export const HELP = {
       <p>Passando il mouse su uno spigolo o su un lato si colora di blu, e quello scelto resta arancione. Gli spigoli interni di un pezzo combinato (gli angoli rientranti) si scelgono come gli altri: Arrotonda e Smussa vi aggiungono materiale invece di toglierlo, ma non si possono spostare né mescolare con spigoli esterni nella stessa selezione. Su uno spigolo esterno compare un quadratino arancione. Trascinalo, oppure nel pannello scegli la <b>Direzione</b> (X, Y, Z o ⊥), scrivi in <b>Di</b> quanti mm (un numero negativo lo sposta dall'altra parte) e premi <b>Applica</b>. Spostando lo spigolo su X, Y o Z la parete si inclina, e da un cubo puoi ottenere un trapezio. Dopo questa modifica il pezzo non è più parametrico.</p>
       <ul><li><b>⊥ (perpendicolare)</b>: sui lati storti, come quelli dell'esagono, sposta lo spigolo dritto verso l'esterno. Sugli spigoli verticali del prisma va in fuori lungo il raggio.</li><li>Per allungare una parete tenendola dritta usa <i>Lato</i>.</li><li>Sul prisma puoi scegliere anche gli spigoli verticali.</li></ul>
       <ul><li>La calamita ti aiuta a tornare com'era, ad allinearti ai vertici paralleli e agli altri oggetti. Lo scatto vale quando la calamita non aggancia nulla.</li><li>Se lo spigolo è arrotondato, togli prima l'arrotondamento.</li></ul>
-      <h3>Ridimensiona un anello</h3>
+      <h3>Scala il lato</h3>
       <p>Su un cerchio, o sugli spigoli di una faccia, trascina la maniglia oppure scrivi la <b>Scala</b> in % e premi <b>Applica</b>. Con 50 % sul bordo alto, un cilindro diventa un cono tronco. Con la calamita attiva la maniglia si aggancia a 100 % (come prima) e al raggio dell'altro anello, così torni a un cilindro dritto.</p>` },
-    { id: 'stretch', g: 'model', t: 'Allunga', h: `
-      <p>${K('U')}: scegli un asse (X, Y o Z) e la <b>Posizione</b> del piano (nelle coordinate del piatto, non del pezzo), poi in <b>Sposta di</b> quanti mm spostare tutto ciò che sta oltre il piano, cioè dalla parte dei valori più alti dell'asse. Un numero positivo allunga, uno negativo accorcia. Seleziona prima il pezzo. Poi premi <b>Applica</b>.</p>
-      {{img:allunga|Piano di Allunga su una barra}}
-      {{img:allunga-fine|Dopo aver applicato +14 mm}}
-      <ul><li>Trascina il piano con il mouse, oppure clicca sull'oggetto per metterlo lì.</li><li>Allungando, il pezzo viene tagliato sul piano, la parte oltre il piano si sposta e lo spazio si riempie con la stessa sezione: i fori e le pareti inclinate restano come sono.</li><li>Accorciando, viene tolta la fetta che sta subito prima del piano, spessa quanto il numero che hai scritto, e la parte oltre il piano scivola indietro. Non puoi accorciare più della distanza tra il piano e l'inizio del pezzo: Filo ti dice il massimo.</li><li>Se il piano non attraversa il pezzo non cambia nulla.</li></ul>` },
     { id: 'cut', g: 'model', t: 'Taglia', h: `
       {{img:taglia|Il piano di taglio si trascina con il mouse}}
-      <p>${K('K')}: scegli un asse e la posizione del piano, poi premi Taglia (o ${K('Invio')}). Ottieni due oggetti separati. ${K('Invio')} applica anche Allunga, la seconda funzione dello strumento.</p>
+      <p>${K('K')}: scegli un asse e la posizione del piano, poi premi Taglia (o ${K('Invio')}). Ottieni due oggetti separati.</p>
       {{img:taglia-fine|Le due metà dopo il taglio}}
       <ul><li>Trascina il piano, scrivi la posizione o clicca sull'oggetto.</li><li>Sui modelli grandi compare una barra di avanzamento.</li></ul>` },
     { id: 'solids', g: 'solids', t: 'Fori, Combina, Interseca e Stampo', h: `
@@ -321,7 +316,7 @@ export const HELP = {
       <p>${K('Q')} Marquee and ${K('W')} Lasso select by dragging. They only take what is really visible, not objects hidden behind.</p>
       {{img:lazo|Lasso: draw a free line around the objects}}
       <ul><li>${K('⇧')} adds to the selection; ${K('⌘')} removes.</li><li>A click in empty space deselects.</li></ul>
-      <div class="tip">In the bar on the left, tools with a small triangle in the corner have a second function (Marquee and Lasso, Cut and Stretch, Combine and Intersect). To open it, hold the button, right-click or click the triangle. The button remembers the last tool you picked, except Combine, which always stays Combine. Shortcuts always work directly.</div>` },
+      <div class="tip">In the bar on the left, tools with a small triangle in the corner have a second function (Marquee and Lasso, Combine, Intersect and Mold). To open it, hold the button, right-click or click the triangle. The button remembers the last tool you picked, except Combine, which always stays Combine. Shortcuts always work directly.</div>` },
     { id: 'groups', g: 'select', t: 'Groups, layers and history', h: `
       <h3>Groups</h3>
       <p>${K('⌘G')} joins several objects so they move, rotate and resize together; ${K('⇧⌘G')} ungroups them. A group does not change the shape: the objects stay separate. To fuse them into one use Combine.</p>
@@ -376,16 +371,11 @@ export const HELP = {
       <p>An orange square appears on the edge. Drag it, or in the panel pick the <b>Direction</b> (X, Y, Z or ⊥), type how many mm in <b>By</b> (a negative number moves it the other way) and press <b>Apply</b>. Moving the edge along X, Y or Z tilts the wall, and a cube can become a trapezoid. After this the piece is no longer parametric.</p>
       <ul><li><b>⊥ (perpendicular)</b>: on slanted sides, like the hexagon's, it moves the edge straight outwards. On the prism's vertical edges it goes out along the radius.</li><li>To lengthen a wall and keep it straight, use <i>Face</i>.</li><li>On the prism you can also pick the vertical edges.</li></ul>
       <ul><li>The magnet helps you go back to how it was, line up with parallel vertices and with other objects. Snap step applies when the magnet finds nothing.</li><li>If the edge is rounded, remove the rounding first.</li></ul>
-      <h3>Resize a ring</h3>
+      <h3>Scale the face</h3>
       <p>On a circle, or on the edges of a face, drag the handle, or type the <b>Scale</b> in % and press <b>Apply</b>. With 50 % on the top edge, a cylinder becomes a truncated cone. With the magnet on, the handle snaps to 100 % (as before) and to the radius of the other ring, so you can get back to a straight cylinder.</p>` },
-    { id: 'stretch', g: 'model', t: 'Stretch', h: `
-      <p>${K('U')}: pick an axis (X, Y or Z) and the <b>Position</b> of the plane (in bed coordinates, not the piece's), then in <b>Move by</b> how many mm to move everything beyond the plane, meaning on the side of the higher values of the axis. A positive number stretches, a negative one shortens. Select the piece first. Then press <b>Apply</b>.</p>
-      {{img:allunga|Stretch plane on a bar}}
-      {{img:allunga-fine|After applying +14 mm}}
-      <ul><li>Drag the plane with the mouse, or click on the object to put it there.</li><li>When stretching, the piece is cut on the plane, the part beyond the plane moves and the gap is filled with the same section: holes and slanted walls stay as they are.</li><li>When shortening, the slice just before the plane, as thick as the number you typed, is removed and the part beyond the plane slides back. You cannot shorten more than the distance between the plane and the start of the piece: Filo tells you the maximum.</li><li>If the plane does not cross the piece, nothing changes.</li></ul>` },
     { id: 'cut', g: 'model', t: 'Cut', h: `
       {{img:taglia|The cutting plane can be dragged with the mouse}}
-      <p>${K('K')}: pick an axis and the plane position, then press Cut (or ${K('Enter')}). You get two separate objects. ${K('Enter')} also applies Stretch, the tool's second function.</p>
+      <p>${K('K')}: pick an axis and the plane position, then press Cut (or ${K('Enter')}). You get two separate objects.</p>
       {{img:taglia-fine|The two halves after the cut}}
       <ul><li>Drag the plane, type the position or click on the object.</li><li>On large models a progress bar appears.</li></ul>` },
     { id: 'solids', g: 'solids', t: 'Holes, Combine and Intersect', h: `

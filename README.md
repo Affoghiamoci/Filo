@@ -9,7 +9,7 @@ Shortcuts that feel like the Adobe suite. Free, right in your browser.
 
 [**Open Filo → filo.affogo.fyi**](https://filo.affogo.fyi)
 
-![version](https://img.shields.io/badge/version-1.4.4-ff6a00?style=flat-square)
+![version](https://img.shields.io/badge/version-1.5.0-ff6a00?style=flat-square)
 ![free](https://img.shields.io/badge/free-1a1a1a?style=flat-square)
 ![license](https://img.shields.io/badge/license-PolyForm_Noncommercial-1a1a1a?style=flat-square)
 ![formats](https://img.shields.io/badge/3MF_·_STL_·_SVG-1a1a1a?style=flat-square)
@@ -57,7 +57,7 @@ Filo is made for people who come from graphic design and want to print things wi
 
 - Move, rotate (15° snap), resize (also groups and rotated objects, with proportion lock), align and distribute
 - **Face:** push or pull a flat face. **Edge:** round or chamfer, each edge with its own editable radius
-- **Cut** with a plane, **Stretch** a part, **Tape measure** for widths, heights and angles under the cursor
+- **Cut** with a plane, **Tape measure** for widths, heights and angles under the cursor
 - **Hole / Solid**, **Combine** (union, minus holes) and **Intersect**
 - **Drop to plate** finds the nearest stable flat face and puts the part on Z = 0
 - Groups, Layers (lock, hide, rename), History with previews, Undo / Redo
@@ -102,7 +102,7 @@ Filo is made for people who come from graphic design and want to print things wi
 | `R` | Rotate | `X` | Hole / Solid |
 | `L` | Face | `⌘E` `⇧⌘E` | Combine, Intersect |
 | `E` | Edge | `⌘G` | Group |
-| `U` `K` | Stretch, Cut | `⌘D` | Duplicate |
+| `K` | Cut | `⌘D` | Duplicate |
 | `D` | Tape measure | `⌘Z` `⇧⌘Z` | Undo, Redo |
 | `Tab` | Narrow sidebar | `F7` `F8` | Layers, History |
 

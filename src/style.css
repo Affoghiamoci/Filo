@@ -602,9 +602,6 @@ label.f.has-stp{position:relative;padding-right:4px}
 #mq.touch rect{stroke-dasharray:2 3}
 
 /* strumento Taglia */
-#cut-card{top:26px;left:calc(var(--sw,292px) + 134px);z-index:5;padding:12px 14px;border-radius:2px;width:236px;display:flex;flex-direction:column;gap:8px}
-#cut-card.hidden{display:none}
-#cut-card .hint{margin:0;font-size:11px;line-height:1.4}
 
 /* indicatore di lavoro in corso: la barra si muove con una trasformazione, quindi continua anche quando il calcolo occupa la pagina */
 #busy{position:fixed;top:16px;left:calc(var(--sw,292px) + (100vw - var(--sw,292px)) / 2);transform:translateX(-50%);z-index:80;padding:12px 16px 14px;border-radius:2px;min-width:260px;pointer-events:none}
@@ -693,7 +690,6 @@ mark.hp-hit.cur{background:color-mix(in srgb,var(--accent) 38%,transparent)}
 .ax-row{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:10px;margin:8px 0 8px}
 .ax-row>span{font:500 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .ax-row .seg{margin-top:0}
-#p-edge .seg button.on{background:var(--accent-weak);color:var(--text);box-shadow:inset 0 0 0 1px var(--accent)}
 #p-edge .row2 .btn.primary,#p-face .row2 .btn.primary{min-width:84px;justify-content:center}
 #f-taper-row .row2{margin-top:6px;grid-template-columns:1fr 1fr}   /* Estrudi: Cima e Cornice affiancate sotto Di */
 .inf{display:inline-grid;place-items:center;width:13px;height:13px;margin-left:6px;border:1px solid var(--line);border-radius:50%;font:500 8px/1 var(--mono);letter-spacing:0;color:var(--muted);vertical-align:1px;font-style:normal;text-transform:none}
@@ -790,7 +786,7 @@ html:not(.ui-ready) #side{visibility:hidden}
 html.ui-ready{transition:--sw .22s ease}
 /* menu, pannelli e finestre compaiono con una dissolvenza (solo opacità) */
 @keyframes fade-in{from{opacity:0}to{opacity:1}}
-#bedmenu,#dotmenu,#snapmenu,#hpop,#t-font-l,#props,#layers,#history,#ruler-card,#cut-card,#busy{animation:fade-in .14s ease}
+#bedmenu,#dotmenu,#snapmenu,#hpop,#t-font-l,#props,#layers,#history,#ruler-card,#busy{animation:fade-in .14s ease}
 dialog[open],dialog[open]::backdrop{animation:fade-in .16s ease}
 /* hover e stato attivo morbidi su pulsanti, strumenti e righe */
 .btn,.tool,.icon-btn,.seg button,.chk-seg button,.lrow,.hrow,.fo,.lbt,.lnk{transition:background-color .12s ease,color .12s ease,border-color .12s ease}
@@ -928,7 +924,7 @@ body.mob #props .sheet-tab i{display:block;width:40px;height:4px;border-radius:2
 body.mob #props.sheet-low{max-height:22px}
 body.mob #props.sheet-low #p-scroll,body.mob #props.sheet-low>*:not(.sheet-tab){display:none}
 body.mob #layers,body.mob #history{left:8px;right:8px;top:calc(108px + env(safe-area-inset-top));bottom:auto;width:auto;max-height:40vh}
-body.mob #cut-card,body.mob #ruler-card{left:8px;right:8px;top:auto;bottom:calc(76px + env(safe-area-inset-bottom));max-width:none;width:auto}
+body.mob #ruler-card{left:8px;right:8px;top:auto;bottom:calc(76px + env(safe-area-inset-bottom));max-width:none;width:auto}
 body.mob #busy{left:50%}
 body.mob #perf-note{top:calc(108px + env(safe-area-inset-top));left:50%;max-width:calc(100vw - 16px)}
 body.mob #flyout{width:min(256px,calc(100vw - 16px))}
@@ -944,7 +940,7 @@ body.mob #empty-hint .ew{max-width:100%}
   body.mob #props{left:auto;right:8px;width:min(330px,42vw);top:calc(112px + env(safe-area-inset-top));max-height:none}
   body.mob #props.sheet-low{max-height:22px;bottom:auto}
   body.mob #layers,body.mob #history{right:auto;width:min(300px,40vw)}
-  body.mob #cut-card,body.mob #ruler-card{right:auto;width:min(330px,60vw)}
+  body.mob #ruler-card{right:auto;width:min(330px,60vw)}
 }
 body.mob #layers .lfoot{display:none}
 

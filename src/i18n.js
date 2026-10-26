@@ -220,6 +220,8 @@ const EN = {
   'Allinea davanti': 'Align front', 'Allinea dietro': 'Align back', 'Centra su Y': 'Center on Y',
   'Allinea alla base': 'Align to base', 'Allinea in alto': 'Align to top', 'Centra in altezza': 'Center vertically',
   'Spingi / tira': 'Push / pull', 'Di': 'By',
+  'Valgono per tutti gli spigoli della forma insieme. Per arrotondare o smussare solo alcuni spigoli usa lo strumento Spigolo (E).': 'They apply to all the edges of the shape together. To round or chamfer only some edges use the Edge tool (E).',
+  'Piano': 'Plane', 'Asse': 'Axis', '· nessun oggetto': '· no object',
   'Cornice': 'Frame', 'Lascia una cornice di tanti mm lungo il bordo ed estrude solo il centro: con un valore positivo fa un bordo rialzato, con uno negativo scava una vasca. 0 = niente cornice': 'Leaves a frame this many mm wide along the edge and extrudes only the centre: a positive value makes a raised rim, a negative one digs a tray. 0 = no frame',
   'La cornice funziona su un lato piatto alla volta': 'The frame works on one flat face at a time',
   '100 = prisma dritto. Meno di 100 restringe la cima, più di 100 la allarga: così nascono pomelli e ganci': '100 = straight prism. Below 100 narrows the top, above 100 widens it: this is how knobs and hooks are made',

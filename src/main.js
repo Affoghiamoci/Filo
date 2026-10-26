@@ -2601,7 +2601,10 @@ const F = Object.fromEntries(ids.map(i => [i, $('#p-' + i)]));
 const single = () => (selection.length === 1 ? selection[0] : null);
 function syncPanel() {
   const panel = $('#props');
-  panel.classList.toggle('hidden', selection.length === 0 && state.tool !== 'edge');
+  const cutOn = planeTool();
+  panel.classList.toggle('hidden', selection.length === 0 && state.tool !== 'edge' && !cutOn);
+  $('#p-cut').classList.toggle('hidden', !cutOn);
+  if (cutOn) { for (const q of ['#p-obj', '#p-face', '#p-edge']) $(q).classList.add('hidden'); $('#cut-info').textContent = selection.length ? '' : tr('· nessun oggetto'); return; }
   if (!selection.length && state.tool === 'edge') { $('#p-edge').classList.remove('hidden'); $('#p-obj').classList.add('hidden'); $('#p-face').classList.add('hidden'); updateEdgePanel(); return; }
   if (!selection.length) return;
   $('#p-edge').classList.toggle('hidden', state.tool !== 'edge');
@@ -3088,8 +3091,7 @@ const TOOLS = [
     { id: 'rotate', icon: 'rotate', name: 'Ruota', key: 'R', desc: 'Ruota con scatto a 15°', run: () => setTool('rotate') },
     { id: 'face', icon: 'face', name: 'Lato', key: 'L', desc: 'Spingi o tira un lato piatto', run: () => setTool('face') },
     { id: 'edge', icon: 'edge', name: 'Spigolo', key: 'E', desc: 'Arrotonda, smussa o sposta uno spigolo', run: () => setTool('edge') },
-    { id: 'cut', grp: 'plane', icon: 'cut', name: 'Taglia', key: 'K', desc: 'Taglia un oggetto con un piano', run: () => setTool('cut') },
-    { id: 'stretch', grp: 'plane', icon: 'stretch', name: 'Allunga', key: 'U', desc: 'Allunga o accorcia una parte, da un piano in poi', run: () => setTool('stretch') },
+    { id: 'cut', icon: 'cut', name: 'Taglia', key: 'K', desc: 'Taglia un oggetto con un piano', run: () => setTool('cut') },
     { id: 'ruler', icon: 'dist', name: 'Metro', key: 'D', desc: 'Misura tra due punti o lati', run: () => setTool('ruler') },
   ]],
   ['Forme', [
@@ -3119,7 +3121,6 @@ const toolEls = {};
    sticky = il pulsante mostra l'ultima variante usata (anche Combina, Interseca e Stampo). */
 const TGROUPS = {
   sel: { items: ['marquee', 'lasso'], sticky: true },
-  plane: { items: ['cut', 'stretch'], sticky: true },
   comb: { items: ['combine', 'intersect', 'mold'], sticky: true },
 };
 const TOOL_AT = {};                                             // id → [sezione, posizione] dentro TOOLS
@@ -3513,7 +3514,7 @@ function showHelp(el) {
   tipEl.innerHTML = `<b>${esc(tr(title))}</b><small class="hl">${esc(txt)}</small>`;
   fitTip();
   tipEl.classList.add('help'); tipEl.classList.remove('up', 'left'); tipEl.style.maxWidth = '290px';
-  const r = el.getBoundingClientRect(), box = (el.closest('#props, #cut-card, #side, .panel') || el).getBoundingClientRect(), left = r.left > window.innerWidth * 0.5;
+  const r = el.getBoundingClientRect(), box = (el.closest('#props, #side, .panel') || el).getBoundingClientRect(), left = r.left > window.innerWidth * 0.5;
   tipEl.classList.toggle('left', left);
   tipEl.style.left = (left ? box.left - 16 : box.right + 16) + 'px';
   tipEl.style.top = Math.min(Math.max(r.top + r.height / 2, 60), window.innerHeight - 90) + 'px';
@@ -3826,7 +3827,6 @@ window.addEventListener('keydown', e => {
   else if (k === 'q') setTool('marquee');
   else if (k === 'w') setTool('lasso');
   else if (k === 'k') setTool('cut');
-  else if (k === 'u') setTool('stretch');
   else if (k === 'r') setTool('rotate');
   else if (k === 'b') createObject('box');
   else if (k === 'c') createObject('cylinder');
@@ -6416,7 +6416,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '1.4.4';
+const APP_VERSION = '1.5.0';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
@@ -6642,10 +6642,10 @@ function cutSecUpdate() {
 }
 function cutReset() { CUT.pos = Math.round(cutAxisCenter() * 100) / 100; $('#cut-pos').value = fmt(CUT.pos); cutRefresh(); }
 function cutToolChanged() {
-  $('#cut-card').classList.toggle('hidden', !planeTool());
+  syncPanel();                                       // Taglia sta nel pannello a destra, come Lato e Spigolo
   if (planeTool()) {
     const st = state.tool === 'stretch';
-    $('#cut-title').innerHTML = tr(st ? 'Allunga' : 'Taglia') + '<i class="inf" aria-hidden="true">?</i>'; $('#cut-go').textContent = tr(st ? 'Applica' : 'Taglia');
+    $('#p-cut .p-title').firstChild.textContent = tr(st ? 'Allunga' : 'Taglia') + ' '; $('#cut-go').textContent = tr(st ? 'Applica' : 'Taglia');
     $('#cut-delta-wrap').classList.toggle('hidden', !st); $('#cut-title').dataset.help = st ? 'Trascina il piano per scegliere da dove allungare. Tutto quello che sta oltre il piano si sposta: un numero positivo allunga, uno negativo accorcia.' : 'Scegli l\'asse e la posizione del piano. Puoi trascinare il piano o cliccare sull\'oggetto. Alla fine hai due oggetti separati.';
     cutReset(); if (!selection.length) toast(st ? 'Seleziona l\'oggetto da allungare, poi scegli il piano' : 'Seleziona l\'oggetto da tagliare, poi scegli il piano');
   } else cutRefresh();
@@ -6805,7 +6805,7 @@ window.addEventListener('keydown', e => {
   if (e.key !== 'Enter' || e.isComposing || !planeTool() || !selection.length) return;
   const t = e.target;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.tagName === 'BUTTON' || t.isContentEditable)) return;
-  if (document.querySelector('dialog[open]') || (typeof ctxOpen === 'function' && ctxOpen()) || $('#cut-card').classList.contains('hidden')) return;
+  if (document.querySelector('dialog[open]') || (typeof ctxOpen === 'function' && ctxOpen()) || $('#p-cut').classList.contains('hidden') || $('#props').classList.contains('hidden')) return;
   e.preventDefault(); $('#cut-go').click();
 });
 /* sfumatura ai bordi dei pannelli che scorrono */
