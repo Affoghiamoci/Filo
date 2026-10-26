@@ -4488,10 +4488,22 @@ function reselectCaps(caps) {
     if (best) { selectFaceFromHit({ object: best.m, faceIndex: best.t }, !first); first = false; }
   }
 }
-function applyPush(distArg) {
+function applyPush(distArg, opt = {}) {
   const fs = faceSel, dist = typeof distArg === 'number' ? distArg : fieldNum(TF.push);
   clearTimeout(pushPrevTimer); hideFacePrev();
   if (!fs || !Number.isFinite(dist) || Math.abs(dist) < 1e-4) return;
+  const corn = faceMode.v === 'extrude' && !opt.noFrame ? fieldNum($('#f-frame')) : 0;
+  if (corn > 0) {                                  // Estrudi con cornice: prima il rientro (il lato interno resta selezionato), poi l'estrusione del centro; in Cronologia è un passo solo
+    if (faceSet.length !== 1 || fs.curved) return toast('La cornice funziona su un lato piatto alla volta');
+    const h0 = hIdx; faceMode.v = 'inset';
+    try { applyPush(corn, { quiet: true }); } finally { faceMode.v = 'extrude'; }
+    if (hIdx !== h0 + 1 || !faceSel) return;                                       // il rientro non è riuscito: l'avviso c'è già
+    applyPush(dist, { noFrame: true, frame: corn });
+    if (hIdx !== h0 + 2) { undo(); history.length = hIdx + 1; scheduleHistory(); return; }   // estrusione non riuscita: si torna a prima della cornice
+    history.splice(h0 + 1, 1); hIdx = h0 + 1; history[hIdx].label = describeChange(history[h0], history[hIdx]); scheduleHistory();
+    $('#f-frame').value = '0';
+    return;
+  }
   faceMode.taper = 1;
   if (faceMode.v === 'extrude') {                                       // "Scala in cima": vuoto = 100 %, il prisma resta dritto
     const raw = String($('#f-taper').value).trim(), tp = raw === '' ? 100 : parseFloat(raw);
@@ -4517,7 +4529,8 @@ function applyPush(distArg) {
     reselectCaps(caps0);
   }
   if (fail) return toast(fail);
-  if (faceMode.v === 'inset' && !fail) return toast(`Rientro di ${fmt(dist)} mm: il lato interno è selezionato, puoi estrudere o scavare`);
+  if (faceMode.v === 'inset' && !fail) return opt.quiet ? undefined : toast(`Rientro di ${fmt(dist)} mm: il lato interno è selezionato, puoi estrudere o scavare`);
+  if (ext && faceMode.v === 'extrude' && opt.frame) return toast(dist > 0 ? `Bordo rialzato di ${fmt(dist)} mm con una cornice di ${fmt(opt.frame)} mm` : `Vasca profonda ${fmt(-dist)} mm con una cornice di ${fmt(opt.frame)} mm`);
   if (ext && faceMode.v === 'extrude') return toast(faceMode.taper !== 1 && dist > 0 ? `Lato estruso di ${fmt(dist)} mm, con la cima al ${fmt(faceMode.taper * 100)} %` : dist > 0 ? `${nFaces > 1 ? nFaces + ' lati' : 'Lato'} estruso di ${fmt(dist)} mm` : `Scavato di ${fmt(-dist)} mm con la sagoma del lato`);
   if (ext) return toast(`${nFaces > 1 ? nFaces + ' lati' : 'Lato'} estruso di ${fmt(Math.abs(dist))} mm (sagoma del lato, senza deformare i vicini)`);
   toast((nFaces > 1 ? `${nFaces} lati ` : 'Lato ') + (dist > 0 ? `tirato di ${fmt(dist)} mm` : `spinto di ${fmt(Math.abs(dist))} mm`));
@@ -5028,9 +5041,34 @@ const facePrev = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshStanda
 facePrev.material.polygonOffset = true; facePrev.material.polygonOffsetFactor = -2; facePrev.material.polygonOffsetUnits = -2;   // l'anteprima coincide con il pezzo sulle pareti che non cambiano: un po' in avanti, così non sfarfalla a scalini
 facePrev.visible = false; facePrev.renderOrder = 5; facePrev.raycast = () => {}; scene.add(facePrev);
 let facePrevT = 0, facePrevPending = null;
-function hideFacePrev() { facePrev.visible = false; facePrevPending = null; selMeshes.forEach(s => { s.visible = true; }); dirty = true; }
+function hideFacePrev() { facePrev.visible = false; facePrevPending = null; selMeshes.forEach(s => { s.visible = true; }); dropLines(frameLines); frameLines = null; dirty = true; }
+// Cornice di Estrudi: il lato interno come sarà (calcolato a parte, il pezzo non cambia). Si ricorda l'ultimo risultato: durante il trascinamento non cambia
+var frameLines = null, frameCache = null;
+function framedFace(fs, corn) {
+  if (fs.curved) return null;
+  if (frameCache && frameCache.fs === fs && frameCache.corn === corn && frameCache.g === fs.obj.geometry) return frameCache.r;
+  let r = null;
+  try {
+    const P = worldPositions(fs.obj);
+    if (P.length / 9 <= 60000) {
+      const tp = buildTopo(P, { seams: seamsWorld(fs.obj) });
+      if (tp.stats.closed && !tp.stats.pinched) { const fid = topoFaceFor(tp, fs.n, fs.world); const out = fid >= 0 ? insetFace(tp, fid, corn) : null; if (out && out.inner) r = { world: out.inner, n: fs.n, seams: out.seams }; }
+    }
+  } catch (e) { r = null; }
+  frameCache = { fs, corn, g: fs.obj.geometry, r };
+  return r;
+}
+function showFrameLines(ff) {
+  dropLines(frameLines);
+  const S = ff.seams, ch = [];
+  for (let i = 0; i < S.length; i += 6) ch.push({ pts: [new THREE.Vector3(S[i], S[i + 1], S[i + 2]), new THREE.Vector3(S[i + 3], S[i + 4], S[i + 5])], closed: false });
+  frameLines = makeLines(ch, edgeMat); dirty = true;
+}
 function updateFacePrev(fd, dist) {
   if (faceMode.v === 'inset') { hideFacePrev(); return false; }   // il Rientro non ha questa anteprima: calcolarla cambierebbe il pezzo
+  if (Math.abs(dist) < 1e-4 && faceMode.v === 'extrude' && fieldNum($('#f-frame')) > 0 && faceSet.length === 1) {   // solo la cornice: si vede la linea
+    hideFacePrev(); const ff = framedFace(faceSet[0], fieldNum($('#f-frame'))); if (ff) showFrameLines(ff); return !ff;
+  }
   if (Math.abs(dist) < 1e-4 || fd.fs.curved || faceSet.length < 1) { hideFacePrev(); return false; }
   const now = performance.now();
   if (now - facePrevT < 60) {                                    // al massimo ~16 volte al secondo; l'ultima posizione arriva comunque
@@ -5041,8 +5079,10 @@ function updateFacePrev(fd, dist) {
   let pos = null, bad = false;
   try {
     if (faceMode.v === 'extrude') {
-      const raw = String($('#f-taper').value).trim(), tp = raw === '' ? 1 : parseFloat(raw) / 100;
-      const parts = faceSet.map(f => prismGeometry(f, dist, tp > 0 ? tp : 1));
+      const raw = String($('#f-taper').value).trim(), tp = raw === '' ? 1 : parseFloat(raw) / 100, corn = fieldNum($('#f-frame'));
+      let faces = faceSet; dropLines(frameLines); frameLines = null;
+      if (corn > 0) { const ff = faceSet.length === 1 ? framedFace(faceSet[0], corn) : null; if (!ff) { hideFacePrev(); return true; } faces = [ff]; showFrameLines(ff); }
+      const parts = faces.map(f => prismGeometry(f, dist, tp > 0 ? tp : 1));
       const n = parts.reduce((s, g) => s + g.attributes.position.count * 3, 0); pos = new Float32Array(n);
       let o = 0; for (const g of parts) { pos.set(g.attributes.position.array, o); o += g.attributes.position.count * 3; g.dispose(); }
     } else {
@@ -5147,8 +5187,9 @@ document.querySelectorAll('#f-mode button').forEach(b => b.addEventListener('cli
   faceMode.v = b.dataset.v;
   document.querySelectorAll('#f-mode button').forEach(x => x.classList.toggle('on', x === b));
   $('#f-taper-row').classList.toggle('hidden', faceMode.v !== 'extrude');
-  updateFaceHandle();
-  TF.push.focus();
+  $('#f-scale-box').classList.toggle('hidden', faceMode.v !== 'move');   // Scala il lato inclina i vicini: sta con Allunga
+  hideScalePrev(); updateFaceHandle();
+  TF.push.focus(); pushFieldPreview();
 }));
 $('#f-push-go').addEventListener('click', () => applyPush());
 $('#f-scale-go').addEventListener('click', () => applyFaceScale());
@@ -5191,13 +5232,13 @@ function pushFieldPreview() {
   pushPrevTimer = setTimeout(() => {
     if (drag && drag.mode === 'facepush') return;
     const d = fieldNum(TF.push), a = document.activeElement;
-    if (!faceSel || state.tool !== 'face' || !Number.isFinite(d) || !(a === TF.push || a === $('#f-taper'))) { hideFacePrev(); return; }
+    if (!faceSel || state.tool !== 'face' || !Number.isFinite(d) || !(a === TF.push || a === $('#f-taper') || a === $('#f-frame'))) { hideFacePrev(); return; }
     facePrevT = 0; updateFacePrev({ fs: faceSel }, d);
   }, 90);
 }
-for (const el of [TF.push, $('#f-taper')]) {
+for (const el of [TF.push, $('#f-taper'), $('#f-frame')]) {
   el.addEventListener('input', pushFieldPreview); el.addEventListener('change', pushFieldPreview); el.addEventListener('focus', pushFieldPreview);
-  el.addEventListener('blur', () => setTimeout(() => { const a = document.activeElement; if (a !== TF.push && a !== $('#f-taper') && !(drag && drag.mode === 'facepush')) hideFacePrev(); }, 120));
+  el.addEventListener('blur', () => setTimeout(() => { const a = document.activeElement; if (a !== TF.push && a !== $('#f-taper') && a !== $('#f-frame') && !(drag && drag.mode === 'facepush')) hideFacePrev(); }, 120));
 }
 
 /* ------------------------------------------------------------ importa 3MF / STL */

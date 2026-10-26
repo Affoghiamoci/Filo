@@ -695,7 +695,7 @@ mark.hp-hit.cur{background:color-mix(in srgb,var(--accent) 38%,transparent)}
 .ax-row .seg{margin-top:0}
 #p-edge .seg button.on{background:var(--accent-weak);color:var(--text);box-shadow:inset 0 0 0 1px var(--accent)}
 #p-edge .row2 .btn.primary,#p-face .row2 .btn.primary{min-width:84px;justify-content:center}
-#f-taper-row .row2{margin-top:6px;grid-template-columns:1fr 84px}   /* Cima sotto Di: stesso respiro e stessa larghezza del campo sopra */
+#f-taper-row .row2{margin-top:6px;grid-template-columns:1fr 1fr}   /* Estrudi: Cima e Cornice affiancate sotto Di */
 .inf{display:inline-grid;place-items:center;width:13px;height:13px;margin-left:6px;border:1px solid var(--line);border-radius:50%;font:500 8px/1 var(--mono);letter-spacing:0;color:var(--muted);vertical-align:1px;font-style:normal;text-transform:none}
 [data-help]:hover .inf{color:var(--accent);border-color:var(--accent)}
 #tip.help{transform:translateY(-50%)}

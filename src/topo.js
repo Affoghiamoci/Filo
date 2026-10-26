@@ -416,12 +416,13 @@ export function insetFace(topo, fid, dist) {
   const out = Array.from(trisOf(topo, topo.faces.filter(f => f.id !== fid), V));
   const n0 = out.length;
   if (!triPolys(n, io, ih, out)) return null;
+  const inner = Float32Array.from(out.slice(n0));                 // i triangoli del lato interno (servono all'anteprima della cornice)
   const pick = [(out[n0] + out[n0 + 3] + out[n0 + 6]) / 3, (out[n0 + 1] + out[n0 + 4] + out[n0 + 7]) / 3, (out[n0 + 2] + out[n0 + 5] + out[n0 + 8]) / 3];
   if (!triPolys(n, orig(outer), [io], out)) return null;
   holes.forEach((h, i) => { if (!triPolys(n, ih[i], [orig(h)], out)) throw new Error('inset'); });
   const seams = [];
   for (const L of [io, ...ih]) for (let i = 0; i < L.length; i++) { const a = L[i], b = L[(i + 1) % L.length]; seams.push(a.x, a.y, a.z, b.x, b.y, b.z); }
-  const res = new Float32Array(out); res.seams = Float64Array.from(seams); res.pick = pick;
+  const res = new Float32Array(out); res.seams = Float64Array.from(seams); res.pick = pick; res.inner = inner;
   return res;
 }
 
