@@ -145,7 +145,9 @@ try {
 } catch (e) { aoRT = null; aoU.aoK.value = 0; }
 function aoUpdate() {
   if (!aoRT) return;
-  for (const m of objects) { if (m.visible && !m.userData.hole) m.layers.enable(1); else m.layers.disable(1); }
+  // un pezzo nascosto per un'anteprima (strato 2) non conta: conta l'anteprima al suo posto, altrimenti l'oscuramento resta quello del pezzo vecchio
+  for (const m of objects) { if (m.visible && !m.userData.hole && !(m.layers.mask & 4)) m.layers.enable(1); else m.layers.disable(1); }
+  for (const m of previewMeshes()) m.layers.enable(1);
   const cc = renderer.getClearColor(new THREE.Color()), ca = renderer.getClearAlpha(), prev = renderer.getRenderTarget(), sm = renderer.shadowMap.autoUpdate;
   renderer.shadowMap.autoUpdate = false;
   scene.overrideMaterial = aoMatD; renderer.setRenderTarget(aoRT); renderer.setClearColor(0x000000, 1); renderer.clear();
@@ -5671,11 +5673,12 @@ function updateSilhouettes() {                     // Raggi X: contorno (i due l
   }
 }
 let shadowSig = -1, shadowForce = true;
+function previewMeshes() { return [typeof scalePrev !== 'undefined' && scalePrev && scalePrev.mesh, typeof edgePrev !== 'undefined' && edgePrev && edgePrev.mesh].filter(Boolean); }   // pezzi "come verranno" mostrati al posto di quelli veri
 function shadowCheck() {                           // impronta di ciò che proietta ombra: posizione, forma, visibilità. Se è uguale a prima, la mappa dell'ombra resta quella
   let h = 2166136261 >>> 0;
   const mix = v => { h = Math.imul(h ^ (Math.round(v * 1000) | 0), 16777619) >>> 0; };
-  for (const m of objects) {
-    if (!m.castShadow || !m.visible) continue;
+  for (const m of [...objects, ...previewMeshes()]) {
+    if (!m.castShadow || !m.visible || !(m.layers.mask & 1)) continue;
     m.updateMatrixWorld();
     const e = m.matrixWorld.elements, g = m.geometry, p = g.attributes.position;
     for (let i = 0; i < 16; i++) mix(e[i]);
