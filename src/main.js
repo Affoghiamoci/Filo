@@ -5028,6 +5028,7 @@ facePrev.visible = false; facePrev.renderOrder = 5; facePrev.raycast = () => {};
 let facePrevT = 0, facePrevPending = null;
 function hideFacePrev() { facePrev.visible = false; facePrevPending = null; selMeshes.forEach(s => { s.visible = true; }); dirty = true; }
 function updateFacePrev(fd, dist) {
+  if (faceMode.v === 'inset') { hideFacePrev(); return false; }   // il Rientro non ha questa anteprima: calcolarla cambierebbe il pezzo
   if (Math.abs(dist) < 1e-4 || fd.fs.curved || faceSet.length < 1) { hideFacePrev(); return false; }
   const now = performance.now();
   if (now - facePrevT < 60) {                                    // al massimo ~16 volte al secondo; l'ultima posizione arriva comunque
