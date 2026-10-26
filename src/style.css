@@ -480,7 +480,7 @@ label.f input::-webkit-inner-spin-button,label.f input::-webkit-outer-spin-butto
 .seg3{grid-template-columns:repeat(3,1fr)}
 .seg4{grid-template-columns:repeat(4,1fr)}
 
-#p-edge .dim{opacity:.4;pointer-events:none}
+#p-edge .dim,#p-face .dim{opacity:.4;pointer-events:none}
 
 #perf-note{position:fixed;top:64px;left:calc(var(--sw,292px) + (100vw - var(--sw,292px)) / 2);transform:translateX(-50%);display:flex;align-items:center;gap:10px;max-width:min(560px,calc(100vw - var(--sw,292px) - 32px));padding:8px 8px 8px 14px;font:500 12px var(--mono);color:var(--muted);border-left:2px solid var(--accent);z-index:30}
 #perf-note span{line-height:1.4}

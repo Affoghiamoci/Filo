@@ -156,7 +156,7 @@ const EN = {
   'diametro interno': 'inner diameter',
   'diametro esterno': 'outer diameter',
   'AGGIORNAMENTO': 'UPDATE',
-  'Nuovo modo Rientro: cornice sul lato, poi estrudi o scava il centro': 'New Inset mode: a frame on the face, then extrude or dig the centre',
+  'Estrudi con Cornice: bordo rialzato o vasca in un passo': 'Extrude with Frame: raised rim or tray in one step',
   'Leggi le novità': 'Read what is new',
   'Ko-fi': 'Ko-fi',
   'Controlla': 'Check', 'Controlla se il pezzo è pronto da stampare': 'Check if the piece is ready to print', 'Controlla stampa': 'Print check', 'Sto analizzando…': 'Analyzing…', 'Strato': 'Layer', 'Parete minima': 'Minimum wall', 'Sbalzi in rosso nel modello': 'Overhangs in red on the model', 'Stima indicativa: non sostituisce lo slicer.': 'Approximate estimate: it does not replace the slicer.',

@@ -4492,7 +4492,7 @@ function applyPush(distArg, opt = {}) {
   const fs = faceSel, dist = typeof distArg === 'number' ? distArg : fieldNum(TF.push);
   clearTimeout(pushPrevTimer); hideFacePrev();
   if (!fs || !Number.isFinite(dist) || Math.abs(dist) < 1e-4) return;
-  const corn = faceMode.v === 'extrude' && !opt.noFrame ? fieldNum($('#f-frame')) : 0;
+  const corn = faceMode.v === 'extrude' && !opt.noFrame && !$('#f-frame').disabled ? fieldNum($('#f-frame')) : 0;
   if (corn > 0) {                                  // Estrudi con cornice: prima il rientro (il lato interno resta selezionato), poi l'estrusione del centro; in Cronologia è un passo solo
     if (faceSet.length !== 1 || fs.curved) return toast('La cornice funziona su un lato piatto alla volta');
     const h0 = hIdx; faceMode.v = 'inset';
@@ -5066,7 +5066,7 @@ function showFrameLines(ff) {
 }
 function updateFacePrev(fd, dist) {
   if (faceMode.v === 'inset') { hideFacePrev(); return false; }   // il Rientro non ha questa anteprima: calcolarla cambierebbe il pezzo
-  if (Math.abs(dist) < 1e-4 && faceMode.v === 'extrude' && fieldNum($('#f-frame')) > 0 && faceSet.length === 1) {   // solo la cornice: si vede la linea
+  if (Math.abs(dist) < 1e-4 && faceMode.v === 'extrude' && !$('#f-frame').disabled && fieldNum($('#f-frame')) > 0 && faceSet.length === 1) {   // solo la cornice: si vede la linea
     hideFacePrev(); const ff = framedFace(faceSet[0], fieldNum($('#f-frame'))); if (ff) showFrameLines(ff); return !ff;
   }
   if (Math.abs(dist) < 1e-4 || fd.fs.curved || faceSet.length < 1) { hideFacePrev(); return false; }
@@ -5079,7 +5079,7 @@ function updateFacePrev(fd, dist) {
   let pos = null, bad = false;
   try {
     if (faceMode.v === 'extrude') {
-      const raw = String($('#f-taper').value).trim(), tp = raw === '' ? 1 : parseFloat(raw) / 100, corn = fieldNum($('#f-frame'));
+      const raw = String($('#f-taper').value).trim(), tp = raw === '' ? 1 : parseFloat(raw) / 100, corn = $('#f-frame').disabled ? 0 : fieldNum($('#f-frame'));
       let faces = faceSet; dropLines(frameLines); frameLines = null;
       if (corn > 0) { const ff = faceSet.length === 1 ? framedFace(faceSet[0], corn) : null; if (!ff) { hideFacePrev(); return true; } faces = [ff]; showFrameLines(ff); }
       const parts = faces.map(f => prismGeometry(f, dist, tp > 0 ? tp : 1));
@@ -5179,15 +5179,21 @@ function applyFaceScale(pctArg) {
   clearFace(false); setSelection([r.mesh]); touch(); commit();
   toast('Lato ridimensionato');
 }
+function faceBoxes() {                             // ogni modo mostra solo i suoi campi; Scala il lato e Cornice solo dove funzionano (un lato piatto)
+  const one = faceSel && faceSet.length === 1 && !faceSel.curved;
+  $('#f-taper-row').classList.toggle('hidden', faceMode.v !== 'extrude');
+  $('#f-scale-box').classList.toggle('hidden', faceMode.v !== 'move' || !one);
+  $('#f-frame').closest('label').classList.toggle('dim', !one); $('#f-frame').disabled = !one;
+}
 function updateFacePanel() {
+  faceBoxes();
   const fs = faceSel;
   $('#f-info').textContent = faceSet.length > 1 ? `· ${faceSet.length} lati selezionati` : `${fmt(fs.W)} × ${fmt(fs.H)} mm${fs.curved ? ' · curvo' : fs.rect ? '' : ' · irregolare'}`;
 }
 document.querySelectorAll('#f-mode button').forEach(b => b.addEventListener('click', () => {
   faceMode.v = b.dataset.v;
   document.querySelectorAll('#f-mode button').forEach(x => x.classList.toggle('on', x === b));
-  $('#f-taper-row').classList.toggle('hidden', faceMode.v !== 'extrude');
-  $('#f-scale-box').classList.toggle('hidden', faceMode.v !== 'move');   // Scala il lato inclina i vicini: sta con Allunga
+  faceBoxes();
   hideScalePrev(); updateFaceHandle();
   TF.push.focus(); pushFieldPreview();
 }));
@@ -5714,7 +5720,7 @@ function updateSilhouettes() {                     // Raggi X: contorno (i due l
   }
 }
 let shadowSig = -1, shadowForce = true;
-function previewMeshes() { return [typeof scalePrev !== 'undefined' && scalePrev && scalePrev.mesh, typeof edgePrev !== 'undefined' && edgePrev && edgePrev.mesh].filter(Boolean); }   // pezzi "come verranno" mostrati al posto di quelli veri
+function previewMeshes() { return [scalePrev && scalePrev.mesh, edgePrev && edgePrev.mesh, revPrev && revPrev.mesh].filter(Boolean); }   // pezzi "come verranno" mostrati al posto di quelli veri
 function shadowCheck() {                           // impronta di ciò che proietta ombra: posizione, forma, visibilità. Se è uguale a prima, la mappa dell'ombra resta quella
   let h = 2166136261 >>> 0;
   const mix = v => { h = Math.imul(h ^ (Math.round(v * 1000) | 0), 16777619) >>> 0; };
@@ -6412,7 +6418,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '1.4.3';
+const APP_VERSION = '1.4.4';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
