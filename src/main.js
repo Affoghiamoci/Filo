@@ -6200,7 +6200,7 @@ $('#e-mv-go').addEventListener('click', () => {
 });
 $('#e-mv').addEventListener('keydown', e => { if (e.key === 'Enter') $('#e-mv-go').click(); });
 
-function topoEdges(obj, chains, mode, size) {
+function topoEdges(obj, chains, mode, size, quiet = false) {
   if (window.__noTopo || chains.some(c => c.closed)) return null;
   const P = worldPositions(obj);
   if (P.length / 9 > 60000) return null;
@@ -6221,7 +6221,7 @@ function topoEdges(obj, chains, mode, size) {
   if (out.err) return out;                                  // misura troppo grande: si dice il massimo invece di fare un raccordo che esce dal pezzo
   const baked = bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(out) }, obj.userData.name);
   if (!baked || isFlat(baked) || geoIsClosed(baked.geo) === false) return null;
-  if (window.__topoLog) window.__topoLog.push('edge-' + mode);
+  if (window.__topoLog && !quiet) window.__topoLog.push('edge-' + mode);   // l'anteprima non conta: il registro è di quello che si applica davvero
   return baked;
 }
 // cosa farebbe Applica con questa misura, senza toccare il pezzo: lo usano Applica e l'anteprima dal vivo.
@@ -6306,8 +6306,8 @@ function edgePlan(size, preview = false) {
   if (nConc && nConc < edgeSel.length) return err('Spigoli esterni e interni insieme: applica prima gli uni, poi gli altri');
   const concave = nConc > 0;
   {   // motore 1.0: raccordo o smusso fatti sulla struttura del pezzo (niente booleane); se il caso non è semplice, si usa il metodo di prima
-    let tr = topoEdges(obj, edgeSel.map(x => x.chain), edgeMode.v, size);
-    if (tr && tr.err && clampTo(tr.max)) tr = topoEdges(obj, edgeSel.map(x => x.chain), edgeMode.v, size);   // troppo grande: si usa il massimo possibile
+    let tr = topoEdges(obj, edgeSel.map(x => x.chain), edgeMode.v, size, preview);
+    if (tr && tr.err && clampTo(tr.max)) tr = topoEdges(obj, edgeSel.map(x => x.chain), edgeMode.v, size, preview);   // troppo grande: si usa il massimo possibile
     if (tr && tr.prisms) {                          // contro una superficie curva: prisma da unire (spigolo interno) o togliere (esterno)
       obj.updateMatrixWorld(true);
       let g0 = obj.geometry.index ? obj.geometry.toNonIndexed() : obj.geometry.clone();
