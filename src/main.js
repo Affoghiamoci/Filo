@@ -171,10 +171,11 @@ function aoize(m, k = 1) {
             float a = (float(k) + ign) * 6.2831853 / float(aoD); vec2 d = vec2(cos(a), sin(a));
             float w = hz > 0.05 ? mix(1.0, max(0.0, dot(d, nd)), clamp(hz * 1.5, 0.0, 1.0)) : 1.0;
             float hs = texture2D(aoMap, uv0 + d * r / (2.0 * aoH)).r;
-            occ += w * clamp((hs - hf - 0.15) / r, 0.0, 1.0); wsum += w;
+            float up = nn.z > 0.05 ? max(0.0, -dot(nn.xy, d)) * r / nn.z : 0.0;   // su un lato inclinato il riferimento sale con il lato stesso: il pezzo non si oscura da solo
+            occ += w * clamp((hs - hf - up - 0.15) / r, 0.0, 1.0); wsum += w;
           }
         }
-        float ao = 1.0 - aoK * ${k.toFixed(2)} * clamp(occ / max(wsum, 1.0) * 4.0, 0.0, 1.0);
+        float ao = 1.0 - aoK * ${k.toFixed(2)} * smoothstep(-0.25, -0.02, nn.z) * clamp(occ / max(wsum, 1.0) * 4.0, 0.0, 1.0);   // i lati rivolti in giù (sotto uno sbalzo) non si oscurano a fasce
         outgoingLight *= ao;
       }
       #include <opaque_fragment>`);
@@ -5051,6 +5052,7 @@ function updateFacePrev(fd, dist) {
   facePrev.geometry.dispose();
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.computeVertexNormals();
   facePrev.geometry = g; facePrev.material.color.setHex(bad ? 0xe5484d : ACCENT_HEX); facePrev.visible = true; dirty = true;
+  facePrev.material.depthTest = !(faceMode.v === 'extrude' && dist < 0);   // Scava: l'incavo sta dentro il pezzo, si vede in trasparenza
   if (faceMode.v !== 'extrude') selMeshes.forEach(s => { s.visible = false; });   // Allunga: il lato arancione alla misura vecchia confonderebbe, conta solo l'anteprima
   return bad;
 }
