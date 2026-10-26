@@ -27,4 +27,5 @@ html = html.replace('<!--LICENSES-->', () => licHtml);
 html = html.replace('<!--CSS-->', () => css).replace('<!--JS-->', () => js);
 fs.mkdirSync('dist', { recursive: true });
 fs.writeFileSync('dist/forma.html', html);
+fs.writeFileSync('index.html', html);   // è il file che Coolify pubblica su filo.affogo.fyi: va sempre insieme alla build
 console.log('ok', (html.length / 1024).toFixed(0) + ' KB');
