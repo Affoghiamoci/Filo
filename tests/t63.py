@@ -1,4 +1,4 @@
-# Spigolo: "Parete dritta" spenta di default; Riprendi: scheda a destra di Inizia, sempre visibile, con conferma su Elimina
+# Spigolo: sposta solo lo spigolo ("Parete dritta" tolta nella 1.4.3); Riprendi: scheda a destra di Inizia, sempre visibile, con conferma su Elimina
 from playwright.sync_api import sync_playwright
 ok=True
 def check(name,cond):
@@ -12,14 +12,13 @@ with sync_playwright() as p:
     check('Riprendi sempre visibile, con messaggio se vuota',pg.evaluate("getComputedStyle(document.querySelector('#ew-resume')).display")!='none' and pg.evaluate("!document.querySelector('#rs-empty').classList.contains('hidden')"))
     # prisma: spigolo orizzontale in basso, spostato in perpendicolare
     pg.evaluate("forma.createObject('box')");pg.wait_for_timeout(200)
-    check('parete dritta spenta di default',pg.evaluate("document.querySelector('#e-mv-col').checked")==False)
+    check('parete dritta tolta',pg.evaluate("!document.querySelector('#e-mv-col')"))
     box=lambda: pg.evaluate("(()=>{const m=forma.objects[forma.objects.length-1];m.updateMatrixWorld(true);const b=new forma.THREE.Box3().setFromObject(m);return [b.min.toArray(),b.max.toArray()].map(a=>a.map(v=>+v.toFixed(2)))})()")
     def mv(col):
         pg.goto(URL);pg.wait_for_function("window.forma");pg.wait_for_timeout(600)
         pg.evaluate("forma.createObject('box')");pg.wait_for_timeout(150)
         pg.fill('#p-w','20');pg.keyboard.press('Enter');pg.fill('#p-d','20');pg.keyboard.press('Enter');pg.fill('#p-h','10');pg.keyboard.press('Enter');pg.wait_for_timeout(100)
         pg.evaluate("forma.setTool('edge')")
-        pg.evaluate(f"(()=>{{const c=document.querySelector('#e-mv-col');c.checked={str(col).lower()};c.dispatchEvent(new Event('change'))}})()")
         r=pg.evaluate("""(()=>{const F=forma,m=F.selection[0];m.updateMatrixWorld(true);const an=F.edgeAnalysis(m);let lo=1e9,hi=-1e9;for(let k=0;k<an.P.length;k+=3){lo=Math.min(lo,an.P[k+2]);hi=Math.max(hi,an.P[k+2])}
           for(const e of an.sharp){const A=an.vp(e.a),B=an.vp(e.b);if(Math.abs(A.z-lo)<1e-3&&Math.abs(B.z-lo)<1e-3&&Math.abs(A.x-B.x)>5){F.selectEdgeAt({object:m,point:A.clone().add(B).multiplyScalar(.5)},false);const mi=F.moveInfo();F.moveEdgeBy(mi,'y',3);return 'ok'}}return 'noedge'})()""")
         pg.wait_for_timeout(200)
@@ -27,8 +26,6 @@ with sync_playwright() as p:
         return r,pg.evaluate("""(()=>{const m=forma.selection[0];m.updateMatrixWorld(true);const p=m.geometry.attributes.position,v=new forma.THREE.Vector3();let top=[1e9,-1e9],bot=[1e9,-1e9];for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i).applyMatrix4(m.matrixWorld);const r=v.z>5?top:bot;r[0]=Math.min(r[0],v.y);r[1]=Math.max(r[1],v.y)}return [top.map(x=>+x.toFixed(2)),bot.map(x=>+x.toFixed(2))]})()""")
     r0,(t0,b0)=mv(False); print(r0,t0,b0)
     check('spigolo da solo: sopra non si muove, sotto sì',r0=='ok' and abs((t0[1]-t0[0])-20)<0.01 and abs((b0[1]-b0[0])-20)>0.5)
-    r1,(t1,b1)=mv(True); print(r1,t1,b1)
-    check('con parete dritta attiva si sposta anche sopra',r1=='ok' and abs(t1[1]-13)<0.01 and abs(b1[1]-13)<0.01)
     # Riprendi
     pg.evaluate("forma.saveLast()");pg.wait_for_timeout(300)
     pg.reload();pg.wait_for_function("window.forma");pg.wait_for_timeout(1200)

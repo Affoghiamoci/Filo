@@ -8,7 +8,7 @@ Modellatore 3D semplice pensato per chi viene dalla grafica e vuole stampare in 
 
 Non vuole sostituire Fusion, Blender, FreeCAD o altri software complessi: è uno strumento semplice per piccole modifiche e modellazioni semplici. I feedback sono benvenuti, tramite [issue](https://github.com/Affoghiamoci/Filo/issues) o nei commenti del post su Reddit.
 
-Versione 1.4.2. Sito: [filo.affogo.fyi](https://filo.affogo.fyi). Codice: [github.com/Affoghiamoci/Filo](https://github.com/Affoghiamoci/Filo)
+Versione 1.4.3. Sito: [filo.affogo.fyi](https://filo.affogo.fyi). Codice: [github.com/Affoghiamoci/Filo](https://github.com/Affoghiamoci/Filo)
 
 ## Cosa fa
 
