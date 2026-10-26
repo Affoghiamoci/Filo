@@ -26,9 +26,11 @@ with sync_playwright() as p:
     fresh(pg,'cylinder'); v0=pg.evaluate(VOL); pick(pg,SIDE); n=pg.evaluate("forma.faceSet.length")
     pg.click('#f-mode [data-v=extrude]'); pg.fill('#f-push','3');pg.press('#f-push','Enter');pg.wait_for_timeout(2500)
     check('cilindro in Estrudi: un solo pezzo e nessun crollo (volume %.0f → %.0f, lati %d)'%(v0,pg.evaluate(VOL),n),pg.evaluate("forma.objects.length")==1 and pg.evaluate(VOL)>0)
-    # Scala su lato curvo: avviso, il pezzo non cambia
+    # Scala su lato curvo: dalla 1.5.0 Scala il lato non compare (funziona solo su un lato piatto), il pezzo non cambia
     fresh(pg,'cylinder'); v0=pg.evaluate(VOL); pick(pg,SIDE)
-    pg.fill('#f-scale','50');pg.press('#f-scale','Enter');pg.wait_for_timeout(500)
+    pg.click('#f-mode [data-v=move]'); pg.wait_for_timeout(200)
+    check('Scala su lato curvo: la sezione è nascosta',pg.evaluate("document.querySelector('#f-scale-box').classList.contains('hidden')"))
+    pg.evaluate("forma.applyFaceScale(50)");pg.wait_for_timeout(500)
     check('Scala su lato curvo: il pezzo non cambia',abs(pg.evaluate(VOL)-v0)<0.5)
     # due lati insieme (⇧) in Sposta e in Estrudi
     for mode in ['move','extrude']:
