@@ -17,6 +17,9 @@ with sync_playwright() as p:
     check('nessuna casella Parete dritta',pg.evaluate("!document.querySelector('#e-mv-col')"))
     check('spigolo scelto',pg.evaluate(PICK+"(false)")==1)
     before=pg.evaluate("JSON.stringify(forma.objects[0].userData.p)")
+    pg.wait_for_timeout(500)
+    check('anteprima subito, appena scelto lo spigolo',pg.evaluate("(forma.objects[0].layers.mask&1)===0"))
+    check('il quadratino per spostare lo spigolo resta',pg.evaluate("forma.moveHandle.visible"))
     pg.click('#e-size'); pg.fill('#e-size','3'); pg.wait_for_timeout(500)
     prev=pg.evaluate("(()=>{let m=null;forma.THREE&&0;const s=forma.objects[0].parent;s.traverse(o=>{if(o.isMesh&&o.userData&&o.userData.kind==='merged'&&!forma.objects.includes(o)&&(o.layers.mask&1))m=o});return m?m.geometry.attributes.position.count:0})()")
     check('anteprima del raccordo visibile',prev>0)
@@ -24,6 +27,7 @@ with sync_playwright() as p:
     pg.click('#e-type button[data-v=chamfer]'); pg.wait_for_timeout(500)
     check('cambiando tipo l anteprima resta',pg.evaluate("(forma.objects[0].layers.mask&1)===0"))
     pg.click('#e-go'); pg.wait_for_timeout(600)
+    check('dopo Applica niente spigoli sospesi',pg.evaluate("forma.edgeSel().length")==0)
     check('Applica: pezzo visibile e smussato',pg.evaluate("forma.objects[0].layers.mask")&1 and pg.evaluate("JSON.stringify(forma.objects[0].userData.p)")!=before)
     # pezzo non parametrico (motore a punti): anteprima e Applica danno lo stesso numero di triangoli
     start(); pg.evaluate("forma.createObject('box')"); pg.evaluate("forma.setTool('face')"); pg.wait_for_timeout(200)

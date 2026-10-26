@@ -40,7 +40,8 @@ with sync_playwright() as p:
         check('spigolo: 1+1,5 + Invio → raccordo 2.5 (volume %.1f atteso %.1f)'%(v1,exp),abs(v1-exp)<1.5)
         # 3) sposta spigolo: campo mm con somma
         pg.evaluate("forma.undo()");pg.wait_for_timeout(300)
-        pg.evaluate("forma.selectEdgeAt({object:forma.objects[0],point:new forma.THREE.Vector3(%f,%f,%f)},false)"%(bx[0],(bx[1]+bx[4])/2,bx[5]))
+        if pg.evaluate("forma.edgeSel().length")==0:   # Annulla riporta già lo spigolo selezionato
+            pg.evaluate("forma.selectEdgeAt({object:forma.objects[0],point:new forma.THREE.Vector3(%f,%f,%f)},false)"%(bx[0],(bx[1]+bx[4])/2,bx[5]))
         pg.wait_for_timeout(250)
         if pg.is_visible('#e-mv'):
             pg.fill('#e-mv','1+1,5');pg.press('#e-mv','Enter');pg.wait_for_timeout(700)

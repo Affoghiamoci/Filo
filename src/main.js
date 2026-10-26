@@ -1112,6 +1112,7 @@ function jumpTo(i) {
 }
 function restore(s) {
   if (revPrev) hideRevPreview();
+  if (edgePrev) hideEdgePrev();
   [...objects].forEach(removeMesh);
   keyObj = null;
   const made = s.list.map(d => makeMesh({ ...d }));
@@ -1952,7 +1953,7 @@ function axisParam(origin, axis, ray) {
 }
 
 /* --------------------------------------------------------- interazione */
-const raycaster = new THREE.Raycaster();
+const raycaster = new THREE.Raycaster(); raycaster.layers.enable(2);   // strato 2 = pezzo nascosto da un'anteprima: si deve poter ancora cliccare (per esempio per aggiungere spigoli)
 raycaster.firstHitOnly = true;
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
@@ -2012,11 +2013,11 @@ canvas.addEventListener('pointerdown', e => {
   else if (state.tool === 'edge') {
     if (moveHandle.visible) {
       setRay(e);
-      if (raycaster.intersectObject(moveHandle, false)[0]) { const em = startEdgeMove(e); if (em) { drag.mode = 'edgemove'; drag.em = em; hideHover(); return; } }
+      if (raycaster.intersectObject(moveHandle, false)[0]) { hideEdgePrev(); const em = startEdgeMove(e); if (em) { drag.mode = 'edgemove'; drag.em = em; hideHover(); return; } }
     }
     if (edgeHandle.visible) {
       setRay(e);
-      if (raycaster.intersectObject(edgeHandle, false)[0]) { const es = startEdgeScale(); if (es) { drag.mode = 'edgescale'; drag.es = es; hideHover(); return; } }
+      if (raycaster.intersectObject(edgeHandle, false)[0]) { hideEdgePrev(); const es = startEdgeScale(); if (es) { drag.mode = 'edgescale'; drag.es = es; hideHover(); return; } }
     }
     drag.mode = 'orbit'; drag.edgeHit = pickHit(e); drag.emptyClick = !drag.edgeHit;
   }
@@ -3413,6 +3414,7 @@ function setToolInner(t) {
   state.tool = t;
   if (repPrevG) hideRepeatPreview();
   if (revPrev) hideRevPreview();
+  if (edgePrev) hideEdgePrev();
   updateRotGizmo();
   if (t !== 'face') { clearFace(false); hideHover(); }
   if (t !== 'edge') clearEdges();
@@ -5853,7 +5855,7 @@ function selectEdgeAt(hit, add) {
   else if (add && edgeSel.every(x => x.obj === item.obj)) edgeSel.push(item);
   else edgeSel = [item];
   if (!selection.includes(item.obj)) setSelection([item.obj]);
-  prefillEdgeSize(); refreshEdgeLines(); updateEdgePanel(); updateEdgeHandle();
+  prefillEdgeSize(); refreshEdgeLines(); updateEdgePanel(); updateEdgeHandle(); edgePreview();
 }
 function prefillEdgeSize() {                          // scatola: mostra misura e tipo già impostati sugli spigoli scelti
   const rks = edgeSel.map(x => x.chain.rkey || (x.chain.closed && ringKeyOf(x.obj, x.chain.pts)));
@@ -5899,7 +5901,7 @@ function updateEdgePanel() {
   document.querySelectorAll('#e-mv-ax button').forEach(b => { const a = mi ? edgeMoveAxis(mi) : null; b.classList.toggle('on', b.dataset.v === a); b.disabled = !mi || b.dataset.v === mi.par || (b.dataset.v === 'n' && !mi.n); });
   document.querySelectorAll('#e-type button').forEach(b => b.classList.toggle('on', b.dataset.v === edgeMode.v));
 }
-document.querySelectorAll('#e-type button').forEach(b => b.addEventListener('click', () => { edgeMode.v = b.dataset.v; updateEdgePanel(); if (edgeSel.length) { EF.size.focus(); edgePreview(); } }));
+document.querySelectorAll('#e-type button').forEach(b => b.addEventListener('click', () => { edgeMode.v = b.dataset.v; updateEdgePanel(); edgePreview(); }));
 // ridimensiona un anello chiuso (es. il bordo superiore di un cilindro): i vertici si spostano radialmente, il pezzo diventa un tronco di cono
 // posizioni del pezzo con l'anello P ridimensionato di f attorno al suo centro (serve ad Applica e all'anteprima di Scala il lato)
 function scaledLoopPositions(obj, P, c, nrm, f) {
@@ -5989,7 +5991,6 @@ function updateEdgeHandle() {
   if (ri) edgeHandle.position.copy(ri.handle);
   const mi = state.tool === 'edge' ? moveInfo() : null;
   moveHandle.visible = !!mi; if (mi) moveHandle.position.copy(mi.c);
-  if (edgePrev) edgeHandle.visible = moveHandle.visible = false;   // durante l'anteprima i quadratini starebbero sullo spigolo vecchio
   dirty = true;
 }
 function ringTargets(ri) {                              // raggi degli altri anelli dello stesso pezzo (piani paralleli): per tornare a un cilindro, o uguagliare l'altro bordo
@@ -6361,7 +6362,7 @@ function applyEdges() {
   if (pl.p) {
     const u = obj.userData; u.p = pl.p;
     obj.geometry.dispose(); obj.geometry = buildGeometry(u.kind, u.p); refreshEdges(obj); obj.updateMatrixWorld(true);
-    if (pl.after === 'sync') { syncPanel(); touch(); commit(); dirty = true; } else { clearEdges(); setSelection([obj]); touch(); commit(); }
+    clearEdges(); setSelection([obj]); touch(); commit(); dirty = true;   // gli spigoli arrotondati non ci sono più: le linee e i quadratini resterebbero sospesi nel vuoto
     return toastE(pl.msg);
   }
   clearEdges();
@@ -6383,8 +6384,7 @@ function hideEdgePrev() {
 function edgePreview() {
   clearTimeout(edgePrevTimer);
   edgePrevTimer = setTimeout(() => {
-    const live = document.activeElement === EF.size || document.activeElement && document.activeElement.closest && document.activeElement.closest('#e-type');
-    if (!edgeSel.length || state.tool !== 'edge' || !live) { hideEdgePrev(); return; }
+    if (!edgeSel.length || state.tool !== 'edge') { hideEdgePrev(); return; }   // l'anteprima c'è sempre, appena scegli uno spigolo: non serve cliccare nel campo
     let pl = null; try { pl = edgePlan(fieldNum(EF.size), true); } catch (e) { pl = null; }
     hideEdgePrev();
     if (!pl || pl.err) return;
@@ -6400,13 +6400,11 @@ function edgePreview() {
     mesh.userData = { kind: 'merged', p: {}, hole: false }; refreshEdges(mesh); mesh.material = matFor(obj);
     obj.traverse(o => o.layers.set(2)); scene.add(mesh); edgePrev = { mesh, obj };
     if (edgeLines) edgeLines.visible = false;
-    edgeHandle.visible = moveHandle.visible = false; dirty = true;
+    dirty = true;   // i quadratini restano: trascinandoli l'anteprima sparisce e si sposta o si scala lo spigolo vero
   }, 120);
 }
 EF.size.addEventListener('input', edgePreview);
 EF.size.addEventListener('change', edgePreview);
-EF.size.addEventListener('focus', edgePreview);
-EF.size.addEventListener('blur', () => setTimeout(() => { const a = document.activeElement; if (a !== EF.size && !(a && a.closest && a.closest('#e-type'))) hideEdgePrev(); }, 120));
 EF.go.addEventListener('click', applyEdges);
 EF.size.addEventListener('keydown', e => { if (e.key === 'Enter') applyEdges(); });
 
