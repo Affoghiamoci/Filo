@@ -1,4 +1,4 @@
-NPAG=30
+NPAG=29   # 1.5.0: tolta la pagina di Allunga
 # Guida: tutte le pagine IT/EN si aprono, nessun segnaposto rimasto, nessuna immagine rotta, gruppo File presente
 from playwright.sync_api import sync_playwright
 ok=True
