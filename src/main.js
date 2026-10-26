@@ -4349,7 +4349,7 @@ function faceCentroid(f) {
   const c = new THREE.Vector3(); for (const i of vs.values()) c.x += w[i], c.y += w[i + 1], c.z += w[i + 2];
   return (f._cen = c.multiplyScalar(1 / Math.max(vs.size, 1)));
 }
-function prismGeometry(f, dist, taper = 1) {
+function prismGeometry(f, dist, taper = 1, ov = 0.3) {   // ov: quanto il prisma entra nel pezzo (0 = esatto, per un oggetto a sé)
   const w = f.world, k = w.length / 9, q = x => Math.round(x * 2000);
   const key = (i) => q(w[i]) + ',' + q(w[i + 1]) + ',' + q(w[i + 2]);
   const dirEdges = new Map();
@@ -4359,7 +4359,7 @@ function prismGeometry(f, dist, taper = 1) {
   }
   const bnd = [];
   for (const [kk, [a, b]] of dirEdges) { const [ka, kb] = kk.split('>'); if (!dirEdges.has(kb + '>' + ka)) bnd.push([a, b]); }
-  const ov = 0.3, n = f.n, pos = [];
+  const n = f.n, pos = [];
   // centro del contorno: la scala in cima restringe o allarga attorno a questo punto (come "Scala il lato")
   const cs = new Map(); for (const [a] of bnd) cs.set(key(a), a);
   const cen = [0, 0, 0]; for (const i of cs.values()) { cen[0] += w[i]; cen[1] += w[i + 1]; cen[2] += w[i + 2]; }
@@ -4490,10 +4490,35 @@ function reselectCaps(caps) {
     if (best) { selectFaceFromHit({ object: best.m, faceIndex: best.t }, !first); first = false; }
   }
 }
+// Estrudi come nuovo oggetto: il blocco con la sagoma del lato (o del centro, con la cornice) diventa un pezzo a sé e quello di partenza non cambia.
+// Con un valore negativo il blocco sta dentro il pezzo: utile come foro per svuotarlo.
+var faceNewObj = false;
+function extrudeAsNew(dist) {
+  const raw = String($('#f-taper').value).trim(), tp = raw === '' ? 100 : parseFloat(raw);
+  if (!(tp >= 1 && tp <= 1000)) return toast('Scrivi una scala in % (da 1 a 1000)');
+  const corn = $('#f-frame').disabled ? 0 : fieldNum($('#f-frame'));
+  let faces = faceSet.slice();
+  if (faces.some(f => f.curved)) return toast('Nuovo oggetto funziona sui lati piatti');
+  if (corn > 0) {
+    if (faces.length !== 1) return toast('La cornice funziona su un lato piatto alla volta');
+    const ff = framedFace(faces[0], corn); if (!ff) return toast('La cornice è troppo larga per questo lato: prova con un valore più piccolo');
+    faces = [ff];
+  }
+  const parts = faces.map(f => prismGeometry(f, dist, tp / 100, 0)), n = parts.reduce((a, g) => a + g.attributes.position.count * 3, 0), pos = new Float32Array(n);
+  let o = 0; for (const g of parts) { pos.set(g.attributes.position.array, o); o += g.attributes.position.count * 3; g.dispose(); }
+  const src = faceSel.obj;
+  const baked = bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(pos) }, 'Blocco');
+  if (!baked || isFlat(baked) || geoIsClosed(baked.geo) === false) return toast('Non riesco a creare il blocco da questo lato');
+  const m = addMerged(baked); m.userData.color = src.userData.color ?? null;
+  TF.push.value = '0'; $('#f-frame').value = '0';
+  clearFace(false); setSelection([m]); touch(); commit();
+  toast(corn > 0 ? `Nuovo oggetto: blocco di ${fmt(Math.abs(dist))} mm con una cornice di ${fmt(corn)} mm` : `Nuovo oggetto: blocco di ${fmt(Math.abs(dist))} mm`);
+}
 function applyPush(distArg, opt = {}) {
   const fs = faceSel, dist = typeof distArg === 'number' ? distArg : fieldNum(TF.push);
   clearTimeout(pushPrevTimer); hideFacePrev();
   if (!fs || !Number.isFinite(dist) || Math.abs(dist) < 1e-4) return;
+  if (faceMode.v === 'extrude' && faceNewObj && !opt.noFrame) return extrudeAsNew(dist);
   const corn = faceMode.v === 'extrude' && !opt.noFrame && !$('#f-frame').disabled ? fieldNum($('#f-frame')) : 0;
   if (corn > 0) {                                  // Estrudi con cornice: prima il rientro (il lato interno resta selezionato), poi l'estrusione del centro; in Cronologia è un passo solo
     if (faceSet.length !== 1 || fs.curved) return toast('La cornice funziona su un lato piatto alla volta');
@@ -5188,7 +5213,7 @@ function faceBoxes() {                             // ogni modo mostra solo i su
   $('#f-frame').closest('label').classList.toggle('dim', !one); $('#f-frame').disabled = !one;
 }
 function updateFacePanel() {
-  faceBoxes();
+  faceBoxes(); pushFieldPreview();
   const fs = faceSel;
   $('#f-info').textContent = faceSet.length > 1 ? `· ${faceSet.length} lati selezionati` : `${fmt(fs.W)} × ${fmt(fs.H)} mm${fs.curved ? ' · curvo' : fs.rect ? '' : ' · irregolare'}`;
 }
@@ -5200,6 +5225,7 @@ document.querySelectorAll('#f-mode button').forEach(b => b.addEventListener('cli
   TF.push.focus(); pushFieldPreview();
 }));
 $('#f-push-go').addEventListener('click', () => applyPush());
+document.querySelectorAll('#f-new button').forEach(b => b.addEventListener('click', () => { faceNewObj = b.dataset.v === '1'; document.querySelectorAll('#f-new button').forEach(x => x.classList.toggle('on', x === b)); pushFieldPreview(); }));
 $('#f-scale-go').addEventListener('click', () => applyFaceScale());
 $('#f-scale').addEventListener('keydown', e => { if (e.key === 'Enter') applyFaceScale(); });
 // anteprima di Scala il lato: mentre scrivi la % il pezzo si vede già con il lato ridimensionato (arancione come l'anteprima di Spingi)
@@ -5239,14 +5265,13 @@ function pushFieldPreview() {
   clearTimeout(pushPrevTimer);
   pushPrevTimer = setTimeout(() => {
     if (drag && drag.mode === 'facepush') return;
-    const d = fieldNum(TF.push), a = document.activeElement;
-    if (!faceSel || state.tool !== 'face' || !Number.isFinite(d) || !(a === TF.push || a === $('#f-taper') || a === $('#f-frame'))) { hideFacePrev(); return; }
+    const d = fieldNum(TF.push);
+    if (!faceSel || state.tool !== 'face' || !Number.isFinite(d)) { hideFacePrev(); return; }   // come in Spigolo: l'anteprima c'è appena scrivi un valore, senza dover restare nel campo
     facePrevT = 0; updateFacePrev({ fs: faceSel }, d);
   }, 90);
 }
 for (const el of [TF.push, $('#f-taper'), $('#f-frame')]) {
-  el.addEventListener('input', pushFieldPreview); el.addEventListener('change', pushFieldPreview); el.addEventListener('focus', pushFieldPreview);
-  el.addEventListener('blur', () => setTimeout(() => { const a = document.activeElement; if (a !== TF.push && a !== $('#f-taper') && a !== $('#f-frame') && !(drag && drag.mode === 'facepush')) hideFacePrev(); }, 120));
+  el.addEventListener('input', pushFieldPreview); el.addEventListener('change', pushFieldPreview);
 }
 
 /* ------------------------------------------------------------ importa 3MF / STL */

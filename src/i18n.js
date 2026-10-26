@@ -220,6 +220,8 @@ const EN = {
   'Allinea davanti': 'Align front', 'Allinea dietro': 'Align back', 'Centra su Y': 'Center on Y',
   'Allinea alla base': 'Align to base', 'Allinea in alto': 'Align to top', 'Centra in altezza': 'Center vertically',
   'Spingi / tira': 'Push / pull', 'Di': 'By',
+  'Al pezzo': 'On the piece', 'Nuovo oggetto': 'New object', 'Blocco': 'Block', 'Al pezzo: il blocco si aggiunge (o scava) il pezzo. Nuovo oggetto: il blocco diventa un oggetto a sé e il pezzo resta com\'era; con un valore negativo sta dentro il pezzo, così puoi farne un foro e svuotarlo.': 'On the piece: the block is added to (or dug out of) the piece. New object: the block becomes an object of its own and the piece stays as it was; with a negative value it sits inside the piece, so you can make it a hole and hollow the piece.',
+  'Nuovo oggetto funziona sui lati piatti': 'New object works on flat faces', 'La cornice è troppo larga per questo lato: prova con un valore più piccolo': 'The frame is too wide for this face: try a smaller value', 'Non riesco a creare il blocco da questo lato': 'I cannot make the block from this face',
   'Valgono per tutti gli spigoli della forma insieme. Per arrotondare o smussare solo alcuni spigoli usa lo strumento Spigolo (E).': 'They apply to all the edges of the shape together. To round or chamfer only some edges use the Edge tool (E).',
   'Piano': 'Plane', 'Asse': 'Axis', '· nessun oggetto': '· no object',
   'Cornice': 'Frame', 'Lascia una cornice di tanti mm lungo il bordo ed estrude solo il centro: con un valore positivo fa un bordo rialzato, con uno negativo scava una vasca. 0 = niente cornice': 'Leaves a frame this many mm wide along the edge and extrudes only the centre: a positive value makes a raised rim, a negative one digs a tray. 0 = no frame',
@@ -518,6 +520,10 @@ const EN = {
 };
 const NAMEMAP = { Scatola: 'Box', Cilindro: 'Cylinder', Sfera: 'Sphere', Cono: 'Cone', Prisma: 'Prism', Toro: 'Torus', Pezzo: 'Part', Testo: 'Text' };
 const RULES = [
+  [/^Nuovo oggetto: blocco di (.*) mm con una cornice di (.*) mm$/, (m) => `New object: ${m[1]} mm block with a ${m[2]} mm frame`],
+  [/^Nuovo oggetto: blocco di (.*) mm$/, (m) => `New object: ${m[1]} mm block`],
+  [/^Bordo rialzato di (.*) mm con una cornice di (.*) mm$/, (m) => `Raised rim of ${m[1]} mm with a ${m[2]} mm frame`],
+  [/^Vasca profonda (.*) mm con una cornice di (.*) mm$/, (m) => `Tray ${m[1]} mm deep with a ${m[2]} mm frame`],
   [/^Spigolo spostato di (.+) mm su ([XYZ])$/, (m) => `Edge moved by ${m[1]} mm on ${m[2]}`],
   [/^Distribuiti con (.+) mm tra uno e l'altro$/, (m) => `Distributed with ${m[1]} mm between each`],
   [/^Distribuiti, ma si sovrappongono di (.+) mm$/, (m) => `Distributed, but they overlap by ${m[1]} mm`],

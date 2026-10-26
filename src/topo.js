@@ -3,6 +3,7 @@
 // spigoli tra facce (convessi o concavi), gruppi lisci (superfici curve) e i difetti (bordi aperti, spigoli e vertici "pizzicati").
 // Non modifica niente: è la base su cui le fasi successive faranno lavorare Lato e Spigolo direttamente sulla struttura.
 import * as THREE from 'three';
+import ClipperLib from 'clipper-lib';
 
 const PLANE_COS = 1 - 1e-6;          // due triangoli stanno sulla stessa faccia se le normali coincidono...
 const PLANE_TOL = 1e-3;              // ...e il piano è lo stesso (mm)
@@ -406,13 +407,12 @@ export function insetFace(topo, fid, dist) {
     return Q.map(q => u.clone().multiplyScalar(q[0]).addScaledVector(w, q[1]).addScaledVector(n, dF));
   };
   const outer = F.loops.find(l => l.outer), holes = F.loops.filter(l => !l.outer);
-  const io = off(outer.verts); if (!io) return null;
-  const ih = holes.map(h => off(h.verts)); if (ih.some(x => !x)) return null;
   const orig = l => l.verts.map(v => vec(V, v));
-  if (!polysOk(n, [io, ...ih])) return null;
+  const io = off(outer.verts), ih = holes.map(h => off(h.verts));
+  if (!io || ih.some(x => !x) || !polysOk(n, [io, ...ih])) return clipInset(topo, fid, dist);   // contorni con curve strette o rientranze: il rientro si calcola con Clipper
   // il contorno interno deve stare dentro quello esterno, e i buchi ingranditi non devono toccarlo
   const area2 = L => { let a = 0; for (let i = 0; i < L.length; i++) { const p = L[i], q = L[(i + 1) % L.length]; a += p.dot(u) * q.dot(w) - q.dot(u) * p.dot(w); } return a / 2; };
-  if (area2(io) <= 1e-6 || area2(io) >= outer.area) return null;
+  if (area2(io) <= 1e-6 || area2(io) >= outer.area) return clipInset(topo, fid, dist);
   const out = Array.from(trisOf(topo, topo.faces.filter(f => f.id !== fid), V));
   const n0 = out.length;
   if (!triPolys(n, io, ih, out)) return null;
@@ -423,6 +423,40 @@ export function insetFace(topo, fid, dist) {
   const seams = [];
   for (const L of [io, ...ih]) for (let i = 0; i < L.length; i++) { const a = L[i], b = L[(i + 1) % L.length]; seams.push(a.x, a.y, a.z, b.x, b.y, b.z); }
   const res = new Float32Array(out); res.seams = Float64Array.from(seams); res.pick = pick; res.inner = inner;
+  return res;
+}
+
+// Rientro su contorni qualsiasi (archi stretti, rientranze, buchi): il contorno si stringe con Clipper e la cornice è la differenza tra lato e parte interna.
+// La parte interna deve restare un pezzo solo (con eventuali buchi); null se sparisce o si divide.
+function clipInset(topo, fid, dist) {
+  const F = topo.faces[fid], V = topo.V, C = ClipperLib, K = 1e4;
+  const n = F.n, [u, w] = planeBasis(n), dF = F.d;
+  const to2 = p => ({ X: Math.round(p.dot(u) * K), Y: Math.round(p.dot(w) * K) });
+  const origAt = new Map();                                   // i punti del contorno vero tornano identici (niente fessure con i lati vicini)
+  const face = F.loops.map(l => l.verts.map(v => { const p = vec(V, v), q = to2(p); origAt.set(q.X + ',' + q.Y, p); return q; }));
+  const to3 = q => (origAt.get(q.X + ',' + q.Y) || u.clone().multiplyScalar(q.X / K).addScaledVector(w, q.Y / K).addScaledVector(n, dF)).clone();
+  const co = new C.ClipperOffset(2, 0.25 * K * 0.01); co.AddPaths(face, C.JoinType.jtMiter, C.EndType.etClosedPolygon);
+  const innerP = new C.Paths(); co.Execute(innerP, -dist * K);
+  const cleaned = C.Clipper.CleanPolygons(innerP, 0.0005 * K);
+  // l'interno come albero: un solo contorno esterno
+  const tree = (paths) => { const cl = new C.Clipper(); cl.AddPaths(paths, C.PolyType.ptSubject, true); const pt = new C.PolyTree(); cl.Execute(C.ClipType.ctUnion, pt, C.PolyFillType.pftNonZero, C.PolyFillType.pftNonZero); return pt; };
+  const polysOf = (pt) => { const res = []; const walk = nd => { for (const c of nd.Childs()) { if (!c.IsHole()) { res.push({ outer: c.Contour(), holes: c.Childs().map(h => h.Contour()) }); c.Childs().forEach(walk); } } }; walk(pt); return res; };
+  const inner = polysOf(tree(cleaned));
+  if (inner.length !== 1 || Math.abs(C.Clipper.Area(inner[0].outer)) / (K * K) < 1e-3) return null;
+  // cornice = lato meno interno
+  const cl = new C.Clipper(C.Clipper.ioPreserveCollinear); cl.AddPaths(face, C.PolyType.ptSubject, true); cl.AddPaths([inner[0].outer, ...inner[0].holes], C.PolyType.ptClip, true);
+  const fr = new C.PolyTree(); cl.Execute(C.ClipType.ctDifference, fr, C.PolyFillType.pftEvenOdd, C.PolyFillType.pftEvenOdd);
+  const frame = polysOf(fr); if (!frame.length) return null;
+  const out = Array.from(trisOf(topo, topo.faces.filter(f => f.id !== fid), V));
+  const n0 = out.length;
+  const L3 = path => path.map(to3);
+  if (!triPolys(n, L3(inner[0].outer), inner[0].holes.map(L3), out)) return null;
+  const n1 = out.length;
+  for (const f of frame) if (!triPolys(n, L3(f.outer), f.holes.map(L3), out)) return null;
+  const pick = [(out[n0] + out[n0 + 3] + out[n0 + 6]) / 3, (out[n0 + 1] + out[n0 + 4] + out[n0 + 7]) / 3, (out[n0 + 2] + out[n0 + 5] + out[n0 + 8]) / 3];
+  const seams = [];
+  for (const P of [inner[0].outer, ...inner[0].holes]) { const L = L3(P); for (let i = 0; i < L.length; i++) { const a = L[i], b = L[(i + 1) % L.length]; seams.push(a.x, a.y, a.z, b.x, b.y, b.z); } }
+  const res = new Float32Array(out); res.seams = Float64Array.from(seams); res.pick = pick; res.inner = Float32Array.from(out.slice(n0, n1));
   return res;
 }
 
