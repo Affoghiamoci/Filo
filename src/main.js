@@ -6441,7 +6441,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '1.5.0';
+const APP_VERSION = '1.5.1';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
@@ -7261,12 +7261,12 @@ layersList.addEventListener('click', e => {
     setSelection(all ? selection.filter(m => !list.includes(m)) : [...new Set([...selection, ...list])]);
   } else setSelection(r.dataset.id ? list : list);
 });
-layersList.addEventListener('dblclick', e => {
-  const r = e.target.closest('.lrow[data-id]');
-  if (!r) return;
-  const m = objects.find(o => o.userData.id === +r.dataset.id);
-  if (!m) return;
-  const span = r.querySelector('.ln'), inp = document.createElement('input');
+function startRename(m) {                                  // rinomina nel pannello Livelli: doppio clic o F2
+  const r = layersList.querySelector(`.lrow[data-id="${m.userData.id}"]`);
+  const span = r && r.querySelector('.ln');
+  if (!span) return;                                       // già in modifica, oppure la riga è in un gruppo chiuso
+  r.scrollIntoView({ block: 'nearest' });
+  const inp = document.createElement('input');
   inp.value = tr(m.userData.name); inp.className = 'lren'; inp.spellcheck = false;
   span.replaceWith(inp); inp.focus(); inp.select();
   let fin = false;
@@ -7274,6 +7274,38 @@ layersList.addEventListener('dblclick', e => {
   const onBlur = () => done(true);
   inp.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.key === 'Enter') done(true); else if (ev.key === 'Escape') done(false); });
   inp.addEventListener('blur', onBlur);
+}
+layersList.addEventListener('dblclick', e => {
+  const r = e.target.closest('.lrow[data-id]');
+  if (!r || e.target.closest('.lbt')) return;
+  const m = objects.find(o => o.userData.id === +r.dataset.id);
+  if (m) startRename(m);
+});
+/* il pannello si ridisegna a ogni selezione e può mangiarsi il doppio clic nativo (succede soprattutto in fondo alla lista):
+   lo riconosco anche a mano, due clic ravvicinati sulla stessa riga */
+let lastLayerClick = { id: null, t: 0 };
+layersList.addEventListener('click', e => {
+  const r = e.target.closest('.lrow[data-id]');
+  if (!r || e.target.closest('.lbt') || e.shiftKey || e.metaKey || e.ctrlKey) { lastLayerClick = { id: null, t: 0 }; return; }
+  const now = performance.now(), id = +r.dataset.id;
+  if (lastLayerClick.id === id && now - lastLayerClick.t < 450) {
+    lastLayerClick = { id: null, t: 0 };
+    const m = objects.find(o => o.userData.id === id);
+    if (m) requestAnimationFrame(() => startRename(m));    // dopo il ridisegno causato dal clic
+  } else lastLayerClick = { id, t: now };
+});
+/* F2: rinomina l'oggetto selezionato (apre i Livelli se servono) */
+window.addEventListener('keydown', e => {
+  if (e.key !== 'F2' || e.isComposing || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || selection.length !== 1) return;
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+  if (document.querySelector('dialog[open]')) return;
+  e.preventDefault();
+  const m = selection[0];
+  if (m.userData.gid != null) collapsed.delete(m.userData.gid);
+  if (!layersOn) setLayers(true);
+  renderLayers();
+  startRename(m);
 });
 $('#p-rotq').addEventListener('click', e => { const b = e.target.closest('[data-rq]'); if (b) { rotateSelection(b.dataset.rq, e.shiftKey ? -90 : 90); canvas.focus(); } });
 $('#b-layers').addEventListener('click', () => setLayers(!layersOn));
