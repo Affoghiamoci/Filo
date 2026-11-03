@@ -1269,7 +1269,7 @@ function csgSpawn() {
 function csgOffload(solids, holes, mode) {              // -> { st: 'ok' | 'empty' | 'fallback' | 'cancel', ... }
   return new Promise(async res => {
     let over = false;
-    const end = r => { if (over) return; over = true; busyCancelFn = null; csgW.job = null; clearTimeout(csgW.idle); if (csgW.w) csgW.idle = setTimeout(csgDrop, 30000); res(r); };   // fermo e libero il worker se resta inutilizzato
+    const end = r => { if (over) return; over = true; busyCancelFn = null; $('#busy').classList.remove('cancelable'); csgW.job = null; clearTimeout(csgW.idle); if (csgW.w) csgW.idle = setTimeout(csgDrop, 30000); res(r); };   // fermo e libero il worker se resta inutilizzato
     const pack = o => {
       o.updateMatrixWorld(true);
       const g = o.geometry, p = g.attributes.position;
