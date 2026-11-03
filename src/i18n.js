@@ -350,7 +350,7 @@ const EN = {
   'Scegli Scatola, Cilindro o Sfera a sinistra, oppure crea una scatolina con coperchio dai Modelli.': 'Pick Box, Cylinder or Sphere on the left, or create a box with lid from Templates.',
   'Corpo e coperchio vengono affiancati, pronti da stampare sul piatto.': 'Body and lid are placed side by side, ready to print on the plate.',
   'Larghezza': 'Width', 'Profondità': 'Depth', 'Altezza': 'Height', 'Pareti': 'Walls', 'Gioco': 'Clearance', 'Angoli': 'Corners',
-  'Annulla': 'Cancel', 'Crea': 'Create',
+  'Annulla': 'Cancel', 'Operazione annullata': 'Operation cancelled', 'Crea': 'Create',
   'Info': 'Info',
   'Comandi': 'Controls',
   'Forza la rotella del mouse come zoom': 'Force the mouse wheel as zoom',

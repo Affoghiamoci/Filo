@@ -7,8 +7,9 @@ import wasmB64 from './manifold.wasm.js';
 let M = null;
 export const manifoldReady = () => !!M;
 export const manifoldMod = () => M;
-export const initManifold = () => {
-  const bin = Uint8Array.from(atob(wasmB64), c => c.charCodeAt(0));
+export const wasmSource = wasmB64;                                 // il worker non ha una sua copia del motore: la riceve da qui
+export const initManifold = (b64 = wasmB64) => {
+  const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
   return Module({ wasmBinary: bin }).then(m => { m.setup(); M = m; return m; }).catch(e => { console.warn('Manifold KO ' + JSON.stringify(Object.getOwnPropertyNames(e || {})) + ' ' + (e && e.message) + ' ' + (e && e.code) + ' ' + String(e && e.stack).slice(0, 400)); });
 };
 
@@ -183,6 +184,24 @@ export function manifoldCombine(solids, holes, mode, material) {
     if (holes.length) { const hs = conv(holes); acc = keep(acc.subtract(hs.length === 1 ? hs[0] : keep(M.Manifold.union(hs)))); }
     if (acc.status() !== 'NoError' || acc.isEmpty()) return null;
     return toBrush(acc, material || solids[0].material);
+  } catch (e) { return null; }
+  finally { for (const x of objs) { try { x.delete(); } catch (e) {} } }
+}
+
+// Come manifoldCombine, ma restituisce solo le posizioni dei triangoli (Float32Array, coordinate mondo) e non crea oggetti three: serve al worker (csgworker.js)
+export function manifoldCombineRaw(solids, holes, mode) {
+  if (!M || !solids.length) return null;
+  const objs = [], keep = o => { objs.push(o); return o; };
+  const conv = list => list.map(b => { const m = toManifold(b); if (!m) throw new Error('non chiuso'); return keep(m); });
+  try {
+    const ms = conv(solids);
+    let acc = ms.length === 1 ? ms[0] : mode === 'intersect' ? ms.slice(1).reduce((a, m) => keep(a.intersect(m)), ms[0]) : keep(M.Manifold.union(ms));
+    if (holes.length) { const hs = conv(holes); acc = keep(acc.subtract(hs.length === 1 ? hs[0] : keep(M.Manifold.union(hs)))); }
+    if (acc.status() !== 'NoError' || acc.isEmpty()) return null;
+    const mesh = acc.getMesh(), vp = mesh.vertProperties, tv = mesh.triVerts, nP = mesh.numProp;
+    const pos = new Float32Array(tv.length * 3);
+    for (let i = 0; i < tv.length; i++) { const k = tv[i] * nP; pos[i * 3] = vp[k]; pos[i * 3 + 1] = vp[k + 1]; pos[i * 3 + 2] = vp[k + 2]; }
+    return pos;
   } catch (e) { return null; }
   finally { for (const x of objs) { try { x.delete(); } catch (e) {} } }
 }

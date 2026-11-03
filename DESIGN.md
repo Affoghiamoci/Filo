@@ -91,7 +91,7 @@ Transizioni **.12 to .22 s ease**, solo su colore, larghezza e opacità. Niente 
 Sidebar sinistra 12 px dai bordi; barra in alto a destra e menu Esporta larghi quanto il pannello proprietà e allineati; livelli e cronologia a sinistra delle proprietà; barra comandi in basso al centro; cubo in alto dopo la sidebar. Niente sovrapposizioni tra pannelli di default.
 
 ## 8. Tastiera: Esc
-Esc fa una cosa alla volta, nell'ordine: 1) in un campo numerico o nel nome annulla la modifica (torna al valore di partenza) ed esce dal campo; 2) chiude i menu aperti (varianti degli strumenti, menu del tasto destro, piatto, scatto, punti, elenco font); 3) interrompe il righello o la selezione di un lato; 4) deseleziona. Tab (sidebar) e Spazio (trascinare la vista) restano riservati alla scena, come in Photoshop. Le scorciatoie di Filo che il browser userebbe per altro (⌘G e ⇧⌘G cerca, ⌘E, ⌘D segnalibro, ⌘S, ⌘O, ⌘0, ⌘+, ⌘-) si bloccano a livello di pagina, anche con un campo o una finestra aperti; ⌘A, ⌘C, ⌘V, ⌘X e ⌘Z nei campi restano quelle del browser.
+Esc fa una cosa alla volta, nell'ordine: 0) durante un calcolo lungo (Combina, Interseca, Stampo) annulla il calcolo; 1) in un campo numerico o nel nome annulla la modifica (torna al valore di partenza) ed esce dal campo; 2) chiude i menu aperti (varianti degli strumenti, menu del tasto destro, piatto, scatto, punti, elenco font); 3) interrompe il righello o la selezione di un lato; 4) deseleziona. Tab (sidebar) e Spazio (trascinare la vista) restano riservati alla scena, come in Photoshop. Le scorciatoie di Filo che il browser userebbe per altro (⌘G e ⇧⌘G cerca, ⌘E, ⌘D segnalibro, ⌘S, ⌘O, ⌘0, ⌘+, ⌘-) si bloccano a livello di pagina, anche con un campo o una finestra aperti; ⌘A, ⌘C, ⌘V, ⌘X e ⌘Z nei campi restano quelle del browser.
 
 ## 9. Controllo prima di consegnare
 1. Tutti i colori sono token? 2. Raggio 2 px? 3. Spaziature nella scala a 4? 4. Etichette mono maiuscole, frasi in sans? 5. Chiaro e scuro guardati entrambi? 6. Nessun elemento tagliato o sovrapposto a 1280 px di larghezza? 7. Testi IT e chiavi EN presenti?
@@ -101,3 +101,6 @@ Esc fa una cosa alla volta, nell'ordine: 1) in un campo numerico o nel nome annu
 ## Scorciatoie premute
 
 Premendo una scorciatoia mostrata nel menu laterale (chip `kbd` di strumenti e Guida) il chip si illumina d'arancione (`--accent`, testo `--on-accent`) e torna com'era in 0,7 s (`@keyframes kflash`, classe `.kflash`).
+
+## 9. Calcoli lunghi e Annulla
+Combina, Interseca e Stampo sui pezzi pesanti girano in un worker (`src/csgworker.js`, incorporato nel file): la barra di lavoro in alto (`#busy`) mostra il titolo, la barra animata e il pulsante `.btn` **Annulla** con `<kbd>Esc</kbd>`. Mentre il calcolo gira, uno schermo trasparente (`#busy-shield`) blocca clic e scorciatoie, così la scena non cambia sotto il calcolo; solo Annulla ed Esc funzionano. Annullare chiude il worker, il pezzo resta com'era e compare l'avviso "Operazione annullata". Se il worker non parte, si usa il calcolo sul thread principale, senza Annulla.
