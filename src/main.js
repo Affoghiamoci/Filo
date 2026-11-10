@@ -761,7 +761,7 @@ function makeMesh(d) {
   if (nt > 20000 && !geo.boundsTree) { try { geo.computeBoundsTree(); } catch (e) { console.warn(e); } }
   m.castShadow = !heavy;
   m.receiveShadow = false;
-  m.userData = { id: d.id ?? nextId++, name: d.name, kind: d.kind, p: { ...d.p }, hole: !!d.hole, base: d.base ? { ...d.base } : null, geo: d.kind === 'merged' ? geo : null, gid: d.gid ?? null, color: d.color ?? null, text: d.text ? { ...d.text } : null, seams: d.seams || null, hidden: !!d.hidden, locked: !!d.locked, heavy };
+  m.userData = { id: d.id ?? nextId++, name: d.name, kind: d.kind, p: { ...d.p }, hole: !!d.hole, base: d.base ? { ...d.base } : null, geo: d.kind === 'merged' ? geo : null, gid: d.gid ?? null, gname: d.gname ?? null, color: d.color ?? null, text: d.text ? { ...d.text } : null, seams: d.seams || null, hidden: !!d.hidden, locked: !!d.locked, heavy };
   m.visible = !d.hidden;
   if (d.pos) m.position.fromArray(d.pos);
   if (d.q) m.quaternion.fromArray(d.q); else m.rotation.z = (d.rot || 0) * D2R;
@@ -866,6 +866,8 @@ const withGroups = list => {
   const g = new Set(list.map(m => m.userData.gid).filter(v => v != null));
   return g.size ? [...new Set([...list, ...objects.filter(m => g.has(m.userData.gid))])] : list;
 };
+const groupName = g => { const o = objects.find(x => x.userData.gid === g && x.userData.gname); return o ? o.userData.gname : null; };
+const setGroupName = (g, v) => objects.forEach(o => { if (o.userData.gid === g) o.userData.gname = v || null; });
 const isOneGroup = () => selection.length > 1 && selection[0].userData.gid != null && selection.every(m => m.userData.gid === selection[0].userData.gid);
 function groupSelection() {
   if (isOneGroup()) return toast('È già un gruppo: ⇧⌘G per separarlo');
@@ -880,7 +882,7 @@ function groupSelection() {
 function ungroupSelection() {
   const sel = withGroups(selection);
   if (!sel.some(m => m.userData.gid != null)) return toast('Nessun gruppo selezionato');
-  sel.forEach(m => (m.userData.gid = null));
+  sel.forEach(m => { m.userData.gid = null; m.userData.gname = null; });
   setSelection(sel);
   commit();
   toast('Gruppo separato');
@@ -1033,7 +1035,7 @@ const history = [];
 let hIdx = -1;
 const entryOf = m => ({
   id: m.userData.id, name: m.userData.name, kind: m.userData.kind, p: { ...m.userData.p }, hole: m.userData.hole,
-  base: m.userData.base ? { ...m.userData.base } : null, geo: m.userData.geo, gid: m.userData.gid ?? null,
+  base: m.userData.base ? { ...m.userData.base } : null, geo: m.userData.geo, gid: m.userData.gid ?? null, gname: m.userData.gname ?? null,
   pos: m.position.toArray(), q: m.quaternion.toArray(), scale: m.scale.toArray(), color: m.userData.color ?? null, text: m.userData.text ? { ...m.userData.text } : null,
   seams: m.userData.seams || null, hidden: !!m.userData.hidden, locked: !!m.userData.locked,       // blocca e nascondi sono nella cronologia: Annulla li riporta com'erano
 });
@@ -1057,7 +1059,7 @@ function describeChange(prev, cur) {
     if (!!o.hidden !== !!d.hidden) k.push(d.hidden ? 'Nascosto' : 'Mostrato');
     if (!!o.locked !== !!d.locked) k.push(d.locked ? 'Bloccato' : 'Sbloccato');
     if (o.gid !== d.gid) k.push(d.gid != null ? 'Raggruppato' : 'Gruppo separato');
-    if (o.name !== d.name) k.push('Rinominato');
+    if (o.name !== d.name || (o.gname ?? null) !== (d.gname ?? null)) k.push('Rinominato');
     if (o.hole !== d.hole) k.push(d.hole ? 'Foro' : 'Solido');
     if ((o.color ?? null) !== (d.color ?? null)) k.push('Colore');
     if (JSON.stringify(o.text) !== JSON.stringify(d.text)) k.push('Testo modificato');
@@ -1486,7 +1488,7 @@ function repeatNow(o) {
         p.set(m.position.x - o.cx, m.position.y - o.cy, 0).applyQuaternion(qz);
         p.set(p.x + o.cx, p.y + o.cy, m.position.z); q.premultiply(qz);
       } else p.set(m.position.x + sp.dx, m.position.y + sp.dy, m.position.z);
-      all.push(makeMesh({ kind: u.kind, name: u.name.replace(/ copia( \d+)?$/, ''), p: { ...u.p }, hole: u.hole, base: u.base, geo: u.geo, gid, color: u.color, text: u.text, pos: p.toArray(), q: q.toArray(), scale: m.scale.toArray() }));
+      all.push(makeMesh({ kind: u.kind, name: u.name.replace(/ copia( \d+)?$/, ''), p: { ...u.p }, hole: u.hole, base: u.base, geo: u.geo, gid, gname: u.gname, color: u.color, text: u.text, pos: p.toArray(), q: q.toArray(), scale: m.scale.toArray() }));
     }
   }
   setSelection(all); touch(); commit();
@@ -1599,7 +1601,7 @@ function duplicateSelection(offset = true) {
     if (u.gid != null) { if (!gmap.has(u.gid)) gmap.set(u.gid, nextGid++); gid = gmap.get(u.gid); }
     const name = u.name.replace(/ copia( \d+)?$/, '') + ' copia';
     return makeMesh({
-      kind: u.kind, name, p: { ...u.p }, hole: u.hole, base: u.base, geo: u.geo, gid, color: u.color, text: u.text,
+      kind: u.kind, name, p: { ...u.p }, hole: u.hole, base: u.base, geo: u.geo, gid, gname: u.gname, color: u.color, text: u.text,
       pos: [m.position.x + (offset ? 12 : 0), m.position.y + (offset ? 12 : 0), m.position.z],
       q: m.quaternion.toArray(), scale: m.scale.toArray(),
     });
@@ -2639,8 +2641,10 @@ function syncPanel() {
     [['w', 'x'], ['d', 'y'], ['h', 'z']].forEach(([id, ax]) => { const el = $('#g-' + id); if (document.activeElement !== el) el.value = fmt(gs[ax]); });
     const gc = gb.getCenter(new THREE.Vector3());
     [['x', gc.x], ['y', gc.y], ['z', gb.min.z]].forEach(([ax, v]) => { const el = $('#g-' + ax); if (document.activeElement !== el) el.value = fmt(v); });
-    nameEl.value = tr(isOneGroup() ? `Gruppo · ${selection.length} oggetti` : `${selection.length} oggetti`);
-    nameEl.disabled = true;
+    if (isOneGroup()) {                                         // un gruppo si rinomina anche da qui
+      if (document.activeElement !== nameEl) nameEl.value = groupName(selection[0].userData.gid) || tr(`Gruppo · ${selection.length} oggetti`);
+      nameEl.disabled = false;
+    } else { nameEl.value = tr(`${selection.length} oggetti`); nameEl.disabled = true; }
   }
   const nUnits = new Set(selection.map(o => o.userData.gid ?? o)).size;
   document.querySelectorAll('#p-align button').forEach(b => {          // pulsanti che con questa selezione non servono: attenuati, con il motivo nel tooltip
@@ -2734,7 +2738,7 @@ document.querySelectorAll('#p-rm button').forEach(b => b.addEventListener('click
 }));
 syncLock();
 ['#p-ground', '#g-ground'].forEach(id => $(id).addEventListener('click', () => { layOnPlate(); canvas.focus(); }));
-$('#p-name').addEventListener('input', e => { const m = single(); if (m) { m.userData.name = e.target.value; scheduleLayers(); } });
+$('#p-name').addEventListener('input', e => { const m = single(); if (m) { m.userData.name = e.target.value; scheduleLayers(); } else if (isOneGroup()) { setGroupName(selection[0].userData.gid, e.target.value.trim()); scheduleLayers(); } });
 $('#p-name').addEventListener('change', commit);
 document.addEventListener('click', e => { if (e.target.closest('[data-lang]')) setTimeout(syncPanel, 0); });   // il nome nel pannello segue la lingua
 $('#p-name').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
@@ -4247,9 +4251,9 @@ function replaceWithMerged(old, baked, quiet = false) {
       const a = new Float32Array(ts.length * 9);
       ts.forEach((t, k) => { for (let j = 0; j < 9; j++) a[k * 9 + j] = pg.A[t * 9 + j] + off[j % 3]; });
       const bk = bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(a) }, pg.parts.length > 1 ? `${baked.name} ${i + 1}` : baked.name);
-      const m = addMerged(bk); m.userData.gid = old.userData.gid ?? null; return m;   // pezzi separati: ognuno ha il suo livello
+      const m = addMerged(bk); m.userData.gid = old.userData.gid ?? null; m.userData.gname = old.userData.gname ?? null; return m;   // pezzi separati: ognuno ha il suo livello
     });
-  } else { pieces = [addMerged(baked)]; pieces[0].userData.gid = old.userData.gid ?? null; if (baked.seams && baked.seams.length) pieces[0].userData.seams = baked.seams; }
+  } else { pieces = [addMerged(baked)]; pieces[0].userData.gid = old.userData.gid ?? null; pieces[0].userData.gname = old.userData.gname ?? null; if (baked.seams && baked.seams.length) pieces[0].userData.seams = baked.seams; }
   pieces.forEach(nm => { nm.userData.hole = hole; nm.userData.color = old.userData.color ?? null; nm.userData.text = null; nm.castShadow = !hole; });
   const nm = pieces[0]; lastPieces = pieces;
   if (quiet) return nm;
@@ -7165,7 +7169,7 @@ function renderLayers() {
     if (done.has(g)) continue;
     done.add(g);
     const mem = objects.filter(o => o.userData.gid === g), all = mem.every(o => selection.includes(o)), open = !collapsed.has(g);
-    html += `<div class="lrow grp${all ? ' sel' : ''}" data-g="${g}"><button class="car${open ? ' open' : ''}" data-car="${g}" aria-label="Apri o chiudi">▸</button><svg viewBox="0 0 24 24">${I.group}</svg><span class="ln">Gruppo · ${mem.length}</span><button class="ung" data-ung="${g}" title="Separa il gruppo (⇧⌘G)">⇧⌘G</button>${btns('g', g, mem.every(o => o.userData.locked), mem.every(o => o.userData.hidden))}</div>`;
+    html += `<div class="lrow grp${all ? ' sel' : ''}" data-g="${g}"><button class="car${open ? ' open' : ''}" data-car="${g}" aria-label="Apri o chiudi">▸</button><svg viewBox="0 0 24 24">${I.group}</svg><span class="ln">${groupName(g) ? esc(groupName(g)) : `Gruppo · ${mem.length}`}</span><button class="ung" data-ung="${g}" title="Separa il gruppo (⇧⌘G)">⇧⌘G</button>${btns('g', g, mem.every(o => o.userData.locked), mem.every(o => o.userData.hidden))}</div>`;
     if (open) html += mem.map(o => row(o, true)).join('');
   }
   layersList.innerHTML = html || '<p class="hint">Nessun oggetto. Aggiungine uno dalla barra a sinistra.</p>';
@@ -7211,42 +7215,60 @@ layersList.addEventListener('click', e => {
     setSelection(all ? selection.filter(m => !list.includes(m)) : [...new Set([...selection, ...list])]);
   } else setSelection(r.dataset.id ? list : list);
 });
-function startRename(m) {                                  // rinomina nel pannello Livelli: doppio clic o F2
-  const r = layersList.querySelector(`.lrow[data-id="${m.userData.id}"]`);
+function editLayerName(r, initial, apply) {                 // campo di rinomina al posto del nome nella riga r; apply(testo) a conferma (Invio o clic fuori)
   const span = r && r.querySelector('.ln');
   if (!span) return;                                       // già in modifica, oppure la riga è in un gruppo chiuso
   r.scrollIntoView({ block: 'nearest' });
   const inp = document.createElement('input');
-  inp.value = tr(m.userData.name); inp.className = 'lren'; inp.spellcheck = false;
+  inp.value = initial; inp.className = 'lren'; inp.spellcheck = false;
   span.replaceWith(inp); inp.focus(); inp.select();
   let fin = false;
-  const done = ok => { if (fin) return; fin = true; if (ok && inp.value.trim()) { m.userData.name = inp.value.trim(); commit(); } inp.removeEventListener('blur', onBlur); if (inp.isConnected) inp.remove(); renderLayers(); syncPanel(); };
+  const done = ok => { if (fin) return; fin = true; if (ok) apply(inp.value.trim()); inp.removeEventListener('blur', onBlur); if (inp.isConnected) inp.remove(); renderLayers(); syncPanel(); };
   const onBlur = () => done(true);
   inp.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.key === 'Enter') done(true); else if (ev.key === 'Escape') done(false); });
   inp.addEventListener('blur', onBlur);
 }
+function startRename(m) {                                  // rinomina nel pannello Livelli: doppio clic o F2
+  editLayerName(layersList.querySelector(`.lrow[data-id="${m.userData.id}"]`), tr(m.userData.name), v => { if (v) { m.userData.name = v; commit(); } });
+}
+function startGroupRename(g) {                             // il nome del gruppo sta in tutti i suoi pezzi; vuoto (o uguale a quello di partenza) torna a "Gruppo · N"
+  const mem = objects.filter(o => o.userData.gid === g);
+  if (!mem.length) return;
+  const def = tr(`Gruppo · ${mem.length}`);
+  editLayerName(layersList.querySelector(`.lrow.grp[data-g="${g}"]`), groupName(g) || def, v => {
+    const nv = !v || v === def ? null : v;
+    if ((groupName(g) || null) === nv) return;
+    setGroupName(g, nv); commit();
+  });
+}
+const layerRowOf = el => el.closest('.lrow[data-id], .lrow.grp[data-g]');
+const layerKey = r => r.dataset.g ? 'g' + r.dataset.g : 'i' + r.dataset.id;
+function renameRow(r) {
+  if (r.dataset.g) startGroupRename(+r.dataset.g);
+  else { const m = objects.find(o => o.userData.id === +r.dataset.id); if (m) startRename(m); }
+}
 layersList.addEventListener('dblclick', e => {
-  const r = e.target.closest('.lrow[data-id]');
-  if (!r || e.target.closest('.lbt')) return;
-  const m = objects.find(o => o.userData.id === +r.dataset.id);
-  if (m) startRename(m);
+  const r = layerRowOf(e.target);
+  if (!r || e.target.closest('.lbt, .car, .ung')) return;
+  renameRow(r);
 });
 /* il pannello si ridisegna a ogni selezione e può mangiarsi il doppio clic nativo (succede soprattutto in fondo alla lista):
    lo riconosco anche a mano, due clic ravvicinati sulla stessa riga */
-let lastLayerClick = { id: null, t: 0 };
+let lastLayerClick = { key: null, t: 0 };
 layersList.addEventListener('click', e => {
-  const r = e.target.closest('.lrow[data-id]');
-  if (!r || e.target.closest('.lbt') || e.shiftKey || e.metaKey || e.ctrlKey) { lastLayerClick = { id: null, t: 0 }; return; }
-  const now = performance.now(), id = +r.dataset.id;
-  if (lastLayerClick.id === id && now - lastLayerClick.t < 450) {
-    lastLayerClick = { id: null, t: 0 };
-    const m = objects.find(o => o.userData.id === id);
-    if (m) requestAnimationFrame(() => startRename(m));    // dopo il ridisegno causato dal clic
-  } else lastLayerClick = { id, t: now };
+  const r = layerRowOf(e.target);
+  if (!r || e.target.closest('.lbt, .car, .ung') || e.shiftKey || e.metaKey || e.ctrlKey) { lastLayerClick = { key: null, t: 0 }; return; }
+  const now = performance.now(), key = layerKey(r);
+  if (lastLayerClick.key === key && now - lastLayerClick.t < 450) {
+    lastLayerClick = { key: null, t: 0 };
+    requestAnimationFrame(() => { const r2 = layersList.querySelector(key[0] === 'g' ? `.lrow.grp[data-g="${key.slice(1)}"]` : `.lrow[data-id="${key.slice(1)}"]`); if (r2) renameRow(r2); });    // dopo il ridisegno causato dal clic
+  } else lastLayerClick = { key, t: now };
 });
-/* F2: rinomina l'oggetto selezionato (apre i Livelli se servono) */
+/* F2: rinomina l'oggetto selezionato, o il gruppo se la selezione è un gruppo intero (apre i Livelli se servono) */
 window.addEventListener('keydown', e => {
-  if (e.key !== 'F2' || e.isComposing || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || selection.length !== 1) return;
+  if (e.key !== 'F2' || e.isComposing || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+  const grp = isOneGroup();
+  if (selection.length !== 1 && !grp) return;
   const t = e.target;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
   if (document.querySelector('dialog[open]')) return;
@@ -7255,7 +7277,7 @@ window.addEventListener('keydown', e => {
   if (m.userData.gid != null) collapsed.delete(m.userData.gid);
   if (!layersOn) setLayers(true);
   renderLayers();
-  startRename(m);
+  if (grp) startGroupRename(m.userData.gid); else startRename(m);
 });
 $('#p-rotq').addEventListener('click', e => { const b = e.target.closest('[data-rq]'); if (b) { rotateSelection(b.dataset.rq, e.shiftKey ? -90 : 90); canvas.focus(); } });
 $('#b-layers').addEventListener('click', () => setLayers(!layersOn));
