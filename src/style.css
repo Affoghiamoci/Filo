@@ -214,6 +214,7 @@ kbd.kflash{animation:kflash .7s ease-out}
 .lrow .ung{all:unset;font:500 9.5px var(--mono);padding:4px 6px;border-radius:2px;background:rgba(127,127,127,.2);cursor:default;opacity:0}
 .lrow:hover .ung{opacity:1}
 .lren{all:unset;flex:1;min-width:0;background:var(--field);color:var(--text);padding:2px 4px;border-radius:2px;font:500 12px var(--sans,system-ui);user-select:text;-webkit-user-select:text}
+.lrow.sel .lren{background:var(--panel)}   /* sulla riga selezionata (scura) lo sfondo trasparente rendeva il testo illeggibile */
 #layers .hint{padding:6px;margin:0}
 
 /* la barra bassa sta al centro dello spazio libero a destra della barra laterale, e va a capo se serve */
