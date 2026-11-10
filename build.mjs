@@ -1,6 +1,10 @@
 import { build } from 'esbuild';
 import fs from 'fs';
-const r = await build({ entryPoints: ['src/main.js'], bundle: true, minify: true, format: 'iife', write: false, target: 'es2020', loader: { '.woff': 'binary' }, define: { 'import.meta.url': '"https://filo.local/"' }, plugins: [{ name: 'nonode', setup(b) { b.onResolve({ filter: /^node:/ }, a => ({ path: a.path, namespace: 'nonode' })); b.onLoad({ filter: /.*/, namespace: 'nonode' }, () => ({ contents: 'export default {}; export const createRequire = () => () => ({});' })); } }], logLevel: 'warning' });
+// Worker del calcolo pesante: un secondo bundle, incorporato come testo nel principale (si avvia da un Blob, così resta tutto in un solo file).
+// Il motore Manifold (WASM) non viene copiato: il worker lo riceve dal thread principale.
+const wk = await build({ entryPoints: ['src/csgworker.js'], bundle: true, minify: true, format: 'iife', write: false, target: 'es2020', define: { 'import.meta.url': '"https://filo.local/"' }, plugins: [{ name: 'nowasm', setup(b) { b.onResolve({ filter: /manifold\.wasm\.js$/ }, a => ({ path: a.path, namespace: 'nowasm' })); b.onLoad({ filter: /.*/, namespace: 'nowasm' }, () => ({ contents: "export default '';" })); } }, { name: 'nonode', setup(b) { b.onResolve({ filter: /^node:/ }, a => ({ path: a.path, namespace: 'nonode' })); b.onLoad({ filter: /.*/, namespace: 'nonode' }, () => ({ contents: 'export default {}; export const createRequire = () => () => ({});' })); } }], logLevel: 'warning' });
+const workerSrc = wk.outputFiles[0].text;
+const r = await build({ entryPoints: ['src/main.js'], bundle: true, minify: true, format: 'iife', write: false, target: 'es2020', loader: { '.woff': 'binary' }, define: { 'import.meta.url': '"https://filo.local/"', __CSG_WORKER__: JSON.stringify(workerSrc) }, plugins: [{ name: 'nonode', setup(b) { b.onResolve({ filter: /^node:/ }, a => ({ path: a.path, namespace: 'nonode' })); b.onLoad({ filter: /.*/, namespace: 'nonode' }, () => ({ contents: 'export default {}; export const createRequire = () => () => ({});' })); } }], logLevel: 'warning' });
 const js = r.outputFiles[0].text.replace(/<\/script/g, '<\\/script');
 const css = fs.readFileSync('src/style.css', 'utf8');
 let html = fs.readFileSync('src/index.template.html', 'utf8');

@@ -10,11 +10,12 @@ import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { unzipSync, zipSync, strToU8 } from 'three/addons/libs/fflate.module.js';
 import { Brush, Evaluator, ADDITION, SUBTRACTION, INTERSECTION } from 'three-bvh-csg';
 import { mergeVerticesFast } from './fastgeo.js';
+import { clean, weldPoints, triList, healMesh, openEdgeCount, edgeDefects, exactVertexIds, geoDefects, fixTJunctions, geometryFromPositions, bakeGeometry } from './bake.js';
 import { revolutionProfile, shellProfile, revolve } from './revolve.js';
 import { sectionProfile, sectionSolid } from './section.js';
 import { buildTopo, seamTester, triangulateTopo, soupVolume, moveFace, extrudeFace, insetFace, topoFaceFor, filletEdge, filletEdges, sweepFillets, topoEdgeFor, edgeRoom } from './topo.js';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
-import { initManifold, manifoldEvaluate, manifoldCombine, manifoldStretch, manifoldHalf, manifoldMod, simplifyGeo, geoIsClosed, toManifold, depinch } from './mcsg.js';
+import { initManifold, wasmSource, manifoldEvaluate, manifoldCombine, manifoldStretch, manifoldHalf, manifoldMod, simplifyGeo, geoIsClosed, toManifold, depinch } from './mcsg.js';
 import { ConvexHull } from 'three/addons/math/ConvexHull.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
@@ -363,11 +364,6 @@ function roundedRectShape(w, d, r, chamfer) {
   s.absarc(x + r, y + d - r, r, Math.PI / 2, Math.PI, false); s.lineTo(x, y + r);
   s.absarc(x + r, y + r, r, Math.PI, Math.PI * 1.5, false);
   return s;
-}
-function clean(g) {
-  g.deleteAttribute('uv');
-  g.clearGroups();
-  return g;
 }
 // Tutte le forme hanno l'origine al centro della base: Z = 0 vuol dire "appoggiato sul piatto".
 // scatola con bordi alti e/o bassi raccordati o smussati: anelli sovrapposti, ognuno con il contorno ristretto di un certo ttratto
@@ -765,7 +761,7 @@ function makeMesh(d) {
   if (nt > 20000 && !geo.boundsTree) { try { geo.computeBoundsTree(); } catch (e) { console.warn(e); } }
   m.castShadow = !heavy;
   m.receiveShadow = false;
-  m.userData = { id: d.id ?? nextId++, name: d.name, kind: d.kind, p: { ...d.p }, hole: !!d.hole, base: d.base ? { ...d.base } : null, geo: d.kind === 'merged' ? geo : null, gid: d.gid ?? null, color: d.color ?? null, text: d.text ? { ...d.text } : null, seams: d.seams || null, hidden: !!d.hidden, locked: !!d.locked, heavy };
+  m.userData = { id: d.id ?? nextId++, name: d.name, kind: d.kind, p: { ...d.p }, hole: !!d.hole, base: d.base ? { ...d.base } : null, geo: d.kind === 'merged' ? geo : null, gid: d.gid ?? null, gname: d.gname ?? null, color: d.color ?? null, text: d.text ? { ...d.text } : null, seams: d.seams || null, hidden: !!d.hidden, locked: !!d.locked, heavy };
   m.visible = !d.hidden;
   if (d.pos) m.position.fromArray(d.pos);
   if (d.q) m.quaternion.fromArray(d.q); else m.rotation.z = (d.rot || 0) * D2R;
@@ -870,6 +866,8 @@ const withGroups = list => {
   const g = new Set(list.map(m => m.userData.gid).filter(v => v != null));
   return g.size ? [...new Set([...list, ...objects.filter(m => g.has(m.userData.gid))])] : list;
 };
+const groupName = g => { const o = objects.find(x => x.userData.gid === g && x.userData.gname); return o ? o.userData.gname : null; };
+const setGroupName = (g, v) => objects.forEach(o => { if (o.userData.gid === g) o.userData.gname = v || null; });
 const isOneGroup = () => selection.length > 1 && selection[0].userData.gid != null && selection.every(m => m.userData.gid === selection[0].userData.gid);
 function groupSelection() {
   if (isOneGroup()) return toast('È già un gruppo: ⇧⌘G per separarlo');
@@ -884,7 +882,7 @@ function groupSelection() {
 function ungroupSelection() {
   const sel = withGroups(selection);
   if (!sel.some(m => m.userData.gid != null)) return toast('Nessun gruppo selezionato');
-  sel.forEach(m => (m.userData.gid = null));
+  sel.forEach(m => { m.userData.gid = null; m.userData.gname = null; });
   setSelection(sel);
   commit();
   toast('Gruppo separato');
@@ -1037,7 +1035,7 @@ const history = [];
 let hIdx = -1;
 const entryOf = m => ({
   id: m.userData.id, name: m.userData.name, kind: m.userData.kind, p: { ...m.userData.p }, hole: m.userData.hole,
-  base: m.userData.base ? { ...m.userData.base } : null, geo: m.userData.geo, gid: m.userData.gid ?? null,
+  base: m.userData.base ? { ...m.userData.base } : null, geo: m.userData.geo, gid: m.userData.gid ?? null, gname: m.userData.gname ?? null,
   pos: m.position.toArray(), q: m.quaternion.toArray(), scale: m.scale.toArray(), color: m.userData.color ?? null, text: m.userData.text ? { ...m.userData.text } : null,
   seams: m.userData.seams || null, hidden: !!m.userData.hidden, locked: !!m.userData.locked,       // blocca e nascondi sono nella cronologia: Annulla li riporta com'erano
 });
@@ -1061,7 +1059,7 @@ function describeChange(prev, cur) {
     if (!!o.hidden !== !!d.hidden) k.push(d.hidden ? 'Nascosto' : 'Mostrato');
     if (!!o.locked !== !!d.locked) k.push(d.locked ? 'Bloccato' : 'Sbloccato');
     if (o.gid !== d.gid) k.push(d.gid != null ? 'Raggruppato' : 'Gruppo separato');
-    if (o.name !== d.name) k.push('Rinominato');
+    if (o.name !== d.name || (o.gname ?? null) !== (d.gname ?? null)) k.push('Rinominato');
     if (o.hole !== d.hole) k.push(d.hole ? 'Foro' : 'Solido');
     if ((o.color ?? null) !== (d.color ?? null)) k.push('Colore');
     if (JSON.stringify(o.text) !== JSON.stringify(d.text)) k.push('Testo modificato');
@@ -1149,50 +1147,6 @@ const evaluator = {
 };
 
 // ripara le "crepe" lasciate dalla CSG: vertici che cadono in mezzo a un lato vicino (giunzioni a T) vengono collegati ai triangoli accanto
-function weldPoints(src, tol) {                                              // unisce i punti più vicini di tol: a catena (A vicino a B e B vicino a C unisce tutti e tre), così nessuno spigolo resta scoperto
-  const n = src.length / 3, grid = new Map(), c = v => Math.floor(v / tol), par = new Int32Array(n);
-  for (let i = 0; i < n; i++) par[i] = i;
-  const find = i => { while (par[i] !== i) { par[i] = par[par[i]]; i = par[i]; } return i; };
-  for (let i = 0; i < n; i++) {
-    const x = src[i * 3], y = src[i * 3 + 1], z = src[i * 3 + 2], cx = c(x), cy = c(y), cz = c(z);
-    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) {
-      const l = grid.get(Math.imul(cx + dx, 73856093) ^ Math.imul(cy + dy, 19349663) ^ Math.imul(cz + dz, 83492791));
-      if (l) for (const v of l) if (Math.abs(src[v * 3] - x) < tol && Math.abs(src[v * 3 + 1] - y) < tol && Math.abs(src[v * 3 + 2] - z) < tol) { const ra = find(v), rb = find(i); if (ra !== rb) par[rb] = ra; }
-    }
-    const k = Math.imul(cx, 73856093) ^ Math.imul(cy, 19349663) ^ Math.imul(cz, 83492791); (grid.get(k) || grid.set(k, []).get(k)).push(i);
-  }
-  const ids = new Int32Array(n), P = [], root = new Map();
-  for (let i = 0; i < n; i++) {
-    const r = find(i); let id = root.get(r);
-    if (id === undefined) { id = P.length / 3; root.set(r, id); P.push(src[r * 3], src[r * 3 + 1], src[r * 3 + 2]); }
-    ids[i] = id;
-  }
-  return { P: Float32Array.from(P), ids };
-}
-function triList(g, ids) {
-  const idx = g.index, n = idx ? idx.count : g.attributes.position.count, tris = [];
-  for (let t = 0; t < n; t += 3) {
-    const a = ids[idx ? idx.getX(t) : t], b = ids[idx ? idx.getX(t + 1) : t + 1], c = ids[idx ? idx.getX(t + 2) : t + 2];
-    if (a !== b && b !== c && a !== c) tris.push(a, b, c);
-  }
-  return tris;
-}
-function healMesh(g) {
-  const nT = (g.index ? g.index.count : g.attributes.position.count) / 3;
-  if (nT > 300000) return g;
-  const { P, ids } = weldPoints(g.attributes.position.array, 1e-3), tris = triList(g, ids);
-  const fixed = fixTJunctions(P, tris);
-  if (fixed.length === tris.length && tris.length === nT * 3) return g;      // niente da riparare
-  const out = new Float32Array(fixed.length * 3);
-  for (let i = 0; i < fixed.length; i++) { out[i * 3] = P[fixed[i] * 3]; out[i * 3 + 1] = P[fixed[i] * 3 + 1]; out[i * 3 + 2] = P[fixed[i] * 3 + 2]; }
-  return geometryFromPositions(out);
-}
-
-function openEdgeCount(g) {                                                    // lati usati da un solo triangolo: se sono 0 la superficie è chiusa
-  const { ids } = weldPoints(g.attributes.position.array, 1e-3), tris = triList(g, ids), key = (a, b) => a < b ? a * 4294967296 + b : b * 4294967296 + a, use = new Map();
-  for (let t = 0; t < tris.length; t += 3) for (let k = 0; k < 3; k++) { const e = key(tris[t + k], tris[t + (k + 1) % 3]); use.set(e, (use.get(e) || 0) + 1); }
-  let c = 0; for (const u of use.values()) if (u === 1) c++; return c;
-}
 function geoVolume(g) {                                                      // volume con segno (mm³) dalla somma dei tetraedri
   const P = g.attributes.position, I = g.index, n = I ? I.count : P.count; let v = 0;
   for (let t = 0; t < n; t += 3) {
@@ -1222,58 +1176,18 @@ function repairSolid(g) {
   }
   return best;
 }
-/* difetti di chiusura: lati senza il "gemello" opposto o usati più di una volta (0 = la mesh è chiusa, coordinate identiche tra triangoli vicini) */
-function edgeDefects(I) {
-  const use = new Map(); let bad = 0;
-  for (let t = 0; t < I.length; t += 3) for (let k = 0; k < 3; k++) { const a = I[t + k], b = I[t + (k + 1) % 3]; if (a === b) continue; const key = a * 4294967296 + b; use.set(key, (use.get(key) || 0) + 1); }
-  for (const [key, c] of use) { const a = Math.floor(key / 4294967296), b = key - a * 4294967296; if (c > 1 || use.get(b * 4294967296 + a) !== c) bad++; }
-  return bad;
-}
-// numero identico per vertici con la stessa posizione esatta (confronto sui bit, chiave numerica)
-function exactVertexIds(p) {
-  const n = p.count, ids = new Int32Array(n), grid = new Map(), arr = p.array, ok = arr instanceof Float32Array && p.itemSize === 3 && !p.isInterleavedBufferAttribute;
-  const X = ok ? arr : null, f32 = new Float32Array(1), u32 = new Uint32Array(f32.buffer);
-  const bits = v => { f32[0] = v === 0 ? 0 : v; return u32[0]; };
-  const px = new Uint32Array(n * 3);
-  for (let i = 0; i < n; i++) { px[i * 3] = bits(ok ? X[i * 3] : p.getX(i)); px[i * 3 + 1] = bits(ok ? X[i * 3 + 1] : p.getY(i)); px[i * 3 + 2] = bits(ok ? X[i * 3 + 2] : p.getZ(i)); }
-  let next = 0;
-  for (let i = 0; i < n; i++) {
-    const a = px[i * 3], b = px[i * 3 + 1], c = px[i * 3 + 2], h = Math.imul(a, 73856093) ^ Math.imul(b, 19349663) ^ Math.imul(c, 83492791);
-    let l = grid.get(h), id = -1;
-    if (l) for (const j of l) if (px[j * 3] === a && px[j * 3 + 1] === b && px[j * 3 + 2] === c) { id = ids[j]; break; }
-    if (id < 0) { id = next++; if (l) l.push(i); else grid.set(h, [i]); }
-    ids[i] = id;
-  }
-  return ids;
-}
-function geoDefects(g) {
-  const p = g.attributes.position, idx = g.index, n = idx ? idx.count : p.count, vid = exactVertexIds(p), I = new Uint32Array(n);
-  for (let i = 0; i < n; i++) I[i] = vid[idx ? idx.getX(i) : i];
-  return edgeDefects(I);
-}
 function bakeResult(res, name, noSimplify = false) {
   res.updateMatrixWorld(true);
-  let g = res.geometry.clone();
+  const g = res.geometry.clone();
   if (!g.attributes.position || g.attributes.position.count === 0) return null;
   g.applyMatrix4(res.matrixWorld);
-  clean(g);
-  if (window.__prof) console.log('PROF open prima', openEdgeCount(g), 'tri', g.attributes.position.count / 3);
-  { const d0 = geoDefects(g), h = healMesh(g);                                  // la riparazione (saldatura a 1 µm) non deve mai peggiorare: se rompe un pezzo già chiuso si tiene l'originale
-    if (h !== g && geoDefects(h) <= d0) g = h; }
-  if (!window.__noSimplify && !noSimplify && (g.index ? g.index.count : g.attributes.position.count) / 3 < 150000) {   // pulizia: facce quasi complanari fuse, vertici inutili tolti (solo se il pezzo resta identico e chiuso)
-    const sm = simplifyGeo(g);
-    if (sm) { const g2 = geometryFromPositions(sm.pos); if (geoDefects(g2) <= geoDefects(g)) { g.dispose(); g = g2; } else g2.dispose(); }
-  }
-  if (!g.index) g = geometryFromPositions(g.attributes.position.array);       // il risultato di Manifold arriva con normali piatte: si ricalcolano morbide (30°), così le pareti curve non fanno le fasce
-  if (window.__prof) console.log('PROF open dopo', openEdgeCount(g));
-  g.computeBoundingBox();
-  const b = g.boundingBox;
-  const c = b.getCenter(new THREE.Vector3()), minZ = b.min.z;
-  g.translate(-c.x, -c.y, -minZ);
-  g.computeBoundingBox();
-  const s = g.boundingBox.getSize(new THREE.Vector3());
+  const r = bakeGeometry(g, noSimplify || !!window.__noSimplify, window.__prof ? (...a) => console.log(...a) : null);
+  if (!r) return null;
+  return bakedPiece(r, name);
+}
+function bakedPiece(r, name) {                           // r: { geo, pos, size } da bakeGeometry (qui o nel worker)
   counters.merged++;
-  return { geo: g, pos: [c.x, c.y, minZ], size: s, name: name || `${NAMES.merged} ${counters.merged}` };
+  return { geo: r.geo, pos: r.pos, size: r.size, name: name || `${NAMES.merged} ${counters.merged}` };
 }
 function combineBrushes(solids, holes, mode = 'union') {
   solids.forEach(m => m.updateMatrixWorld(true));
@@ -1315,12 +1229,74 @@ function separateSelection(auto) {                       // divide in livelli di
   toast('Parti separate: le trovi nei Livelli (F7)');
 }
 const nextPaint = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
-let busyN = 0;
-async function busyRun(label, fn) {                    // mostra la barra di lavoro, la fa dipingere, poi esegue il calcolo pesante
+let busyN = 0, busyCancelFn = null, busyShield = false;
+async function busyRun(label, fn, canCancel = false) {  // mostra la barra di lavoro, la fa dipingere, poi esegue il calcolo pesante. canCancel: il calcolo gira in un worker e si può annullare (Annulla o Esc)
   const el = $('#busy'); $('#busy .b-t').textContent = tr(label); el.classList.remove('hidden'); busyN++;
+  if (canCancel) { el.classList.add('cancelable'); $('#busy-shield').classList.remove('hidden'); busyShield = true; }
   $('#toast').classList.remove('show');
   await nextPaint(); await nextPaint();
-  try { return await fn(); } finally { if (--busyN <= 0) { busyN = 0; el.classList.add('hidden'); if (toastWait) { const [m, ms] = toastWait; toastWait = null; toastAfter(m, ms); } } }
+  try { return await fn(); } finally {
+    if (canCancel) { busyShield = false; busyCancelFn = null; el.classList.remove('cancelable'); $('#busy-shield').classList.add('hidden'); }
+    if (--busyN <= 0) { busyN = 0; el.classList.add('hidden'); if (toastWait) { const [m, ms] = toastWait; toastWait = null; toastAfter(m, ms); } }
+  }
+}
+$('#busy-x').addEventListener('click', () => { if (busyCancelFn) busyCancelFn(); });
+window.addEventListener('keydown', e => {              // mentre un calcolo si può annullare, la scena non si tocca: Esc annulla, gli altri tasti non arrivano all'app
+  if (!busyShield) return;
+  if (e.key === 'Escape' && busyCancelFn) { e.preventDefault(); busyCancelFn(); }
+  e.stopImmediatePropagation();
+}, true);
+
+/* Worker del calcolo pesante (Combina, Interseca, Stampo): il codice è csgworker.js, incorporato nel file e avviato da un Blob. Annullare = chiudere il worker.
+   Se il worker non parte o non riesce, si torna al calcolo di sempre sul thread principale (senza Annulla). */
+const csgW = { w: null, ready: null, job: null, seq: 0, idle: 0, off: false };
+const csgCanOffload = () => !csgW.off && typeof Worker !== 'undefined' && typeof __CSG_WORKER__ !== 'undefined' && useManifold && !window.__noManifold && !window.__pairwise && !window.__noWorker;
+function csgDrop() { const w = csgW.w; csgW.w = null; csgW.ready = null; clearTimeout(csgW.idle); if (w) { try { w.terminate(); } catch (e) { /* già chiuso */ } } }
+function csgSpawn() {
+  if (csgW.w) return csgW.ready;
+  let w;
+  try { w = new Worker(URL.createObjectURL(new Blob([__CSG_WORKER__], { type: 'text/javascript' }))); } catch (e) { csgW.off = true; return Promise.resolve(false); }
+  csgW.w = w;
+  csgW.ready = new Promise(res => {
+    w.onmessage = e => {
+      const d = e.data;
+      if (d.t === 'ready') res(!!d.ok);
+      else if (d.t === 'done' && d.id === csgW.seq && csgW.job) csgW.job(d);
+    };
+    w.onerror = () => { csgW.off = true; const j = csgW.job; if (csgW.w === w) csgDrop(); res(false); if (j) j({ st: 'fallback' }); };
+    w.postMessage({ t: 'init', wasm: wasmSource });
+  });
+  return csgW.ready;
+}
+function csgOffload(solids, holes, mode) {              // -> { st: 'ok' | 'empty' | 'fallback' | 'cancel', ... }
+  return new Promise(async res => {
+    let over = false;
+    const end = r => { if (over) return; over = true; busyCancelFn = null; $('#busy').classList.remove('cancelable'); csgW.job = null; clearTimeout(csgW.idle); if (csgW.w) csgW.idle = setTimeout(csgDrop, 30000); res(r); };   // fermo e libero il worker se resta inutilizzato
+    const pack = o => {
+      o.updateMatrixWorld(true);
+      const g = o.geometry, p = g.attributes.position;
+      if (!(p.array instanceof Float32Array) || p.itemSize !== 3 || p.isInterleavedBufferAttribute || (g.index && !g.index.array)) return null;
+      return { pos: p.array.slice(), index: g.index ? g.index.array.slice() : null, m: o.matrixWorld.toArray() };
+    };
+    const S = solids.map(pack), H = holes.map(pack);
+    if (S.includes(null) || H.includes(null)) return end({ st: 'fallback' });
+    busyCancelFn = () => { csgDrop(); end({ st: 'cancel' }); };
+    const ok = await csgSpawn();
+    if (over) return;
+    if (!ok) { csgDrop(); return end({ st: 'fallback' }); }
+    clearTimeout(csgW.idle);
+    csgW.job = end;
+    const id = ++csgW.seq, tr = [];
+    for (const o of [...S, ...H]) { tr.push(o.pos.buffer); if (o.index) tr.push(o.index.buffer); }
+    csgW.w.postMessage({ t: 'job', id, mode, solids: S, holes: H, noSimplify: !!window.__noSimplify }, tr);
+  });
+}
+function csgBaked(d, name) {                            // il pezzo pronto che arriva dal worker, nella stessa forma di bakeResult
+  const g = new THREE.BufferGeometry();
+  for (const k of Object.keys(d.attrs)) { const a = d.attrs[k]; g.setAttribute(k, new THREE.BufferAttribute(a.array, a.itemSize, a.normalized)); }
+  if (d.index) g.setIndex(new THREE.BufferAttribute(d.index, 1));
+  g.computeBoundingBox();
+  return bakedPiece({ geo: g, pos: d.pos, size: new THREE.Vector3().fromArray(d.size) }, name);
 }
 const trisOf = list => list.reduce((a, m) => a + triCount(m.geometry), 0);
 /* Pezzi non chiusi: prima di Combina si avvisa e si propone la riparazione sperimentale (anche da Controlla stampa) */
@@ -1365,26 +1341,46 @@ async function combine(mode = 'union') {
     }
   }
   const heavy = selection.length > 12 || trisOf(selection) > 20000;
-  const run = () => combineNow(mode);
-  return heavy ? busyRun(mode === 'intersect' ? 'Interseco gli oggetti…' : 'Combino gli oggetti…', run) : run();
+  if (!heavy) return combineNow(mode);
+  const label = mode === 'intersect' ? 'Interseco gli oggetti…' : 'Combino gli oggetti…';
+  if (!csgCanOffload()) return busyRun(label, () => combineNow(mode));
+  return busyRun(label, async () => {                    // il calcolo gira nel worker: la pagina resta viva e si può annullare
+    const c = combineCheck(mode);
+    if (!c) return;
+    const r = await csgOffload(c.solids, c.holes, mode);
+    if (r.st === 'cancel') return toast('Operazione annullata');
+    combineApply(mode, c, r);
+  }, true);
 }
 const intersect = () => combine('intersect');
 /* Stampo: dal primo oggetto selezionato (il blocco) toglie tutti gli altri. Resta solo il vuoto che gli altri lasciavano dentro il blocco,
    cioè la forma da incastrare o riusare altrove. Gli altri oggetti restano com'erano, il blocco viene sostituito dal risultato. */
 async function mold() {
   const heavy = selection.length > 12 || trisOf(selection) > 20000;
-  return heavy ? busyRun('Ricavo lo stampo…', moldNow) : moldNow();
+  if (!heavy) return moldNow();
+  if (!csgCanOffload()) return busyRun('Ricavo lo stampo…', moldNow);
+  return busyRun('Ricavo lo stampo…', async () => {
+    const c = moldCheck();
+    if (!c) return;
+    const r = await csgOffload([c.block], c.others, 'union');
+    if (r.st === 'cancel') return toast('Operazione annullata');
+    moldApply(c, r);
+  }, true);
 }
-function moldNow() {
-  if (selection.length < 2) return toast('Seleziona il blocco, poi (⇧ + clic) gli oggetti da cui ricavare lo stampo');
+function moldCheck() {                                   // i controlli prima del calcolo: restituisce { block, others } oppure null (dopo aver avvisato)
+  if (selection.length < 2) return void toast('Seleziona il blocco, poi (⇧ + clic) gli oggetti da cui ricavare lo stampo');
   const block = selection[0], others = selection.slice(1);
-  if (block.userData.hole) return toast('Il primo oggetto selezionato è un foro: serve un solido, il blocco da cui togliere gli altri');
-  if (heavyGuard(selection)) return;
+  if (block.userData.hole) return void toast('Il primo oggetto selezionato è un foro: serve un solido, il blocco da cui togliere gli altri');
+  if (heavyGuard(selection)) return null;
   const bb = new THREE.Box3().setFromObject(block);
-  if (!others.some(o => bb.intersectsBox(new THREE.Box3().setFromObject(o)))) return toast('Gli altri oggetti non toccano il blocco: non c’è niente da togliere');
-  const res = combineBrushes([block], others, 'union');
+  if (!others.some(o => bb.intersectsBox(new THREE.Box3().setFromObject(o)))) return void toast('Gli altri oggetti non toccano il blocco: non c’è niente da togliere');
+  return { block, others };
+}
+function moldNow() { const c = moldCheck(); if (c) moldApply(c); }
+function moldApply({ block, others }, r) {               // r: risultato del worker; senza r il calcolo si fa qui
+  const res = r && r.st !== 'fallback' ? null : combineBrushes([block], others, 'union');
   const name = `Stampo ${counters.mold = (counters.mold || 0) + 1}`;
-  const baked = bakeResult(res, name);
+  const baked = res ? bakeResult(res, name) : r.st === 'ok' ? csgBaked(r, name) : null;
   if (!baked) return toast('Gli altri oggetti coprono tutto il blocco: non resta nessun vuoto');
   const bname = block.userData.name, n = others.length;
   removeMesh(block);
@@ -1395,15 +1391,21 @@ function moldNow() {
   touch(); opHint = 'Stampo'; try { commit(); } finally { opHint = null; }
   toast(parts > 1 ? `Stampo ricavato da «${bname}»: il risultato è in ${parts} pezzi separati` : `Stampo ricavato da «${bname}», togliendo ${n} ${n === 1 ? 'oggetto' : 'oggetti'}`);
 }
-function combineNow(mode = 'union') {
+function combineCheck(mode) {                            // i controlli prima del calcolo: restituisce { solids, holes } oppure null (dopo aver avvisato)
   const isect = mode === 'intersect';
   const solids = selection.filter(m => !m.userData.hole);
   const holes = selection.filter(m => m.userData.hole);
-  if (isect ? solids.length < 2 : (selection.length < 2 || !solids.length)) return toast(isect ? 'Seleziona almeno due solidi da intersecare (⇧ + clic)' : 'Seleziona almeno due oggetti, di cui un solido (⇧ + clic)');
-  if (heavyGuard(selection)) return;
+  if (isect ? solids.length < 2 : (selection.length < 2 || !solids.length)) return void toast(isect ? 'Seleziona almeno due solidi da intersecare (⇧ + clic)' : 'Seleziona almeno due oggetti, di cui un solido (⇧ + clic)');
+  if (heavyGuard(selection)) return null;
+  return { solids, holes };
+}
+function combineNow(mode = 'union') { const c = combineCheck(mode); if (c) combineApply(mode, c); }
+function combineApply(mode, { solids, holes }, r) {      // r: risultato del worker; senza r il calcolo si fa qui
+  const isect = mode === 'intersect';
   const first = selection.length, P0 = performance.now(), lg = (n) => { if (window.__prof) console.log('PROF', n, Math.round(performance.now() - P0)); };
-  const res = combineBrushes(solids, holes, mode); lg('csg');
-  const baked = bakeResult(res); lg('bake');
+  let baked;
+  if (r && r.st !== 'fallback') baked = r.st === 'ok' ? csgBaked(r) : null;
+  else { const res = combineBrushes(solids, holes, mode); lg('csg'); baked = bakeResult(res); lg('bake'); }
   if (!baked) return toast(isect ? 'Gli oggetti non si sovrappongono: non c’è niente in comune' : 'Il risultato è vuoto: i fori coprono tutto');
   [...selection].forEach(removeMesh);
   const merged = addMerged(baked); lg('add');
@@ -1486,7 +1488,7 @@ function repeatNow(o) {
         p.set(m.position.x - o.cx, m.position.y - o.cy, 0).applyQuaternion(qz);
         p.set(p.x + o.cx, p.y + o.cy, m.position.z); q.premultiply(qz);
       } else p.set(m.position.x + sp.dx, m.position.y + sp.dy, m.position.z);
-      all.push(makeMesh({ kind: u.kind, name: u.name.replace(/ copia( \d+)?$/, ''), p: { ...u.p }, hole: u.hole, base: u.base, geo: u.geo, gid, color: u.color, text: u.text, pos: p.toArray(), q: q.toArray(), scale: m.scale.toArray() }));
+      all.push(makeMesh({ kind: u.kind, name: u.name.replace(/ copia( \d+)?$/, ''), p: { ...u.p }, hole: u.hole, base: u.base, geo: u.geo, gid, gname: u.gname, color: u.color, text: u.text, pos: p.toArray(), q: q.toArray(), scale: m.scale.toArray() }));
     }
   }
   setSelection(all); touch(); commit();
@@ -1599,7 +1601,7 @@ function duplicateSelection(offset = true) {
     if (u.gid != null) { if (!gmap.has(u.gid)) gmap.set(u.gid, nextGid++); gid = gmap.get(u.gid); }
     const name = u.name.replace(/ copia( \d+)?$/, '') + ' copia';
     return makeMesh({
-      kind: u.kind, name, p: { ...u.p }, hole: u.hole, base: u.base, geo: u.geo, gid, color: u.color, text: u.text,
+      kind: u.kind, name, p: { ...u.p }, hole: u.hole, base: u.base, geo: u.geo, gid, gname: u.gname, color: u.color, text: u.text,
       pos: [m.position.x + (offset ? 12 : 0), m.position.y + (offset ? 12 : 0), m.position.z],
       q: m.quaternion.toArray(), scale: m.scale.toArray(),
     });
@@ -2639,8 +2641,10 @@ function syncPanel() {
     [['w', 'x'], ['d', 'y'], ['h', 'z']].forEach(([id, ax]) => { const el = $('#g-' + id); if (document.activeElement !== el) el.value = fmt(gs[ax]); });
     const gc = gb.getCenter(new THREE.Vector3());
     [['x', gc.x], ['y', gc.y], ['z', gb.min.z]].forEach(([ax, v]) => { const el = $('#g-' + ax); if (document.activeElement !== el) el.value = fmt(v); });
-    nameEl.value = tr(isOneGroup() ? `Gruppo · ${selection.length} oggetti` : `${selection.length} oggetti`);
-    nameEl.disabled = true;
+    if (isOneGroup()) {                                         // un gruppo si rinomina anche da qui
+      if (document.activeElement !== nameEl) nameEl.value = groupName(selection[0].userData.gid) || tr(`Gruppo · ${selection.length} oggetti`);
+      nameEl.disabled = false;
+    } else { nameEl.value = tr(`${selection.length} oggetti`); nameEl.disabled = true; }
   }
   const nUnits = new Set(selection.map(o => o.userData.gid ?? o)).size;
   document.querySelectorAll('#p-align button').forEach(b => {          // pulsanti che con questa selezione non servono: attenuati, con il motivo nel tooltip
@@ -2734,7 +2738,7 @@ document.querySelectorAll('#p-rm button').forEach(b => b.addEventListener('click
 }));
 syncLock();
 ['#p-ground', '#g-ground'].forEach(id => $(id).addEventListener('click', () => { layOnPlate(); canvas.focus(); }));
-$('#p-name').addEventListener('input', e => { const m = single(); if (m) { m.userData.name = e.target.value; scheduleLayers(); } });
+$('#p-name').addEventListener('input', e => { const m = single(); if (m) { m.userData.name = e.target.value; scheduleLayers(); } else if (isOneGroup()) { setGroupName(selection[0].userData.gid, e.target.value.trim()); scheduleLayers(); } });
 $('#p-name').addEventListener('change', commit);
 document.addEventListener('click', e => { if (e.target.closest('[data-lang]')) setTimeout(syncPanel, 0); });   // il nome nel pannello segue la lingua
 $('#p-name').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
@@ -2838,50 +2842,6 @@ function exportSTL(nameArg) {
 }
 // 3MF: archivio zip con un oggetto per pezzo, in millimetri (Z verso l'alto, come nello slicer)
 /* Rimuove triangoli collassati e, dove due pezzi si toccano lungo uno spigolo (spigolo usato da 4 triangoli), separa i vertici: ogni pezzo resta una superficie chiusa. */
-/* T-giunzioni (un vertice che cade in mezzo a uno spigolo del vicino): lo spigolo lungo viene spezzato, così la superficie risulta chiusa. */
-function fixTJunctions(P, tris) {
-  const key = (a, b) => a < b ? a * 4294967296 + b : b * 4294967296 + a;
-  let T = Array.from(tris);
-  for (let pass = 0; pass < 4; pass++) {
-    const use = new Map(), nT = T.length / 3;
-    for (let t = 0; t < nT; t++) for (let k = 0; k < 3; k++) { const e = key(T[t * 3 + k], T[t * 3 + (k + 1) % 3]); use.set(e, (use.get(e) || 0) + 1); }
-    const openV = new Set();
-    for (let t = 0; t < nT; t++) for (let k = 0; k < 3; k++) if (use.get(key(T[t * 3 + k], T[t * 3 + (k + 1) % 3])) === 1) { openV.add(T[t * 3 + k]); openV.add(T[t * 3 + (k + 1) % 3]); }
-    if (!openV.size || openV.size > 60000) break;
-    const CELL = 2, grid = new Map(), ck = (x, y, z) => Math.floor(x / CELL) + ',' + Math.floor(y / CELL) + ',' + Math.floor(z / CELL);
-    for (const v of openV) { const k = ck(P[v * 3], P[v * 3 + 1], P[v * 3 + 2]); (grid.get(k) || grid.set(k, []).get(k)).push(v); }
-    const out = []; let changed = false;
-    for (let t = 0; t < nT; t++) {
-      const tri = [T[t * 3], T[t * 3 + 1], T[t * 3 + 2]];
-      let done = false;
-      for (let k = 0; k < 3 && !done; k++) {
-        const a = tri[k], b = tri[(k + 1) % 3], c = tri[(k + 2) % 3];
-        if (use.get(key(a, b)) !== 1) continue;
-        const ax = P[a * 3], ay = P[a * 3 + 1], az = P[a * 3 + 2], dx = P[b * 3] - ax, dy = P[b * 3 + 1] - ay, dz = P[b * 3 + 2] - az, L2 = dx * dx + dy * dy + dz * dz;
-        if (L2 < 1e-12) continue;
-        const cand = [], x0 = Math.min(ax, ax + dx) - 0.01, x1 = Math.max(ax, ax + dx) + 0.01, y0 = Math.min(ay, ay + dy) - 0.01, y1 = Math.max(ay, ay + dy) + 0.01, z0 = Math.min(az, az + dz) - 0.01, z1 = Math.max(az, az + dz) + 0.01;
-        for (let gx = Math.floor(x0 / CELL); gx <= Math.floor(x1 / CELL); gx++) for (let gy = Math.floor(y0 / CELL); gy <= Math.floor(y1 / CELL); gy++) for (let gz = Math.floor(z0 / CELL); gz <= Math.floor(z1 / CELL); gz++) {
-          for (const v of grid.get(gx + ',' + gy + ',' + gz) || []) {
-            if (v === a || v === b) continue;
-            const wx = P[v * 3] - ax, wy = P[v * 3 + 1] - ay, wz = P[v * 3 + 2] - az, s = (wx * dx + wy * dy + wz * dz) / L2;
-            if (s <= 1e-4 || s >= 1 - 1e-4) continue;
-            const ex = wx - s * dx, ey = wy - s * dy, ez = wz - s * dz;
-            if (ex * ex + ey * ey + ez * ez < 1e-6) cand.push([s, v]);
-          }
-        }
-        if (!cand.length) continue;
-        cand.sort((p, q) => p[0] - q[0]);
-        const chain = [a, ...cand.map(x => x[1]), b];
-        for (let i = 0; i < chain.length - 1; i++) out.push(chain[i], chain[i + 1], c);
-        done = true; changed = true;
-      }
-      if (!done) out.push(tri[0], tri[1], tri[2]);
-    }
-    T = out;
-    if (!changed) break;
-  }
-  return Uint32Array.from(T);
-}
 function repairForExport(P, I) {
   const key = (a, b) => a < b ? a * 4294967296 + b : b * 4294967296 + a;
   let tris = [];
@@ -4291,9 +4251,9 @@ function replaceWithMerged(old, baked, quiet = false) {
       const a = new Float32Array(ts.length * 9);
       ts.forEach((t, k) => { for (let j = 0; j < 9; j++) a[k * 9 + j] = pg.A[t * 9 + j] + off[j % 3]; });
       const bk = bakeResult({ updateMatrixWorld() {}, matrixWorld: new THREE.Matrix4(), geometry: geometryFromPositions(a) }, pg.parts.length > 1 ? `${baked.name} ${i + 1}` : baked.name);
-      const m = addMerged(bk); m.userData.gid = old.userData.gid ?? null; return m;   // pezzi separati: ognuno ha il suo livello
+      const m = addMerged(bk); m.userData.gid = old.userData.gid ?? null; m.userData.gname = old.userData.gname ?? null; return m;   // pezzi separati: ognuno ha il suo livello
     });
-  } else { pieces = [addMerged(baked)]; pieces[0].userData.gid = old.userData.gid ?? null; if (baked.seams && baked.seams.length) pieces[0].userData.seams = baked.seams; }
+  } else { pieces = [addMerged(baked)]; pieces[0].userData.gid = old.userData.gid ?? null; pieces[0].userData.gname = old.userData.gname ?? null; if (baked.seams && baked.seams.length) pieces[0].userData.seams = baked.seams; }
   pieces.forEach(nm => { nm.userData.hole = hole; nm.userData.color = old.userData.color ?? null; nm.userData.text = null; nm.castShadow = !hole; });
   const nm = pieces[0]; lastPieces = pieces;
   if (quiet) return nm;
@@ -5275,12 +5235,6 @@ for (const el of [TF.push, $('#f-taper'), $('#f-frame')]) {
 }
 
 /* ------------------------------------------------------------ importa 3MF / STL */
-function geometryFromPositions(arr) {
-  let g = new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(arr, 3));
-  g = mergeVerticesFast(g, 1e-4);
-  g = toCreasedNormals(g, 30 * D2R);
-  return mergeVerticesFast(clean(g), 1e-4);
-}
 // legge vertici e triangoli di una <mesh> dal testo: percorso veloce con gli attributi nell'ordine abituale, altrimenti lettura generica
 function readMeshXml(xml) {
   const nV = (xml.match(/<vertex\b/g) || []).length, nT = (xml.match(/<triangle\b/g) || []).length;
@@ -6441,7 +6395,7 @@ commit();
 frame();
 
 /* info e aggiornamenti */
-const APP_VERSION = '1.5.1';
+const APP_VERSION = '1.6.1';
 const infoDlg = $('#dlg-info');
 $('#ver-num').textContent = APP_VERSION; $('#beta-ver').textContent = APP_VERSION;
 $('#b-info').addEventListener('click', () => infoDlg.showModal());
@@ -7215,7 +7169,7 @@ function renderLayers() {
     if (done.has(g)) continue;
     done.add(g);
     const mem = objects.filter(o => o.userData.gid === g), all = mem.every(o => selection.includes(o)), open = !collapsed.has(g);
-    html += `<div class="lrow grp${all ? ' sel' : ''}" data-g="${g}"><button class="car${open ? ' open' : ''}" data-car="${g}" aria-label="Apri o chiudi">▸</button><svg viewBox="0 0 24 24">${I.group}</svg><span class="ln">Gruppo · ${mem.length}</span><button class="ung" data-ung="${g}" title="Separa il gruppo (⇧⌘G)">⇧⌘G</button>${btns('g', g, mem.every(o => o.userData.locked), mem.every(o => o.userData.hidden))}</div>`;
+    html += `<div class="lrow grp${all ? ' sel' : ''}" data-g="${g}"><button class="car${open ? ' open' : ''}" data-car="${g}" aria-label="Apri o chiudi">▸</button><svg viewBox="0 0 24 24">${I.group}</svg><span class="ln">${groupName(g) ? esc(groupName(g)) : `Gruppo · ${mem.length}`}</span><button class="ung" data-ung="${g}" title="Separa il gruppo (⇧⌘G)">⇧⌘G</button>${btns('g', g, mem.every(o => o.userData.locked), mem.every(o => o.userData.hidden))}</div>`;
     if (open) html += mem.map(o => row(o, true)).join('');
   }
   layersList.innerHTML = html || '<p class="hint">Nessun oggetto. Aggiungine uno dalla barra a sinistra.</p>';
@@ -7261,42 +7215,60 @@ layersList.addEventListener('click', e => {
     setSelection(all ? selection.filter(m => !list.includes(m)) : [...new Set([...selection, ...list])]);
   } else setSelection(r.dataset.id ? list : list);
 });
-function startRename(m) {                                  // rinomina nel pannello Livelli: doppio clic o F2
-  const r = layersList.querySelector(`.lrow[data-id="${m.userData.id}"]`);
+function editLayerName(r, initial, apply) {                 // campo di rinomina al posto del nome nella riga r; apply(testo) a conferma (Invio o clic fuori)
   const span = r && r.querySelector('.ln');
   if (!span) return;                                       // già in modifica, oppure la riga è in un gruppo chiuso
   r.scrollIntoView({ block: 'nearest' });
   const inp = document.createElement('input');
-  inp.value = tr(m.userData.name); inp.className = 'lren'; inp.spellcheck = false;
+  inp.value = initial; inp.className = 'lren'; inp.spellcheck = false;
   span.replaceWith(inp); inp.focus(); inp.select();
   let fin = false;
-  const done = ok => { if (fin) return; fin = true; if (ok && inp.value.trim()) { m.userData.name = inp.value.trim(); commit(); } inp.removeEventListener('blur', onBlur); if (inp.isConnected) inp.remove(); renderLayers(); syncPanel(); };
+  const done = ok => { if (fin) return; fin = true; if (ok) apply(inp.value.trim()); inp.removeEventListener('blur', onBlur); if (inp.isConnected) inp.remove(); renderLayers(); syncPanel(); };
   const onBlur = () => done(true);
   inp.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.key === 'Enter') done(true); else if (ev.key === 'Escape') done(false); });
   inp.addEventListener('blur', onBlur);
 }
+function startRename(m) {                                  // rinomina nel pannello Livelli: doppio clic o F2
+  editLayerName(layersList.querySelector(`.lrow[data-id="${m.userData.id}"]`), tr(m.userData.name), v => { if (v) { m.userData.name = v; commit(); } });
+}
+function startGroupRename(g) {                             // il nome del gruppo sta in tutti i suoi pezzi; vuoto (o uguale a quello di partenza) torna a "Gruppo · N"
+  const mem = objects.filter(o => o.userData.gid === g);
+  if (!mem.length) return;
+  const def = tr(`Gruppo · ${mem.length}`);
+  editLayerName(layersList.querySelector(`.lrow.grp[data-g="${g}"]`), groupName(g) || def, v => {
+    const nv = !v || v === def ? null : v;
+    if ((groupName(g) || null) === nv) return;
+    setGroupName(g, nv); commit();
+  });
+}
+const layerRowOf = el => el.closest('.lrow[data-id], .lrow.grp[data-g]');
+const layerKey = r => r.dataset.g ? 'g' + r.dataset.g : 'i' + r.dataset.id;
+function renameRow(r) {
+  if (r.dataset.g) startGroupRename(+r.dataset.g);
+  else { const m = objects.find(o => o.userData.id === +r.dataset.id); if (m) startRename(m); }
+}
 layersList.addEventListener('dblclick', e => {
-  const r = e.target.closest('.lrow[data-id]');
-  if (!r || e.target.closest('.lbt')) return;
-  const m = objects.find(o => o.userData.id === +r.dataset.id);
-  if (m) startRename(m);
+  const r = layerRowOf(e.target);
+  if (!r || e.target.closest('.lbt, .car, .ung')) return;
+  renameRow(r);
 });
 /* il pannello si ridisegna a ogni selezione e può mangiarsi il doppio clic nativo (succede soprattutto in fondo alla lista):
    lo riconosco anche a mano, due clic ravvicinati sulla stessa riga */
-let lastLayerClick = { id: null, t: 0 };
+let lastLayerClick = { key: null, t: 0 };
 layersList.addEventListener('click', e => {
-  const r = e.target.closest('.lrow[data-id]');
-  if (!r || e.target.closest('.lbt') || e.shiftKey || e.metaKey || e.ctrlKey) { lastLayerClick = { id: null, t: 0 }; return; }
-  const now = performance.now(), id = +r.dataset.id;
-  if (lastLayerClick.id === id && now - lastLayerClick.t < 450) {
-    lastLayerClick = { id: null, t: 0 };
-    const m = objects.find(o => o.userData.id === id);
-    if (m) requestAnimationFrame(() => startRename(m));    // dopo il ridisegno causato dal clic
-  } else lastLayerClick = { id, t: now };
+  const r = layerRowOf(e.target);
+  if (!r || e.target.closest('.lbt, .car, .ung') || e.shiftKey || e.metaKey || e.ctrlKey) { lastLayerClick = { key: null, t: 0 }; return; }
+  const now = performance.now(), key = layerKey(r);
+  if (lastLayerClick.key === key && now - lastLayerClick.t < 450) {
+    lastLayerClick = { key: null, t: 0 };
+    requestAnimationFrame(() => { const r2 = layersList.querySelector(key[0] === 'g' ? `.lrow.grp[data-g="${key.slice(1)}"]` : `.lrow[data-id="${key.slice(1)}"]`); if (r2) renameRow(r2); });    // dopo il ridisegno causato dal clic
+  } else lastLayerClick = { key, t: now };
 });
-/* F2: rinomina l'oggetto selezionato (apre i Livelli se servono) */
+/* F2: rinomina l'oggetto selezionato, o il gruppo se la selezione è un gruppo intero (apre i Livelli se servono) */
 window.addEventListener('keydown', e => {
-  if (e.key !== 'F2' || e.isComposing || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || selection.length !== 1) return;
+  if (e.key !== 'F2' || e.isComposing || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+  const grp = isOneGroup();
+  if (selection.length !== 1 && !grp) return;
   const t = e.target;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
   if (document.querySelector('dialog[open]')) return;
@@ -7305,7 +7277,7 @@ window.addEventListener('keydown', e => {
   if (m.userData.gid != null) collapsed.delete(m.userData.gid);
   if (!layersOn) setLayers(true);
   renderLayers();
-  startRename(m);
+  if (grp) startGroupRename(m.userData.gid); else startRename(m);
 });
 $('#p-rotq').addEventListener('click', e => { const b = e.target.closest('[data-rq]'); if (b) { rotateSelection(b.dataset.rq, e.shiftKey ? -90 : 90); canvas.focus(); } });
 $('#b-layers').addEventListener('click', () => setLayers(!layersOn));
